@@ -1,0 +1,196 @@
+﻿@typeparam TItem
+@typeparam TValue
+
+<div class="multiple-searchable-select">
+    <label class="form-label fw-bold">@Label</label>
+    
+    @for (int i = 0; i < localValues.Count; i++)
+    {
+        int currentIndex = i;
+        bool isLastElement = (currentIndex == localValues.Count - 1);
+        
+        <div class="mb-2" @key="@GetRowKey(currentIndex)">
+            <div class="d-flex align-items-center gap-2">
+                <div class="flex-grow-1">
+                    <SearchableSelect TItem="TItem"
+                                      TValue="TValue"
+                                      Items="@GetAvailableItems(currentIndex)"
+                                      TextSelector="@TextSelector"
+                                      ValueSelector="@ValueSelector"
+                                      Placeholder="@Placeholder"
+                                      SelectedValue="@localValues[currentIndex]"
+                                      SelectedValueChanged="@(async (value) => await HandleSelectionChange(currentIndex, value))"
+                                      OnCustomValue="@(async (value) => await HandleCustomValue(currentIndex, value))"
+                                      Disabled="@Disabled" />
+                </div>
+                
+                @if (!isLastElement)
+                {
+                    <button type="button" 
+                            class="btn btn-outline-danger btn-sm" 
+                            style="height: 38px;"
+                            @onclick="@(() => RemoveItem(currentIndex))">
+                        <i class="bi bi-x"></i>
+                    </button>
+                }
+                
+                @if (isLastElement && !IsDefaultValue(localValues[currentIndex]))
+                {
+                    <button type="button" 
+                            class="btn btn-outline-success btn-sm" 
+                            style="height: 38px;"
+                            @onclick="AddNewItem">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                }
+            </div>
+        </div>
+    }
+    
+    @if (localValues.Count == 0)
+    {
+        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddNewItem">
+            <i class="bi bi-plus"></i> Добавить @Label
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "Выберите значения";
+    [Parameter] public string Placeholder { get; set; } = "Введите или выберите значение...";
+    [Parameter] public TValue DefaultValue { get; set; } = default!;
+
+    [Parameter] public List<TValue> SelectedValues { get; set; } = new();
+    [Parameter] public EventCallback<List<TValue>> SelectedValuesChanged { get; set; }
+
+    [Parameter] public IEnumerable<TItem> Items { get; set; } = Enumerable.Empty<TItem>();
+    [Parameter] public Func<TItem, string> TextSelector { get; set; } = default!;
+    [Parameter] public Func<TItem, TValue> ValueSelector { get; set; } = default!;
+
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public EventCallback OnChange { get; set; }
+    [Parameter] public EventCallback<int> OnCustomValue { get; set; }
+
+    private List<TValue> localValues = new();
+
+    protected override void OnParametersSet()
+    {
+        // Синхронизируем локальное состояние с параметрами
+        if (!AreListsEqual(localValues, SelectedValues))
+        {
+            localValues = new List<TValue>(SelectedValues);
+
+            // Убеждаемся, что всегда есть хотя бы одно поле
+            if (localValues.Count == 0)
+            {
+                localValues.Add(DefaultValue);
+            }
+        }
+    }
+
+    private List<TValue> GetSelectedValuesWithoutCurrent(int currentIndex)
+    {
+        return localValues
+            .Where((v, i) => i != currentIndex && !IsDefaultValue(v))
+            .ToList();
+    }
+
+    private IEnumerable<TItem> GetAvailableItems(int currentIndex)
+    {
+        var selectedValuesWithoutCurrent = GetSelectedValuesWithoutCurrent(currentIndex);
+
+        return Items
+            .Where(item => !selectedValuesWithoutCurrent.Contains(ValueSelector(item)))
+            .OrderBy(item => TextSelector(item));
+    }
+
+    private bool IsDefaultValue(TValue value)
+    {
+        return EqualityComparer<TValue>.Default.Equals(value, DefaultValue);
+    }
+
+    private string GetRowKey(int index)
+    {
+        return $"row-{index}-{localValues.ElementAtOrDefault(index)}-{DateTime.Now.Ticks % 1000}";
+    }
+
+    private async Task HandleSelectionChange(int index, TValue? value)
+    {
+        if (value == null || EqualityComparer<TValue>.Default.Equals(value, DefaultValue))
+        {
+            await RemoveItem(index);
+            return;
+        }
+
+        var newList = new List<TValue>(localValues);
+        newList[index] = value;
+
+        // Если выбрано реальное значение и это последний элемент, добавляем новый пустой
+        if (index == newList.Count - 1 && !IsDefaultValue(value))
+        {
+            newList.Add(DefaultValue);
+        }
+
+        await UpdateValues(newList);
+    }
+
+    private async Task HandleCustomValue(int index, string customValue)
+    {
+        if (string.IsNullOrWhiteSpace(customValue))
+            return;
+
+        await OnCustomValue.InvokeAsync(index);
+
+    }
+
+    private async Task RemoveItem(int index)
+    {
+        var newList = new List<TValue>(localValues);
+        newList.RemoveAt(index);
+        
+        // Убеждаемся, что всегда есть хотя бы одно поле
+        if (newList.Count == 0)
+        {
+            newList.Add(DefaultValue);
+        }
+        
+        await UpdateValues(newList);
+    }
+
+    private async Task AddNewItem()
+    {
+        var newList = new List<TValue>(localValues);
+        
+        // Проверяем, что последний элемент не пустой перед добавлением нового
+        if (newList.Count == 0 || !IsDefaultValue(newList.Last()))
+        {
+            newList.Add(DefaultValue);
+            await UpdateValues(newList);
+        }
+    }
+
+    private async Task UpdateValues(List<TValue> newValues)
+    {
+        if (!AreListsEqual(localValues, newValues))
+        {
+            localValues = newValues;
+            await SelectedValuesChanged.InvokeAsync(newValues);
+            await OnChange.InvokeAsync();
+            StateHasChanged();
+        }
+    }
+
+    private bool AreListsEqual(List<TValue> list1, List<TValue> list2)
+    {
+        if (list1.Count != list2.Count)
+            return false;
+            
+        for (int i = 0; i < list1.Count; i++)
+        {
+            if (!EqualityComparer<TValue>.Default.Equals(list1[i], list2[i]))
+                return false;
+        }
+        
+        return true;
+    }
+}

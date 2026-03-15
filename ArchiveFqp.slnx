@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ArchiveFqp/ArchiveFqp.Client/ArchiveFqp.Client.csproj" />
+  <Project Path="ArchiveFqp/ArchiveFqp/ArchiveFqp.csproj" />
+</Solution>

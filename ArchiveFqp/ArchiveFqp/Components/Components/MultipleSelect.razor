@@ -1,0 +1,172 @@
+﻿@typeparam TItem
+@typeparam TValue
+
+<div class="multiple-selector">
+	<label class="form-label">@Label</label>
+
+	@for (int i = 0; i < localValues.Count; i++)
+	{
+		int currentIndex = i;
+		bool isLastElement = (currentIndex == localValues.Count - 1);
+
+		<div class="input-group mb-3 multiple-row" @key="@GetRowKey(currentIndex)">
+			<select class="form-select"
+					@onchange="@(async (e) => await HandleSelectionChange(currentIndex, e))"
+					value="@localValues[currentIndex]?.ToString()">
+				<option value="@DefaultValue">@Placeholder</option>
+				@foreach (var item in GetAvailableItems(currentIndex))
+				{
+					var itemValue = ValueSelector(item)?.ToString() ?? "";
+					<option value="@itemValue"
+							selected="@(localValues[currentIndex]?.ToString() == itemValue)">
+						@TextSelector(item)
+					</option>
+				}
+			</select>
+
+			@if (!isLastElement)
+			{
+				<button type="button"
+						class="btn btn-outline-danger"
+						@onclick="@(() => RemoveItem(currentIndex))">
+					<i class="bi bi-x"></i>
+				</button>
+			}
+		</div>
+	}
+</div>
+
+@code {
+	[Parameter] public string Label { get; set; } = "Выберите значения";
+	[Parameter] public string Placeholder { get; set; } = "Выберите значение";
+	[Parameter] public TValue DefaultValue { get; set; } = default!;
+
+	[Parameter] public List<TValue> SelectedValues { get; set; } = new();
+	[Parameter] public EventCallback<List<TValue>> SelectedValuesChanged { get; set; }
+
+	[Parameter] public List<TItem> Items { get; set; } = new();
+	[Parameter] public Func<TItem, string> TextSelector { get; set; } = default!;
+	[Parameter] public Func<TItem, TValue> ValueSelector { get; set; } = default!;
+
+	[Parameter] public EventCallback OnChange { get; set; }
+
+	private List<TValue> localValues = new();
+
+	protected override void OnParametersSet()
+	{
+		// Синхронизируем локальное состояние с параметрами
+		if (!AreListsEqual(localValues, SelectedValues))
+		{
+			localValues = new List<TValue>(SelectedValues);
+		}
+	}
+
+	private List<TValue> GetSelectedValuesWithoutCurrent(int currentIndex)
+	{
+		return localValues
+			.Where((v, i) => i != currentIndex && !IsDefaultValue(v))
+			.ToList();
+	}
+
+	private List<TItem> GetAvailableItems(int currentIndex)
+	{
+		var selectedValuesWithoutCurrent = GetSelectedValuesWithoutCurrent(currentIndex);
+
+		return Items
+			.Where(item => !selectedValuesWithoutCurrent.Contains(ValueSelector(item)))
+			.OrderBy(item => TextSelector(item))
+			.ToList();
+	}
+
+	private bool IsDefaultValue(TValue value)
+	{
+		return EqualityComparer<TValue>.Default.Equals(value, DefaultValue);
+	}
+
+	private string GetRowKey(int index)
+	{
+		return $"row-{index}-{localValues.ElementAtOrDefault(index)}-{DateTime.Now.Ticks % 1000}";
+	}
+
+	private async Task HandleSelectionChange(int index, ChangeEventArgs e)
+	{
+		var newValue = ConvertToTValue(e.Value?.ToString());
+		var newList = new List<TValue>(localValues);
+
+		newList[index] = newValue;
+
+		// Если выбрано реальное значение и это последний элемент, добавляем новый пустой
+		if (index == newList.Count - 1 && !IsDefaultValue(newValue))
+		{
+			newList.Add(DefaultValue);
+		}
+
+		if (newValue?.Equals(-1) ?? false)
+		{
+			await RemoveItem(index);
+		}
+		else
+			await UpdateValues(newList);
+	}
+
+	private TValue ConvertToTValue(string? value)
+	{
+		if (string.IsNullOrEmpty(value))
+			return DefaultValue;
+
+		try
+		{
+			// Попытка конвертации для int
+			if (typeof(TValue) == typeof(int))
+			{
+				if (int.TryParse(value, out int intValue))
+					return (TValue)(object)intValue;
+			}
+			// Для других типов можно добавить конвертацию
+		}
+		catch
+		{
+			// Игнор ошибок конвертации (если иного не хотите)
+		}
+
+		return DefaultValue;
+	}
+
+	private async Task RemoveItem(int index)
+	{
+		var newList = new List<TValue>(localValues);
+		newList.RemoveAt(index);
+
+		// Убеждаемся, что всегда есть хотя бы одно поле
+		if (newList.Count == 0 || (newList.Count == 1 && IsDefaultValue(newList[0])))
+		{
+			newList = new List<TValue> { DefaultValue };
+		}
+
+		await UpdateValues(newList);
+	}
+
+	private async Task UpdateValues(List<TValue> newValues)
+	{
+		if (!AreListsEqual(localValues, newValues))
+		{
+			localValues = newValues;
+			await SelectedValuesChanged.InvokeAsync(newValues);
+			await OnChange.InvokeAsync();
+		}
+	}
+
+	private bool AreListsEqual(List<TValue> list1, List<TValue> list2)
+	{
+		if (list1.Count != list2.Count)
+			return false;
+
+		for (int i = 0; i < list1.Count; i++)
+		{
+			if (!EqualityComparer<TValue>.Default.Equals(list1[i], list2[i]))
+				return false;
+		}
+
+		return true;
+	}
+}

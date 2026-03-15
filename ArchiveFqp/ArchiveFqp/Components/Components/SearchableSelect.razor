@@ -1,0 +1,186 @@
+﻿@typeparam TItem
+@typeparam TValue
+<div class="searchable-select" @ref="componentElement">
+	<div class="position-relative">
+		<!-- Поле ввода с выпадающим списком -->
+		<div class="input-group">
+			<input type="text"
+				   class="form-control @(invalidClass)"
+				   @bind="searchText"
+				   @bind:event="oninput"
+				   @onfocus="OnFocus"
+				   onclick="this.select()"
+				   @onblur="OnBlur"
+				   @onkeydown="OnKeyDown"
+				   placeholder="@Placeholder"
+				   autocomplete="off" />
+			<button class="btn btn-outline-secondary" type="button" @onclick="ToggleDropdown">
+				<i class="bi bi-chevron-down"></i>
+			</button>
+		</div>
+
+		<!-- Выпадающий список -->
+		@if (isOpen && filteredItems.Any())
+		{
+			<div class="dropdown-menu show w-100" style="max-height: 300px; overflow-y: auto; position: absolute; z-index: 1000;">
+				@foreach (var item in filteredItems)
+				{
+					var itemValue = GetItemValue(item);
+					var itemText = GetItemText(item);
+					<button type="button"
+							class="dropdown-item @(SelectedValue?.Equals(itemValue) == true ? "active" : "")"
+							@onclick="@(() => SelectItem(item))"
+							@onmousedown:preventDefault="true">
+						@itemText
+					</button>
+				}
+			</div>
+		}
+	</div>
+
+	<!-- Скрытое поле для привязки данных (опционально) -->
+	@if (selectedItem != null)
+	{
+		<input type="hidden" value="@GetItemValue(selectedItem)" />
+	}
+</div>
+
+@code {
+	[Parameter] public TValue? SelectedValue { get; set; }
+	[Parameter] public EventCallback<TValue?> SelectedValueChanged { get; set; }
+	[Parameter] public IEnumerable<TItem>? Items { get; set; }
+	[Parameter] public Func<TItem, string>? TextSelector { get; set; }
+	[Parameter] public Func<TItem, TValue>? ValueSelector { get; set; }
+	[Parameter] public string? Placeholder { get; set; }
+	[Parameter] public bool IsInvalid { get; set; }
+	[Parameter] public bool Disabled { get; set; }
+	[Parameter] public EventCallback<string> OnCustomValue { get; set; }
+
+	private ElementReference componentElement;
+	private string searchText = "";
+	private bool isOpen = false;
+	private TItem? selectedItem;
+	private string invalidClass => IsInvalid ? "is-invalid" : "";
+
+	/// <summary>
+	/// Список отфильтрованных элементов списка в зависимости от введенного текста
+	/// </summary>
+	private IEnumerable<TItem> filteredItems
+	{
+		get
+		{
+			if (string.IsNullOrWhiteSpace(searchText) || selectedItem != null)
+				return Items ?? Enumerable.Empty<TItem>();
+
+			return Items?.Where(item =>
+			{
+				var text = GetItemText(item);
+				return text.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+			}) ?? Enumerable.Empty<TItem>();
+		}
+	}
+
+	protected override void OnParametersSet()
+	{
+		base.OnParametersSet();
+
+		// Обновляем выбранный элемент при изменении параметра
+		if (SelectedValue != null && Items != null)
+		{
+			selectedItem = Items.FirstOrDefault(item =>
+				EqualityComparer<TValue>.Default.Equals(GetItemValue(item), SelectedValue));
+
+			if (selectedItem != null)
+			{
+				searchText = GetItemText(selectedItem);
+			}
+		}
+		else
+		{
+			selectedItem = default;
+		}
+	}
+
+	private string GetItemText(TItem item)
+	{
+		if (TextSelector != null)
+			return TextSelector(item);
+
+		return item?.ToString() ?? "";
+	}
+
+	private TValue GetItemValue(TItem item)
+	{
+		if (ValueSelector != null)
+			return ValueSelector(item);
+
+		// Пытаемся преобразовать в TValue
+		return (TValue)Convert.ChangeType(item, typeof(TValue))!;
+	}
+
+	private void ToggleDropdown()
+	{
+		if (!Disabled)
+		{
+			isOpen = !isOpen;
+		}
+	}
+
+	private void OnFocus()
+	{
+		if (!Disabled)
+		{
+			isOpen = true;
+		}
+	}
+
+	private void OnBlur()
+	{
+		// Задержка, чтобы успел сработать клик по элементу списка
+		_ = Task.Delay(400).ContinueWith(_ =>
+		{
+			InvokeAsync(() =>
+			{
+				isOpen = false;
+				StateHasChanged();
+			});
+		});
+	}
+
+	private async Task OnKeyDown(KeyboardEventArgs e)
+	{
+		if (e.Key == "Escape")
+		{
+			isOpen = false;
+		}
+		else if (e.Key == "Enter")
+		{
+			if (isOpen && filteredItems.Any())
+			{
+				await SelectItem(filteredItems.First());
+			}
+			else if (!string.IsNullOrWhiteSpace(searchText))
+			{
+				// Если ничего не выбрано и нажат Enter - используем введенный текст
+				await OnCustomValue.InvokeAsync(searchText);
+				isOpen = false;
+			}
+		}
+		else if (selectedItem != null && e.Key == "Backspace")
+		{
+			selectedItem = default;
+		}
+	}
+
+	private async Task SelectItem(TItem item)
+	{
+		selectedItem = item;
+		searchText = GetItemText(item);
+
+		var value = GetItemValue(item);
+		await SelectedValueChanged.InvokeAsync(value);
+
+		isOpen = false;
+		StateHasChanged();
+	}
+}

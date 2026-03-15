@@ -1,0 +1,75 @@
+﻿<div class="mb-3">
+    <label class="form-label fw-bold">@Label</label>
+
+    <InputFile OnChange="@OnFileChanged"
+               accept="@Accept"
+               multiple="@Multiple"
+               disabled="@Disabled"
+               class="form-control" />
+
+    @if (!string.IsNullOrEmpty(HelpText))
+    {
+        <small class="text-muted">@HelpText</small>
+    }
+
+    @if (SelectedFiles != null && SelectedFiles.Any())
+    {
+        <div class="mt-2">
+            @if (Multiple)
+            {
+                <strong>Выбрано файлов: @SelectedFiles.Count()</strong>
+                <ul class="list-unstyled mt-2">
+                    @foreach (var file in SelectedFiles)
+                    {
+                        <li class="text-success">
+                            <i class="bi bi-check-circle"></i> @file.Name (@ToFileSize(file.Size))
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <div class="alert alert-success py-2">
+                    <i class="bi bi-check-circle"></i>
+                    Выбран файл: @SelectedFiles.First().Name (@ToFileSize(SelectedFiles.First().Size))
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Accept { get; set; } = "";
+    [Parameter] public bool Multiple { get; set; } = false;
+    [Parameter] public bool Disabled { get; set; } = false;
+    [Parameter] public string HelpText { get; set; } = "";
+    [Parameter] public EventCallback<IReadOnlyList<IBrowserFile>> OnFilesSelected { get; set; }
+
+    private IReadOnlyList<IBrowserFile>? SelectedFiles { get; set; }
+
+    private async Task OnFileChanged(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            SelectedFiles = e.GetMultipleFiles(Multiple ? int.MaxValue : 1);
+            await OnFilesSelected.InvokeAsync(SelectedFiles);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in file upload: {ex.Message}");
+            SelectedFiles = null;
+        }
+    }
+}
+
+@code {
+    private string ToFileSize(long size)
+    {
+        if (size < 1024) return $"{size} B";
+        else if (size < 1024 * 1024) return $"{size / 1024:F1} KB";
+        else if (size < 1024 * 1024 * 1024) return $"{size / 1024 / 1024:F1} MB";
+        return $"{size / 1024 / 1024 / 1024:F1} GB";
+    }
+}

@@ -1,0 +1,68 @@
+﻿<div aria-live="polite" aria-atomic="true" class="position-relative">
+    <!-- Position it: -->
+    <!-- - `.toast-container` for spacing between toasts -->
+    <!-- - `.position-absolute`, `top-0` & `end-0` to position the toasts in the upper right corner -->
+    <!-- - `.p-3` to prevent the toasts from sticking to the edge of the container  -->
+    <div class="toast-container position-absolute top-0 end-0 p-3">
+
+        @for (int index = 0; index < Notifications.Count(); index++)
+        {
+            int i = index;
+            ToastNotification notification = Notifications[i];
+
+            <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <img src="..." class="rounded me-2" alt="...">
+                    <strong class="me-auto">@notification.Sender</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close" onchange="@(NotificationsChanged.InvokeAsync())"></button>
+                </div>
+                <div class="toast-body">
+                    @notification.Message
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<ToastNotification> Notifications { get; set; } = new();
+    [Parameter] public EventCallback<List<ToastNotification>?> NotificationsChanged { get; set; }
+
+    private Dictionary<ToastNotification, string> timesLeft = new();
+
+    public class ToastNotification
+    {
+        public string Sender { get; set; } = "Система";
+        public DateTime Time { get; set; } = DateTime.Now;
+        public string TimeLeft => GetTimeDifference();
+        public string Message { get; set; } = "";
+
+        private string GetTimeDifference()
+        {
+            TimeSpan f = DateTime.Now - Time;
+            string res = "Только что";
+            if (f.Seconds > 4) res = f.Seconds + " секунд назад";
+            if (f.Minutes > 4) res = f.Minutes + " минут назад";
+            else if (f.Minutes > 1) res = f.Minutes + " минуты назад";
+            else if (f.Minutes > 0) res = f.Minutes + " минута назад";
+            if (f.Hours > 4) res = f.Hours + " часов назад";
+            else if (f.Hours > 1) res = f.Hours + " часа назад";
+            else if (f.Hours > 0) res = f.Hours + " час назад";
+            if (f.Days > 4) res = f.Days + " дней назад";
+            else if (f.Days > 1) res = f.Days + " дня назад";
+            else if (f.Days > 0) res = f.Days + " день назад";
+
+            return res;
+        }
+    }
+
+    private async Task GetTime(ToastNotification notification)
+    {
+        while (Notifications.Contains(notification))
+        {
+            Thread.Sleep(1000);
+            timesLeft[notification] = notification.TimeLeft;
+            StateHasChanged();
+        }
+    }
+}

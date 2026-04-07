@@ -20,6 +20,7 @@ namespace ArchiveFqp.Services.FileUpload
         private readonly string[] _allowedPasswordExtensions = [".txt"];
 
         public override event EventHandler<FileUploadProgressEventArgs>? ProgressChanged;
+
         protected virtual void OnProgressChanged(FileUploadProgressEventArgs e)
         {
             ProgressChanged?.Invoke(this, e);
@@ -78,6 +79,14 @@ namespace ArchiveFqp.Services.FileUpload
             {
                 // Строим путь к папке
                 string relativeFolderPath = BuildFolderPath(context);
+#warning Раскоментировать после всех проверок
+                //if (DirectoryExists(relativeFolderPath))
+                //{
+                //    result.FileResults = [new FileUploadResult{ 
+                //        Success = false, 
+                //        ErrorMessage = "Работа данного студента уже в архиве!"}];
+                //    return result;
+                //}
                 string fullFolderPath = EnsureDirectoryExists(relativeFolderPath);
 
                 // Загружаем все файлы и собираем их для хэширования
@@ -162,23 +171,20 @@ namespace ArchiveFqp.Services.FileUpload
                 }
 
                 // Ждем завершения всех загрузок
-                var uploadResults = await Task.WhenAll(uploadTasks);
+                FileUploadResult[] uploadResults = await Task.WhenAll(uploadTasks);
                 result.FileResults.AddRange(uploadResults);
 
-                // Вычисляем хэши для успешно загруженных файлов
-                var successfullyUploaded = uploadResults
-                    .Where(r => r.Success)
-                    .Select(r => r.OriginalFileName)
-                    .ToHashSet();
-
-                var filesToHashList = filesToHash
-                    .Where(f => successfullyUploaded.Contains(f.Name))
-                    .ToList();
-
-                if (filesToHashList.Count != 0)
+                if (cancellationToken.IsCancellationRequested || result.FailedCount != 0)
                 {
-                    result.HashesInfo = await _hashService.GetFileHashesInfoAsync(filesToHashList, cancellationToken);
-                    
+                    // Удаляем файлы, которые успели загрузиться, и последнюю папку в пути
+                    DirectoryDelete(relativeFolderPath);
+                    return result;
+                }
+
+                if (filesToHash.Count != 0)
+                {
+                    result.HashesInfo = await _hashService.GetFileHashesInfoAsync(filesToHash, cancellationToken);
+
                     _logger.LogDebug("Вычислен составной хэш {Hash} для {Count} файлов",
                         result.HashesInfo.CompositeHash, result.HashesInfo.FileCount);
                 }
@@ -192,11 +198,21 @@ namespace ArchiveFqp.Services.FileUpload
             return result;
         }
 
+        /// <summary>
+        /// Загружает файл на сервер
+        /// </summary>
+        /// <param name="file"></param>
+        /// <param name="fullFolderPath"></param>
+        /// <param name="relativeFolderPath"></param>
+        /// <param name="fileType"></param>
+        /// <param name="filePrefix"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns>Результат загрузки файлов</returns>
         private async Task<FileUploadResult> UploadSpecificFile(
             IBrowserFile file, string fullFolderPath, string relativeFolderPath,
             FileType fileType, string filePrefix, CancellationToken cancellationToken)
         {
-            FileUploadResult result = new FileUploadResult
+            FileUploadResult result = new ()
             {
                 OriginalFileName = file.Name,
                 FileType = fileType,
@@ -260,11 +276,6 @@ namespace ArchiveFqp.Services.FileUpload
                 _logger.LogDebug("Загрузка файла {FileName} была отменена", file.Name);
                 result.Success = false;
                 result.ErrorMessage = "Загрузка была отменена";
-
-                if (File.Exists(filePath))
-                {
-                    File.Delete(filePath);
-                }
             }
             catch (Exception ex)
             {
@@ -353,7 +364,7 @@ namespace ArchiveFqp.Services.FileUpload
                 }
 
                 hash = _hashService.ComputeCompositeHash(hashes);
-                
+
                 result.IsValid = string.Equals(sourceHash, hash, StringComparison.OrdinalIgnoreCase); ;
                 result.Message = result.IsValid ? "Все файлы целы и не были изменены" : "Некоторые файлы изменены или отсутствуют!";
             }
@@ -375,6 +386,15 @@ namespace ArchiveFqp.Services.FileUpload
         private async Task<string> ComputeFileHashAsync(IBrowserFile file, CancellationToken cancellationToken)
         {
             return await _hashService.ComputeFileHashAsync(file, cancellationToken);
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="BaseFileUploadService.DirectoryDelete(string)"/>
+        /// </summary>
+        /// <param name="relarivePath"></param>
+        public new void DirectoryDelete(string? relarivePath)
+        {
+            base.DirectoryDelete(relarivePath);
         }
     }
 }

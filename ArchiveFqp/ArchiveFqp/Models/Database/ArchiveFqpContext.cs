@@ -272,12 +272,13 @@ public partial class ArchiveFqpContext : DbContext
 
         modelBuilder.Entity<ДанныеПоАтриб>(entity =>
         {
-            entity
-                .HasNoKey()
-                .ToTable("данные_по_атриб");
+            entity.HasKey(e => e.IdДанных).HasName("данные_по_атриб_pkey");
+
+            entity.ToTable("данные_по_атриб");
 
             entity.HasIndex(e => new { e.IdРаботы, e.IdСтруктуры }, "данные_по_атриб_атрибут_key").IsUnique();
 
+            entity.Property(e => e.IdДанных).HasColumnName("id_данных");
             entity.Property(e => e.IdРаботы).HasColumnName("id_работы");
             entity.Property(e => e.IdСтруктуры).HasColumnName("id_структуры");
             entity.Property(e => e.Данные)

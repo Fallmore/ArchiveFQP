@@ -5,6 +5,8 @@ namespace ArchiveFqp.Models.Database;
 
 public partial class ДанныеПоАтриб
 {
+    public int IdДанных { get; set; }
+
     public int IdСтруктуры { get; set; }
 
     public int IdРаботы { get; set; }

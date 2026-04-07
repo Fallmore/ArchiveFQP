@@ -20,7 +20,8 @@
                        webkitdirectory
                        directory
                        multiple
-                       class="form-control" />
+                       class="form-control" 
+                       disabled="@Disabled" />
             <small class="text-muted">
                 <i class="bi bi-info-circle"></i>
                 Выберите папку, содержащую все файлы работы. Типы файлов будут определены автоматически.
@@ -116,7 +117,7 @@
                     <button type="button" class="btn btn-secondary me-2" @onclick="ClearSelection">
                         <i class="bi bi-x-circle"></i> Очистить
                     </button>
-                    <button type="button" class="btn btn-primary" @onclick="ConfirmSelection" disabled="@(!selectedFiles.Any())">
+                    <button type="button" class="btn btn-primary" @onclick="ConfirmSelection" disabled="@(selectedFiles.Count == 0 || @Disabled)">
                         <i class="bi bi-check-circle"></i> Подтвердить выбор
                     </button>
                 </div>
@@ -127,6 +128,7 @@
 
 @code {
     [Parameter] public EventCallback<List<SelectedFileInfo>> OnFilesConfirmed { get; set; }
+    [Parameter] public bool Disabled { get; set; }
 
     private List<SelectedFileInfo> selectedFiles = new();
     private bool isProcessing;
@@ -307,7 +309,6 @@
             ".ppt" or ".pptx" => "bi-file-ppt",
             ".txt" => "bi-file-text",
             ".zip" or ".rar" or ".7z" => "bi-file-zip",
-            ".cs" or ".java" or ".py" or ".js" => "bi-file-code",
             ".sql" or ".db" => "bi-database",
             _ => "bi-file-earmark"
         };

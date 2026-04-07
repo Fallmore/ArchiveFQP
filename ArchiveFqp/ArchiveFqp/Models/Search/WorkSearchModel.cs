@@ -1,4 +1,5 @@
 ﻿using ArchiveFqp.Models.Database;
+using ArchiveFqp.Models.DTO.Attribute;
 using System.Text.Json.Serialization;
 
 namespace ArchiveFqp.Models.Search
@@ -18,8 +19,8 @@ namespace ArchiveFqp.Models.Search
 		public int ProfileId { get; set; } = -1;
 		public int WorkTypeId { get; set; } = -1;
 		public int WorkStatusId { get; set; } = -1;
-		public int[] ConsultantsId { get; set; } = [];
-		public int[] ReviewersId { get; set; } = [];
+		public List<int> ConsultantsId { get; set; } = [-1];
+		public List<int> ReviewersId { get; set; } = [-1];
 		public int? MinPages { get; set; }
 		public int? MaxPages { get; set; }
 		public int? MinYearDefense { get; set; }
@@ -37,6 +38,6 @@ namespace ArchiveFqp.Models.Search
 		public List<Атрибут> AllAttributes { get; set; } = [];
 		
 		[JsonIgnore]
-		public Dictionary<int, List<string>> AttributeValues { get; set; } = [];
+		public List<AttributeValuesDto> AttributeValues { get; set; } = [];
 	}
 }

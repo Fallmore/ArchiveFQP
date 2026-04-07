@@ -2,13 +2,13 @@
 @typeparam TValue
 
 <div class="multiple-searchable-select">
-    <label class="form-label fw-bold">@Label</label>
-    
+    <label class="form-label mb-0 fw-bold">@Label</label>
+
     @for (int i = 0; i < localValues.Count; i++)
     {
         int currentIndex = i;
         bool isLastElement = (currentIndex == localValues.Count - 1);
-        
+
         <div class="mb-2" @key="@GetRowKey(currentIndex)">
             <div class="d-flex align-items-center gap-2">
                 <div class="flex-grow-1">
@@ -23,21 +23,21 @@
                                       OnCustomValue="@(async (value) => await HandleCustomValue(currentIndex, value))"
                                       Disabled="@Disabled" />
                 </div>
-                
+
                 @if (!isLastElement)
                 {
-                    <button type="button" 
-                            class="btn btn-outline-danger btn-sm" 
+                    <button type="button"
+                            class="btn btn-outline-danger btn-sm"
                             style="height: 38px;"
                             @onclick="@(() => RemoveItem(currentIndex))">
                         <i class="bi bi-x"></i>
                     </button>
                 }
-                
+
                 @if (isLastElement && !IsDefaultValue(localValues[currentIndex]))
                 {
-                    <button type="button" 
-                            class="btn btn-outline-success btn-sm" 
+                    <button type="button"
+                            class="btn btn-outline-success btn-sm"
                             style="height: 38px;"
                             @onclick="AddNewItem">
                         <i class="bi bi-plus"></i>
@@ -46,7 +46,7 @@
             </div>
         </div>
     }
-    
+
     @if (localValues.Count == 0)
     {
         <button type="button" class="btn btn-outline-primary btn-sm" @onclick="AddNewItem">
@@ -116,7 +116,8 @@
 
     private async Task HandleSelectionChange(int index, TValue? value)
     {
-        if (value == null || EqualityComparer<TValue>.Default.Equals(value, DefaultValue))
+        if (value == null || EqualityComparer<TValue>.Default.Equals(value, default)
+                          || EqualityComparer<TValue>.Default.Equals(value, DefaultValue))
         {
             await RemoveItem(index);
             return;
@@ -147,20 +148,20 @@
     {
         var newList = new List<TValue>(localValues);
         newList.RemoveAt(index);
-        
+
         // Убеждаемся, что всегда есть хотя бы одно поле
         if (newList.Count == 0)
         {
             newList.Add(DefaultValue);
         }
-        
+
         await UpdateValues(newList);
     }
 
     private async Task AddNewItem()
     {
         var newList = new List<TValue>(localValues);
-        
+
         // Проверяем, что последний элемент не пустой перед добавлением нового
         if (newList.Count == 0 || !IsDefaultValue(newList.Last()))
         {
@@ -184,13 +185,13 @@
     {
         if (list1.Count != list2.Count)
             return false;
-            
+
         for (int i = 0; i < list1.Count; i++)
         {
             if (!EqualityComparer<TValue>.Default.Equals(list1[i], list2[i]))
                 return false;
         }
-        
+
         return true;
     }
 }

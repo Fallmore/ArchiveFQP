@@ -1,0 +1,114 @@
+﻿@using ArchiveFqp.Models.DTO
+@using ArchiveFqp.Models.DTO.Work
+@using ArchiveFqp.Services
+@using ArchiveFqp.Services.Work
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedLocalStorage ProtectedSessionStore
+@inject IWorkService WorkService
+@inject IJSRuntime JSRuntime
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="accordion" id="accordionWork">
+            <div class="accordion-item">
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary">
+                            @if (WorkDto.Attributes == null)
+                            {
+                                <h4 class="mb-0 text-white">
+                                    <i class="bi bi-plus-circle me-2"></i>Добавление новой работы
+                                </h4>
+                            }
+                            else
+                            {
+                                <button class="accordion-button bg-transparent" style="height:20px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWorkData" aria-expanded="true" aria-controls="collapseWorkData">
+                                    <h4 class="mb-0 text-white">
+                                        <i class="bi bi-plus-circle me-2"></i>Добавление новой работы
+                                    </h4>
+                                </button>
+                            }
+                        </div>
+                        <div id="collapseWorkData" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#accordionWork">
+                            <div class="accordion-body">
+                                <div class="card-body">
+                                    <WorkDataAdd @bind-WorkDto="@WorkDto" @bind-WorkDto:after="OnWorkDTOChanged"
+                                                 UpdateSessionStore="false"
+                                                 SessionStoreNameWorkDTO="@SessionStoreNameWorkDTO" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (WorkDto.Attributes != null)
+            {
+                <div class="accordion-item">
+                    <div class="col-12">
+                        <div class="card shadow-sm">
+                            <div class="card-header bg-primary">
+                                <button class="accordion-button bg-transparent" style="height:20px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWorkAttributes" aria-expanded="false" aria-controls="collapseWorkAttributes">
+                                    <h4 class="mb-0 text-white">
+                                        <i class="bi bi-book me-2"></i>Атрибуты новой работы
+                                    </h4>
+                                </button>
+                            </div>
+
+                            <div id="collapseWorkAttributes" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionWork">
+                                <div class="accordion-body">
+                                    <div class="card-body">
+                                        <WorkAttributesAdd @bind-Attributes="WorkDto.Attributes"
+                                                           @bind-Attributes:after="OnAttributesChanged"
+                                                           @bind-Disabled="WorkDto.AttributesValuesAdded"
+                                                           @bind-Disabled:after="OnAttributesChanged" />
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public WorkCreateDto WorkDto { get; set; } = new();
+    [Parameter] public EventCallback<WorkCreateDto> WorkDTOChanged { get; set; }
+    [Parameter] public string SessionStoreNameWorkDTO { get; set; } = "workDTO";
+    [Parameter] public bool UpdateSessionStore { get; set; } = true;
+
+    private Dictionary<int, List<string>> attributesValues = [];
+
+    private async Task OnWorkDTOChanged()
+    {
+        if (WorkDto.IdРаботы != 0)
+        {
+            WorkDto.Attributes = Task.Run(() =>
+            {
+                return WorkService.GetWorkAttributesAsync(WorkDto.IdРаботы, []);
+            }).Result;
+
+            if (WorkDto.Attributes == default) WorkDto.AttributesValuesAdded = true;
+            else
+            {
+                StateHasChanged();
+                await JSRuntime.InvokeVoidAsync("eval",
+                "document.querySelector('[data-bs-target=\"#collapseWorkAttributes\"]').click()");
+            }
+        }
+        StateHasChanged();
+        await WorkDTOChanged.InvokeAsync(WorkDto);
+    }
+
+    private async Task OnAttributesChanged()
+    {
+        await ProtectedSessionStore.SetAsync(SessionStoreNameWorkDTO, WorkDto);
+        await WorkDTOChanged.InvokeAsync(WorkDto);
+    }
+
+
+}

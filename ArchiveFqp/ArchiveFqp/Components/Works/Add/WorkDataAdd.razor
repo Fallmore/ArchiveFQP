@@ -1,0 +1,866 @@
+﻿@using ArchiveFqp.Components.Components
+@using ArchiveFqp.Factories.DisplayDto.Student
+@using ArchiveFqp.Factories.DisplayDto.Teacher
+@using ArchiveFqp.Models
+@using ArchiveFqp.Models.DTO
+@using ArchiveFqp.Models.DTO.Teacher
+@using ArchiveFqp.Models.DTO.Work
+@using ArchiveFqp.Services
+@using ArchiveFqp.Services.FileUpload
+@using ArchiveFqp.Services.Hash
+@using ArchiveFqp.Services.ReferenceData
+@using ArchiveFqp.Services.Work
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedLocalStorage ProtectedSessionStore
+@inject IDbContextFactory<ArchiveFqpContext> DbFactory
+@inject WorkFileUploadService FileUploadService
+@inject ILogger<WorkAdd> Logger
+@inject IWorkService WorkService
+@inject IReferenceDataService RefDataService
+@implements IDisposable
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@if (errorMessage != null && successMessage == null)
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+@if (successMessage != null)
+{
+    <div class="alert alert-success">@successMessage</div>
+}
+
+<EditForm Model="@WorkDto" OnValidSubmit="@HandleValidSubmit" FormName="workAdd">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="alert alert-danger" />
+
+    <!-- Основная информация -->
+    <div class="row border-bottom">
+        <div class="col-md-6" style="border-right:solid; border-right-width:0.1px; border-right-color:lightgrey;">
+            <div class="row mb-2">
+                <!-- Тема работы -->
+                <div class="col-md-8">
+                    <label class="form-label mb-0 mx-1 fw-bold">Название темы <span class="text-danger">*</span></label>
+                    <InputTextArea class="form-control " @bind-Value="WorkDto.Тема" @bind-Value:after="SaveStateWorkDTO"
+                                   disabled="@disabled"
+                                   rows="1"
+                                   placeholder="Введите тему работы" />
+                </div>
+
+                <!-- Объем страниц -->
+                <div class="col-md-4">
+                    <label class="form-label mb-0 mx-1 fw-bold">Кол-во страниц <span class="text-danger">*</span></label>
+                    <InputNumber class="form-control" @bind-Value="WorkDto.КоличСтраниц"
+                                 @bind-Value:after="@(async () => await SaveStateWorkDTO())"
+                                 min="1" max="1000" disabled="@disabled" />
+                </div>
+            </div>
+
+            <div class="row mb-2">
+                <!-- Тип работы -->
+                <div class="col-md-6">
+                    <label class="form-label mb-0 mx-1 fw-bold">Тип работы <span class="text-danger">*</span></label>
+                    <InputSelect class="form-select" @bind-Value="WorkDto.IdТипаРаботы" @bind-Value:after="OnTypeWorkChanged" disabled="@disabled">
+                        <option value="">Выберите тип</option>
+                        @foreach (ТипРаботы type in snapshot.WorkTypes)
+                        {
+                            <option value="@type.IdТипаРаботы">@type.Название</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <!-- Доступ работы -->
+                <div class="col-md-6">
+                    <label class="form-label mb-0 mx-1 fw-bold">Доступ работы <span class="text-danger">*</span></label>
+                    <InputSelect class="form-select" @bind-Value="WorkDto.IdДоступаРаботы" @bind-Value:after="@(async () => await SaveStateWorkDTO())" disabled="@disabled">
+                        <option value="">Выберите кто видит работу</option>
+                        @foreach (ДоступРаботы type in snapshot.WorkAccess)
+                        {
+                            <option value="@type.IdДоступаРаботы">@type.Название</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+
+            <!-- Руководитель -->
+            <div class="row-md-6 mb-2">
+                <label class="form-label mb-0 mx-1 fw-bold">Руководитель <span class="text-danger">*</span></label>
+
+                <SearchableSelect TItem="Преподаватель"
+                                  TValue="int?"
+                                  Items="@snapshot.Teachers"
+                                  TextSelector="@((s) => teacherDtoFactory!.CreateDisplayDtoAsync(s).Result.ФИО)"
+                                  ValueSelector="@(s => s.IdПреподавателя)"
+                                  Placeholder="Выберите или введите руководителя..."
+                                  IsInvalid="@(WorkDto.IdПреподавателя == null)"
+                                  SelectedValue="@WorkDto.IdПреподавателя"
+                                  SelectedValueChanged="@((s) => OnTeacherChanged(s))"
+                                  OnCustomValue="@(() => WorkDto.IdПреподавателя = null)"
+                                  Disabled="@disabled" />
+
+                <!-- Информация о руководителе (зависимая) -->
+                @if (selectedTeacher != null)
+                {
+                    <div class="col-md-6">
+                        <strong>Должность:</strong> @(selectedTeacher.Должность)
+                    </div>
+                }
+            </div>
+
+            <!-- Аннотация -->
+            <div class="row-md-6 mb-2">
+                <label class="form-label mb-0">Аннотация</label>
+                <InputTextArea class="form-control" @bind-Value="WorkDto.Аннотация" @bind-Value:after="@(async () => await SaveStateWorkDTO())"
+                               rows="4"
+                               placeholder="Введите аннотацию работы (необязательно)"
+                               disabled="@disabled" />
+            </div>
+
+            <!-- Если работа должна иметь консультантов и рецензентов -->
+            @if (hasCR)
+            {
+
+                <!-- Консультанты -->
+                <div class="row-md-6 mb-2">
+                    <MultipleSearchableSelect TItem="Преподаватель"
+                                              TValue="int"
+                                              Label="Консультанты"
+                                              Placeholder="Введите или выберите ФИО консультанта..."
+                                              DefaultValue="-1"
+                                              @bind-SelectedValues="WorkDto.IdКонсультантов"
+                                              Items="snapshot.Teachers"
+                                              TextSelector="@(t => teacherDtoFactory!.CreateDisplayDtoAsync(t).Result.ФИО)"
+                                              ValueSelector="@(t => t.IdПреподавателя)"
+                                              OnChange="@(async () => await SaveStateWorkDTO())"
+                                              OnCustomValue="@(async (i) => {WorkDto.IdКонсультантов[i] = -1; await SaveStateWorkDTO();})"
+                                              Disabled="@disabled" />
+                </div>
+
+                <!-- Рецензенты -->
+                <div class="row-md-6 mb-2">
+                    <MultipleSearchableSelect TItem="Преподаватель"
+                                              TValue="int"
+                                              Label="Рецензенты"
+                                              Placeholder="Введите или выберите ФИО рецензента..."
+                                              DefaultValue="-1"
+                                              @bind-SelectedValues="WorkDto.IdРецензентов"
+                                              Items="snapshot.Teachers"
+                                              TextSelector="@(t => teacherDtoFactory!.CreateDisplayDtoAsync(t).Result.ФИО)"
+                                              ValueSelector="@(t => t.IdПреподавателя)"
+                                              OnChange="@(async () => await SaveStateWorkDTO())"
+                                              OnCustomValue="@(async (i) => {WorkDto.IdРецензентов[i] = -1; await SaveStateWorkDTO();})"
+                                              Disabled="@disabled" />
+                </div>
+            }
+        </div>
+
+        <div class="col-md-6">
+            <div class="row mb-2">
+                <!-- Студент -->
+                <div class="col">
+                    <label class="form-label mb-0 mx-1 fw-bold">Студент <span class="text-danger">*</span></label>
+                    <SearchableSelect TItem="Студент"
+                                      TValue="int?"
+                                      Items="@snapshot.Students"
+                                      TextSelector="@((s) => studentDtoFactory!.CreateDisplayDtoAsync(s).Result.ФИО)"
+                                      ValueSelector="@(s => s.IdСтудента)"
+                                      Placeholder="Выберите или введите студента..."
+                                      IsInvalid="@(WorkDto.IdСтудента == null)"
+                                      SelectedValue="@WorkDto.IdСтудента"
+                                      SelectedValueChanged="@((s) => OnStudentChanged(s))"
+                                      OnCustomValue="@(() => WorkDto.IdСтудента = null)"
+                                      Disabled="@disabled" />
+                </div>
+
+                <!-- Год выпуска -->
+                <div class="col-md-3">
+                    <label class="form-label mb-0 mx-1 fw-bold">Год выпуска <span class="text-danger">*</span></label>
+                    <InputSelect class="form-select" @bind-Value="WorkDto.ГодВыпуска" @bind-Value:after="@(async () => await SaveStateWorkDTO())" disabled="@disabled">
+                        <option value=""></option>
+                        @for (int year = DateTime.Now.Year; year >= DateTime.Now.Year - 50; year--)
+                        {
+                            <option value="@year">@year</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+
+            <div class="row mb-2">
+                <!-- Форма обучения -->
+                <div class="col-md-6">
+                    <label class="form-label mb-0 mx-1 fw-bold">Форма обучения <span class="text-danger">*</span></label>
+                    <InputSelect class="form-select" @bind-Value="WorkDto.IdФормыОбучения" @bind-Value:after="@(async () => await SaveStateWorkDTO())" disabled="@disabled">
+                        <option value="">Выберите форму</option>
+                        @foreach (ФормаОбучения educationForm in snapshot.EducationForms)
+                        {
+                            <option value="@educationForm.IdФормыОбучения">@educationForm.Название</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <!-- Уровень образования -->
+                <div class="col-md-6">
+                    <label class="form-label mb-0 mx-1 fw-bold">Уровень образования <span class="text-danger">*</span></label>
+                    <InputSelect class="form-select" @bind-Value="WorkDto.IdУровняОбразования" @bind-Value:after="@(async () => await SaveStateWorkDTO())" disabled="@disabled">
+                        <option value="">Выберите уровень</option>
+                        @foreach (УровеньОбразования educationLevel in snapshot.EducationLevels)
+                        {
+                            <option value="@educationLevel.IdУровняОбразования">@educationLevel.Название</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+
+            <!-- Институт -->
+            <div class="row-md-6 mb-2">
+                <label class="form-label mb-0 mx-1 fw-bold">Институт <span class="text-danger">*</span></label>
+                <InputSelect class="form-select" @bind-Value="WorkDto.IdИнститута" @bind-Value:after="OnInstituteChanged" disabled="@disabled">
+                    <option value="">Выберите институт</option>
+                    @foreach (Институт institute in snapshot.Institutes)
+                    {
+                        <option value="@institute.IdИнститута">@institute.Название</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <!-- Выпускающая кафедра -->
+            <div class="row-md-6 mb-2">
+                <label class="form-label mb-0 mx-1 fw-bold">Выпускающая кафедра <span class="text-danger">*</span></label>
+                <InputSelect class="form-select" @bind-Value="WorkDto.IdКафедры"
+                             @bind-Value:after="OnDepartmentChanged"
+                             disabled="@(disabled || WorkDto.IdИнститута == null)">
+                    <option value="">
+                        @(WorkDto.IdИнститута == null ? "" : "Выберите кафедру")
+                    </option>
+                    @foreach (Кафедра dept in filteredDepartments)
+                    {
+                        <option value="@dept.IdКафедры">@dept.Название</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="row mb-2">
+                <!-- Стандарт УГСН -->
+                <div class="col-md-6">
+                    <label class="form-label mb-0 mx-1 fw-bold">Стандарт УГСН <span class="text-danger">*</span></label>
+                    <InputSelect class="form-select" @bind-Value="WorkDto.IdУгснСтандарта"
+                                 @bind-Value:after="OnUgsnStandartChanged"
+                                 disabled="@(disabled || WorkDto.IdКафедры == null)">
+                        <option value="">@(WorkDto.IdКафедры == null ? "" : "Выберите стандарт УГСН")</option>
+                        @foreach (УгснСтандарт standard in snapshot.UgsnStandarts)
+                        {
+                            <option value="@standard.IdУгснСтандарта">@standard.Название</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <!-- УГСН -->
+                <div class="col-md-6">
+                    <label class="form-label mb-0 mx-1 fw-bold">УГСН <span class="text-danger">*</span></label>
+                    <InputSelect class="form-select" @bind-Value="WorkDto.IdУгсн"
+                                 @bind-Value:after="OnUgsnChanged" disabled="@(disabled || WorkDto.IdУгснСтандарта == null)">
+                        <option value="">@(WorkDto.IdУгснСтандарта == null ? "" : "Выберите УГСН")</option>
+                        @foreach (Угсн ugsn in filteredUgsns)
+                        {
+                            <option value="@ugsn.IdУгсн">@ugsn.Название</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+
+            <!-- Направление подготовки -->
+            <div class="row-md-6 mb-2">
+                <label class="form-label mb-0 mx-1 fw-bold">Направление подготовки/специальность <span class="text-danger">*</span></label>
+                <InputSelect class="form-select" @bind-Value="WorkDto.IdНаправления"
+                             @bind-Value:after="OnDirectionChanged"
+                             disabled="@(disabled || WorkDto.IdУгсн == null)">
+                    <option value="">@(WorkDto.IdУгсн == null ? "" : "Выберите направление/специальность")</option>
+                    @foreach (Направление direction in filteredDirections)
+                    {
+                        <option value="@direction.IdНаправления">@direction.Название</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <!-- Профиль -->
+            <div class="row-md-6 mb-2">
+                <label class="form-label mb-0 mx-1 fw-bold">Профиль/магистерская программа/специализация <span class="text-danger">*</span></label>
+                <InputSelect class="form-select" @bind-Value="WorkDto.IdПрофиля"
+                             @bind-Value:after="OnProfileChanged"
+                             disabled="@(disabled || WorkDto.IdНаправления == null)">
+                    <option value="">@(WorkDto.IdНаправления == null ? "" : "Выберите профиль/магистерскую программу/специалзиацию")</option>
+                    @foreach (Профиль profile in filteredProfiles)
+                    {
+                        <option value="@profile.IdПрофиля">@profile.Название</option>
+                    }
+                </InputSelect>
+            </div>
+        </div>
+    </div>
+
+    <!-- Загрузка файлов с папки -->
+    <div class="row mb-1 mt-4">
+        <div class="col-12">
+            <FolderFileSelector OnFilesConfirmed="@OnFilesConfirmed" Disabled="@disabled" />
+        </div>
+    </div>
+
+    <!-- Выбранные файлы с папки -->
+    @if (selectedFiles.Count != 0)
+    {
+        <div class="row mb-2">
+            <div class="col-12">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40%">Файл</th>
+                                <th style="width: 20%">Тип файла</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (uploadResult != null && uploadResult.FileResults.Count != 0 && !token.IsCancellationRequested)
+                            {
+                                @foreach (FileUploadResult result in uploadResult.FileResults)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div>
+                                                    <div>
+                                                        @result.OriginalFileName -
+                                                        @if (result.Success)
+                                                        {
+                                                            <span class="text-success">
+                                                                <i class="bi bi-check-circle"></i> Загружен
+                                                                (@(result.FileSize / 1024) KB)
+                                                            </span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-danger">
+                                                                <i class="bi bi-exclamation-triangle"></i>
+                                                                @result.ErrorMessage
+                                                            </span>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>@GetFileTypeName(result.FileType)</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                foreach (KeyValuePair<FileType, List<IBrowserFile>> files in selectedFiles)
+                                {
+                                    @foreach (IBrowserFile file in files.Value)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div>
+                                                        <div>
+                                                            @file.Name
+                                                            @if (isUploading)
+                                                                @if (uploadingFile.ContainsKey(file.Name))
+                                                                {
+                                                                    <span>@string.Format(" {0:P0}", uploadingFile[file.Name])</span>
+                                                                }
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>@GetFileTypeName(files.Key)</td>
+                                        </tr>
+                                    }
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Кнопки действий -->
+    <div class="row mt-1">
+        <div class="col-12 d-flex justify-content-between">
+            <button type="submit" class="btn btn-primary" disabled="@(isSubmitting || selectedFiles.Count == 0 || disabled)">
+                @if (isSubmitting)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                }
+                else
+                {
+                    <i class="bi bi-save me-2"></i>
+                }
+                Сохранить работу
+            </button>
+            @if (isSubmitting)
+            {
+                <button type="button" class="btn btn-secondary" @onclick="Cancel">
+                    <i class="bi bi-x-circle"></i> Отмена
+                </button>
+            }
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter] public WorkCreateDto WorkDto { get; set; } = new();
+    [Parameter] public EventCallback<WorkCreateDto> WorkDTOChanged { get; set; }
+    [Parameter] public string SessionStoreNameWorkDTO { get; set; } = "workDTO";
+    [Parameter] public bool UpdateSessionStore { get; set; } = true;
+    private TeacherDtoFactory? teacherDtoFactory;
+    private StudentDtoFactory? studentDtoFactory;
+    private bool disabled => WorkDto.IdРаботы != 0;
+
+    private ReferenceDataSnapshot snapshot = new();
+
+    private TeacherDisplayDto? selectedTeacher;
+    private List<Угсн> filteredUgsns = new();
+    private List<Направление> filteredDirections = new();
+    private List<Профиль> filteredProfiles = new();
+    private List<Кафедра> filteredDepartments = new();
+    private bool isFqp = true;
+    private bool hasCR = false;
+    private bool isSubmitting = false;
+
+    private bool isUploading;
+    private Dictionary<string, decimal> uploadingFile = new();
+    private FileUploadWithHashResult? uploadResult;
+    private Dictionary<FileType, List<IBrowserFile>> selectedFiles = new();
+    private string? errorMessage;
+    private string? successMessage;
+
+    CancellationTokenSource cancelTokenSource = new CancellationTokenSource();
+    CancellationToken token;
+
+    protected override async Task OnInitializedAsync()
+    {
+        teacherDtoFactory = new(RefDataService);
+        studentDtoFactory = new(RefDataService);
+
+        snapshot = await RefDataService.GetAllAsync();
+        var result = await ProtectedSessionStore.GetAsync<WorkCreateDto>(SessionStoreNameWorkDTO);
+        if (result.Success)
+        {
+            WorkDto = result.Value ?? new();
+            await WorkDTOChanged.InvokeAsync(WorkDto);
+        }
+
+        
+        await UpdateDependentLists();
+
+        if (FileUploadService is WorkFileUploadService workFileUploadService)
+        {
+            workFileUploadService.ProgressChanged += OnUploadProgressChanged;
+        }
+    }
+
+    private string GetFio(Пользователь p)
+    {
+        return $"{p.Фамилия} {p.Имя} {p?.Отчество}";
+    }
+
+    private async Task SaveStateWorkDTO()
+    {
+        await ProtectedSessionStore.SetAsync(SessionStoreNameWorkDTO, WorkDto);
+        await WorkDTOChanged.InvokeAsync(WorkDto);
+    }
+
+    private async Task UpdateDependentLists()
+    {
+        if (!WorkDto.IdИнститута.HasValue)
+            filteredDepartments = snapshot.Departments.DistinctBy(d => d.Название).ToList();
+        else
+            filteredDepartments = snapshot.Departments
+                .Where(d => d.IdИнститута == WorkDto.IdИнститута)
+                .DistinctBy(d => d.Название)
+                .ToList();
+
+        if (!WorkDto.IdУгснСтандарта.HasValue)
+            filteredUgsns = snapshot.Ugsns;
+        else
+            filteredUgsns = snapshot.Ugsns
+                .Where(u => u.IdУгснСтандарта == WorkDto.IdУгснСтандарта
+                    && filteredDepartments // Может же быть несколько кафедры с разными УГСН и стандартами
+                    .Where(d => d.Название == filteredDepartments // Поэтому по названию находим все используемые УГСН
+                        .First(fd => fd.IdКафедры == WorkDto.IdКафедры).Название).Any(d => d.IdУгсн == u.IdУгсн))
+                .ToList();
+
+        if (!WorkDto.IdУгсн.HasValue)
+            filteredDirections = snapshot.Directions;
+        else
+            filteredDirections = snapshot.Directions
+                .Where(d => d.IdКафедры == filteredDepartments
+                    .Where(de => de.IdУгсн == WorkDto.IdУгсн)
+                    .Select(de => de.IdКафедры).FirstOrDefault())
+                .ToList();
+
+        if (!WorkDto.IdНаправления.HasValue)
+            filteredProfiles = snapshot.Profiles;
+        else
+            filteredProfiles = snapshot.Profiles
+            .Where(p => p.IdНаправления == WorkDto.IdНаправления)
+                .ToList();
+    }
+
+    private void OnStudentChanged(int? id)
+    {
+        WorkDto.IdСтудента = id;
+        WorkService.SetStudent(WorkDto, id);
+        Task.Run(SaveStateWorkDTO);
+        Task.Run(UpdateDependentLists);
+    }
+
+    private void OnTeacherChanged(int? id)
+    {
+        WorkDto.IdПреподавателя = id;
+        selectedTeacher = teacherDtoFactory!.CreateDisplayDtoAsync(id ?? 0).Result;
+        Task.Run(SaveStateWorkDTO);
+    }
+
+    #region Цепочка функций, вызывающих друг друга по иерархии
+
+    private void OnInstituteChanged()
+    {
+        WorkDto.IdКафедры = WorkDto.IdУгснСтандарта = null;
+        OnDepartmentChanged();
+
+        if (WorkDto.IdИнститута.HasValue)
+        {
+            Task.Run(UpdateDependentLists);
+            Task.Run(SaveStateWorkDTO);
+        }
+    }
+
+    private void OnDepartmentChanged()
+    {
+        WorkDto.IdУгсн = null;
+        OnUgsnChanged();
+
+        if (WorkDto.IdКафедры.HasValue)
+        {
+            Task.Run(UpdateDependentLists);
+            Task.Run(SaveStateWorkDTO);
+        }
+    }
+
+    private void OnUgsnStandartChanged()
+    {
+        WorkDto.IdУгсн = null;
+        OnUgsnChanged();
+
+        if (WorkDto.IdУгснСтандарта.HasValue)
+        {
+            Task.Run(UpdateDependentLists);
+            Task.Run(SaveStateWorkDTO);
+        }
+    }
+
+    private void OnUgsnChanged()
+    {
+        WorkDto.IdНаправления = null;
+        OnDirectionChanged();
+
+        if (WorkDto.IdУгсн.HasValue)
+        {
+            Task.Run(UpdateDependentLists);
+            Task.Run(SaveStateWorkDTO);
+        }
+    }
+
+    private void OnDirectionChanged()
+    {
+        WorkDto.IdПрофиля = null;
+        OnProfileChanged();
+
+        if (WorkDto.IdНаправления.HasValue)
+        {
+            Task.Run(UpdateDependentLists);
+            Task.Run(SaveStateWorkDTO);
+        }
+    }
+
+    private void OnProfileChanged()
+    {
+        Task.Run(UpdateDependentLists);
+        Task.Run(SaveStateWorkDTO);
+    }
+
+    #endregion
+
+    private void OnTypeWorkChanged()
+    {
+        isFqp = IWorkService.FqpWorks
+            .Contains(snapshot.WorkTypes
+                .Find(wt => wt.IdТипаРаботы == WorkDto.IdТипаРаботы)?.Название ?? "");
+        hasCR = IWorkService.FqpWorksWithCR
+            .Contains(snapshot.WorkTypes
+                .Find(wt => wt.IdТипаРаботы == WorkDto.IdТипаРаботы)?.Название ?? "");
+        if (!hasCR)
+        {
+            WorkDto.IdКонсультантов = [-1];
+            WorkDto.IdРецензентов = [-1];
+        }
+
+        Task.Run(SaveStateWorkDTO);
+    }
+
+    private async Task OnFilesConfirmed(List<FolderFileSelector.SelectedFileInfo> selectedFiles)
+    {
+        try
+        {
+            if (!ValidateTypeFiles(selectedFiles, out string? errorMessage))
+            {
+                this.errorMessage = errorMessage;
+                return;
+            }
+            this.errorMessage = null;
+
+            // Очищаем предыдущий словарь
+            this.selectedFiles.Clear();
+
+            // Группируем файлы по выбранному типу
+            foreach (var file in selectedFiles)
+            {
+                if (!this.selectedFiles.ContainsKey(file.FileType))
+                {
+                    this.selectedFiles[file.FileType] = new List<IBrowserFile>();
+                }
+
+                if (file.BrowserFile != null)
+                {
+                    this.selectedFiles[file.FileType].Add(file.BrowserFile);
+                }
+            }
+            selectedFiles.Clear();
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error processing selected files");
+            errorMessage = $"Ошибка при обработке файлов: {ex.Message}";
+        }
+    }
+
+    private bool ValidateTypeFiles(List<FolderFileSelector.SelectedFileInfo> selectedFiles, out string? errorMessage)
+    {
+        errorMessage = null;
+
+        List<FileType> fileTypes = isFqp
+            ? [FileType.ExplanatoryNoteWord, FileType.ExplanatoryNotePdf, FileType.Presentation]
+            : [FileType.Report];
+
+        foreach (var file in selectedFiles)
+        {
+            fileTypes.Remove(file.FileType);
+            if (fileTypes.Count == 0) break;
+        }
+
+        if (fileTypes.Count == 0) return true;
+        else
+        {
+            string filesRus = string.Join(";\n", fileTypes.Select(f => GetFileTypeName(f)));
+            errorMessage = $"Не хватает следующих файлов:\n{filesRus}";
+            return false;
+        }
+
+    }
+
+    private string GetFileTypeName(FileType fileType)
+    {
+        return fileType switch
+        {
+            FileType.ExplanatoryNoteWord => "Пояснительная записка (Word)",
+            FileType.ExplanatoryNotePdf => "Пояснительная записка (PDF)",
+            FileType.Presentation => "Презентация",
+            FileType.SourceCode => "Исходный код",
+            FileType.DatabaseBackup => "База данных",
+            FileType.PasswordFile => "Файл с паролями",
+            FileType.Other => "Другие файлы",
+            _ => fileType.ToString()
+        };
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        isSubmitting = true;
+        StateHasChanged();
+        Работа work = new();
+        try
+        {
+            using var context = DbFactory.CreateDbContext();
+
+            // Создаем новую работу
+            work = new()
+            {
+                Тема = WorkDto.Тема,
+                IdСтудента = WorkDto!.IdСтудента!.Value,
+                IdПреподавателя = WorkDto!.IdПреподавателя!.Value,
+                КоличСтраниц = WorkDto.КоличСтраниц,
+                IdТипаРаботы = WorkDto!.IdТипаРаботы!.Value,
+                IdСтатусаРаботы = WorkDto.IdСтатусаРаботы,
+                IdДолжности = snapshot.Teachers.First(t => t.IdПреподавателя == WorkDto!.IdПреподавателя!.Value).IdДолжности,
+                Аннотация = WorkDto.Аннотация,
+                IdДоступаРаботы = WorkDto!.IdДоступаРаботы!.Value
+            };
+
+            // Если есть файлы для загрузки
+            if (selectedFiles.Count != 0)
+            {
+                if (context.Работаs.FirstOrDefault(w => w.IdСтудента == work.IdСтудента && w.Тема == work.Тема) != default)
+                {
+                    throw new Exception("Такая работа уже существует!");
+                }
+
+                FileUploadWithHashResult? res = await UploadFiles();
+                if (res != default)
+                {
+                    work.Местоположение = res.FileResults.First().RelativeFolderPath;
+                    work.Эцп = res.HashesInfo.CompositeHash;
+
+                    context.Работаs.Add(work);
+                    await context.SaveChangesAsync();
+
+                    errorMessage = null;
+                    successMessage = "Работа успешно добавлена!";
+                    WorkDto.IdРаботы = work.IdРаботы;
+                    await SaveStateWorkDTO();
+                    StateHasChanged();
+                }
+            }
+            else
+            {
+                errorMessage = "Выберите файлы для загрузки!";
+            }
+        }
+        catch (DbUpdateException ex)
+        {
+            errorMessage = ex.InnerException?.Message ?? "";
+
+            if (errorMessage.Contains("работа_ЭЦП_key"))
+                errorMessage = "Данные файлы уже принадлежат существующей работе в архиве!";
+
+            FileUploadService.DirectoryDelete(work.Местоположение);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Ошибка добавления работы");
+            errorMessage = $"Ошибка при добавлении: {ex.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<FileUploadWithHashResult?> UploadFiles()
+    {
+        FileUploadWithHashResult? res = default;
+        try
+        {
+            token = cancelTokenSource.Token;
+            isUploading = true;
+            StateHasChanged();
+
+            // Получаем данные для формирования пути
+            var student = snapshot.Students.First(s => s.IdСтудента == WorkDto.IdСтудента);
+            var teacher = snapshot.Teachers.First(t => t.IdПреподавателя == WorkDto.IdПреподавателя);
+            var workType = snapshot.WorkTypes.First(w => w.IdТипаРаботы == WorkDto.IdТипаРаботы);
+            var institute = snapshot.Institutes.First(i => i.IdИнститута == WorkDto.IdИнститута);
+            var department = snapshot.Departments.First(d => d.IdКафедры == WorkDto.IdКафедры);
+            var ugsnStandart = snapshot.UgsnStandarts.First(d => d.IdУгснСтандарта == WorkDto.IdУгснСтандарта);
+            var direction = snapshot.Directions.First(d => d.IdНаправления == WorkDto.IdНаправления);
+            var profile = snapshot.Profiles.First(p => p.IdПрофиля == WorkDto.IdПрофиля);
+
+            WorkUploadContext uploadContext = new()
+            {
+                Institute = institute.Название,
+                Department = department.Название,
+                UgsnStandart = ugsnStandart.Название,
+                Direction = direction.Название,
+                Profile = profile.Название,
+                WorkType = workType.Название,
+                Year = WorkDto.ГодВыпуска ?? DateTime.Now.Year,
+                StudentName = studentDtoFactory.CreateDisplayDtoAsync(student).Result.ФИО,
+                WorkTitle = WorkDto.Тема,
+
+                ExplanatoryNoteWord = selectedFiles.GetValueOrDefault(FileType.ExplanatoryNoteWord)?.FirstOrDefault(),
+                ExplanatoryNotePdf = selectedFiles.GetValueOrDefault(FileType.ExplanatoryNotePdf)?.FirstOrDefault(),
+                Presentation = selectedFiles.GetValueOrDefault(FileType.Presentation)?.FirstOrDefault(),
+                SourceCodeFiles = selectedFiles.GetValueOrDefault(FileType.SourceCode) ?? Enumerable.Empty<IBrowserFile>(),
+                DatabaseBackup = selectedFiles.GetValueOrDefault(FileType.DatabaseBackup)?.FirstOrDefault(),
+                PasswordFile = selectedFiles.GetValueOrDefault(FileType.PasswordFile)?.FirstOrDefault()
+            };
+
+            uploadResult = await FileUploadService.UploadFilesWithHashAsync(uploadContext, token);
+
+            if (token.IsCancellationRequested)
+            {
+                return res;
+            }
+            // Работа уже существует. Проверяется по наличию папки работы в системе.
+            else if (uploadResult.SuccessCount == 0 && uploadResult.FileResults.Count == 1)
+            {
+                FileUploadResult file = uploadResult.FileResults.First();
+                if (file.ErrorMessage!.Contains("работа", StringComparison.OrdinalIgnoreCase))
+                {
+                    uploadResult = default;
+                    throw new Exception($"{file.ErrorMessage}");
+                }
+            }
+            else if (uploadResult.FailedCount != 0)
+            {
+                throw new Exception($"{uploadResult.FailedCount} файлов не удалось загрузить.");
+            }
+
+            res = uploadResult;
+            return res;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Ошибка загрузки файлов");
+            errorMessage = $"Ошибка при загрузке файлов: {ex.Message}";
+            throw ex;
+        }
+        finally
+        {
+            isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async void OnUploadProgressChanged(object? sender, FileUploadProgressEventArgs e)
+    {
+        await InvokeAsync(() =>
+        {
+            uploadingFile[e.FileName] = e.ProgressPercent;
+            StateHasChanged();
+        });
+    }
+
+    private void Cancel()
+    {
+        cancelTokenSource.Cancel();
+        cancelTokenSource.Dispose();
+        cancelTokenSource = new();
+    }
+
+    public void Dispose()
+    {
+        // Отписываемся от события при уничтожении компонента
+        if (FileUploadService is WorkFileUploadService workFileUploadService)
+        {
+            workFileUploadService.ProgressChanged -= OnUploadProgressChanged;
+        }
+        cancelTokenSource.Cancel();
+        cancelTokenSource.Dispose();
+    }
+}

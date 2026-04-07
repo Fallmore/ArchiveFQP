@@ -2,9 +2,11 @@ using ArchiveFqp.Client.Pages;
 using ArchiveFqp.Components;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.StateContainer;
-using ArchiveFqp.Services;
+using ArchiveFqp.Services.DatabaseNotification;
 using ArchiveFqp.Services.FileUpload;
 using ArchiveFqp.Services.Hash;
+using ArchiveFqp.Services.ReferenceData;
+using ArchiveFqp.Services.Work;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,9 +17,14 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
 
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IDatabaseNotificationService, DatabaseNotificationService>();
+builder.Services.AddSingleton<IReferenceDataService, ReferenceDataService>();
+builder.Services.AddHostedService<ReferenceDataService>();
+
 builder.Services.AddScoped<IWorkService, WorkService>();
-builder.Services.AddTransient<StateContainer>();
-builder.Services.AddScoped<StateContainer>();
+//builder.Services.AddTransient<StateContainer>();
+//builder.Services.AddScoped<StateContainer>();
 
 // Подключение к БД
 var conString = builder.Configuration.GetConnectionString("ArchiveFqpContext") ??

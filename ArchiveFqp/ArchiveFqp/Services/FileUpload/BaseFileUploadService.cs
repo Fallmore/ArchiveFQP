@@ -42,8 +42,10 @@ namespace ArchiveFqp.Services.FileUpload
             string Sanitize(string input) => string.Join("_", input.Split(Path.GetInvalidFileNameChars()));
             string Abbreviate(string input, bool withAnd = false)
                 => string.Join(string.Empty, input.Split([' ', '-'], StringSplitOptions.RemoveEmptyEntries)
-                                .Where(s => withAnd || s != "и")
-                                .Select(s => (s.Length == 8 && s.Contains('.')) ? s + " " : s[..1])).ToUpper();
+                                // Убираем частицы и, в, во, или если withAnd, то пропускаем и
+                                .Where(s => (withAnd && s == "и") || s.Length > 2)
+                                // Оставляем код направления, если это направление, а в остальных случаях пишем аббревиатуры
+                                .Select(s => (s.Length == 8 && s.Contains('.')) ? s + " " : s[..1])).ToUpper(); 
 
             var pathParts = new[]
             {
@@ -72,6 +74,32 @@ namespace ArchiveFqp.Services.FileUpload
                     _logger.LogDebug("Создана папка: {Directory}", fullPath);
             }
             return fullPath;
+        }
+
+        protected virtual bool DirectoryExists(string relativePath)
+        {
+            string fullPath = Path.Combine(_baseUploadPath, relativePath);
+            return Directory.Exists(fullPath);
+        }
+
+        /// <summary>
+        /// Удаляет папку и файлы/папки, содержащиеся в ней
+        /// </summary>
+        /// <param name="relativePath">Относительный путь к папке</param>
+        protected virtual void DirectoryDelete(string? relativePath)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath)) return;
+
+            string fullPath = Path.Combine(_baseUploadPath, relativePath);
+            if (Directory.Exists(fullPath))
+            {
+                DirectoryInfo di = new(fullPath);
+                foreach (FileInfo file in di.EnumerateFiles())
+                {
+                    file.Delete();
+                }
+                di.Delete();
+            }
         }
 
         /// <summary>

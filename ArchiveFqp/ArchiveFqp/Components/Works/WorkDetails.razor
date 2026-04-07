@@ -1,348 +1,332 @@
 ﻿@page "/works/{WorkId:int}"
+@using ArchiveFqp.Models.DTO.Attribute
+@using ArchiveFqp.Models.DTO.Teacher
+@using ArchiveFqp.Models.DTO.Work
 @using ArchiveFqp.Models.Search
-@using ArchiveFqp.Services
+@using ArchiveFqp.Services.Work
+@using ArchiveFqp.Services.ReferenceData
+@inject IReferenceDataService ReferenceDataService;
 @inject IWorkService WorkService
 
 <PageTitle>АГТУ - @(work?.Тема ?? "Детали работы")</PageTitle>
 
 <div class="container mt-4">
-	<!-- Кнопка назад -->
-	<div class="mb-3">
-		<button class="btn btn-outline-primary" onclick="history.back();">
-			<i class="bi bi-arrow-left"></i> Назад
-		</button>
-	</div>
+    <!-- Кнопка назад -->
+    <div class="mb-3">
+        <button class="btn btn-outline-primary" onclick="history.back();">
+            <i class="bi bi-arrow-left"></i> Назад
+        </button>
+    </div>
 
-	@if (isLoading)
-	{
-		<div class="text-center mt-5">
-			<div class="spinner-border text-primary" role="status">
-				<span class="visually-hidden">Загрузка...</span>
-			</div>
-			<p class="mt-2">Загрузка информации о работе...</p>
-		</div>
-	}
-	else if (work == null)
-	{
-		<div class="alert alert-warning">
-			<i class="bi bi-exclamation-triangle"></i> Работа не найдена
-		</div>
-	}
-	else
-	{
-		<!-- Заголовок с основной информацией -->
-		<div class="card mb-4 shadow-sm">
-			<div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-				<h4 class="mb-0">
-					<i class="bi bi-file-earmark-text me-2"></i>
-					@work.IdТипаРаботыNavigation.Название
-				</h4>
-				<span class="badge @GetStatusBadgeClass(work.IdСтатусаРаботыNavigation.Название) bg-opacity-75 fs-6">
-					@work.IdСтатусаРаботыNavigation.Название
-				</span>
-			</div>
-			<div class="card-body">
-				<h2 class="card-title mb-4">@work.Тема</h2>
+    @if (isLoading)
+    {
+        <div class="text-center mt-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+            <p class="mt-2">Загрузка информации о работе...</p>
+        </div>
+    }
+    else if (work == null)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i> Работа не найдена
+        </div>
+    }
+    else
+    {
+        <!-- Заголовок с основной информацией -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="bi bi-file-earmark-text me-2"></i>
+                    @displayDto.ТипРаботы
+                </h4>
+                <span class="badge @GetStatusBadgeClass(displayDto.СтатусРаботы) bg-opacity-75 fs-6">
+                    @(displayDto.СтатусРаботы)
+                </span>
+            </div>
+            <div class="card-body">
+                <h2 class="card-title mb-4">@work.Тема</h2>
 
-				<div class="row">
-					<!-- Левая колонка: основная информация -->
-					<div class="col-lg-8">
-						<!-- Информация об авторе и руководителе -->
-						<div class="row mb-4">
-							<div class="col-md-6">
-								<div class="card h-100 border-0 bg-light">
-									<div class="card-body">
-										<h5 class="card-title text-primary">
-											<i class="bi bi-person-circle me-2"></i>Студент
-										</h5>
-										@{
-											Пользователь userStudent = work.IdСтудентаNavigation.IdПользователяNavigation;
-											<p class="card-text mb-1 fs-5">
-												@($"{userStudent.Фамилия} {userStudent.Имя} {userStudent.Отчество}")
-											</p>
-										}
-									</div>
-								</div>
-							</div>
-							<div class="col-md-6">
-								<div class="card h-100 border-0 bg-light">
-									<div class="card-body">
-										<h5 class="card-title text-primary">
-											<i class="bi bi-mortarboard me-2"></i>Руководитель
-										</h5>
-										@{
-											Пользователь userTeacher = work.IdПреподавателяNavigation.IdПользователяNavigation;
-											<p class="card-text mb-1 fs-5">
-												@($"{userTeacher.Фамилия} {userTeacher.Имя} {userTeacher.Отчество}")
-											</p>
-										}
-										@if (work.IdПреподавателяNavigation.IdДолжностиNavigation != null)
-										{
-											<p class="card-text text-muted">
-												<i class="bi bi-briefcase me-1"></i>@work.IdПреподавателяNavigation.IdДолжностиNavigation.Название
-											</p>
-										}
-									</div>
-								</div>
-							</div>
-						</div>
+                <div class="row">
+                    <!-- Левая колонка: основная информация -->
+                    <div class="col-lg-8">
+                        <!-- Информация об авторе и руководителе -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card h-100 border-0 bg-light">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-primary">
+                                            <i class="bi bi-person-circle me-2"></i>Студент
+                                        </h5>
+                                        <p class="card-text mb-1 fs-5">
+                                            @(displayDto.Студент.ФИО)
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card h-100 border-0 bg-light">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-primary">
+                                            <i class="bi bi-mortarboard me-2"></i>Руководитель
+                                        </h5>
+                                        <p class="card-text mb-1 fs-5">
+                                            @(displayDto.Руководитель.ФИО)
+                                        </p>
+                                        @if (!string.IsNullOrEmpty(displayDto.Руководитель.Должность))
+                                        {
+                                            <p class="card-text text-muted">
+                                                <i class="bi bi-briefcase me-1"></i>@(displayDto.Руководитель.Должность)
+                                            </p>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-						<!--Консультанты и рецензенты-->
-						<div class="row mb-4">
-							@if (consultants?.Count != 0)
-							{
-								<div class="col-md-6">
-									<div class="card h-100 border-0 bg-light">
-										<div class="card-body">
-											<h5 class="card-title text-primary">
-												<i class="bi bi-mortarboard me-2"></i>Консультанты
-											</h5>
-											@foreach (Консультант consultant in consultants ?? [])
-											{
-												var userConsultant = consultant.IdПреподавателяNavigation.IdПользователяNavigation;
-												<p class="card-text mb-1 fs-5">
-													@($"{userConsultant.Фамилия} {userConsultant.Имя} {userConsultant.Отчество}")
-												</p>
-												@if (consultant.IdПреподавателяNavigation.IdДолжностиNavigation != null)
-												{
-													<p class="card-text text-muted">
-														<i class="bi bi-briefcase me-1"></i>@consultant.IdПреподавателяNavigation.IdДолжностиNavigation.Название
-													</p>
-												}
-											}
-										</div>
-									</div>
-								</div>
-							}
+                        <!--Консультанты и рецензенты-->
+                        <div class="row mb-4">
+                            @if (displayDto.Консультанты != null && displayDto.Консультанты.Count != 0)
+                            {
+                                <div class="col-md-6">
+                                    <div class="card h-100 border-0 bg-light">
+                                        <div class="card-body">
+                                            <h5 class="card-title text-primary">
+                                                <i class="bi bi-mortarboard me-2"></i>Консультанты
+                                            </h5>
+                                            @foreach (TeacherDisplayDto consultant in displayDto.Консультанты)
+                                            {
+                                                <p class="card-text mb-1 fs-5">
+                                                    @(consultant.ФИО)
+                                                </p>
+                                                @if (!string.IsNullOrEmpty(consultant.Должность))
+                                                {
+                                                    <p class="card-text text-muted">
+                                                        <i class="bi bi-briefcase me-1"></i>@(consultant.Должность)
+                                                    </p>
+                                                }
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
 
-							@if (reviewers?.Count != 0)
-							{
-								<div class="col-md-6">
-									<div class="card h-100 border-0 bg-light">
-										<div class="card-body">
-											<h5 class="card-title text-primary">
-												<i class="bi bi-mortarboard me-2"></i>Рецензенты
-											</h5>
-											@foreach (Рецензент reviewer in reviewers ?? [])
-											{
-												var userReviewer = reviewer.IdПреподавателяNavigation.IdПользователяNavigation;
-												<p class="card-text mb-1 fs-5">
-													@($"{userReviewer.Фамилия} {userReviewer.Имя} {userReviewer.Отчество}")
-												</p>
-												@if (reviewer.IdПреподавателяNavigation.IdДолжностиNavigation != null)
-												{
-													<p class="card-text text-muted">
-														<i class="bi bi-briefcase me-1"></i>@reviewer.IdПреподавателяNavigation.IdДолжностиNavigation.Название
-													</p>
-												}
-											}
-										</div>
-									</div>
-								</div>
-							}
-						</div>
+                            @if (displayDto.Рецензенты != null && displayDto.Рецензенты.Count != 0)
+                            {
+                                <div class="col-md-6">
+                                    <div class="card h-100 border-0 bg-light">
+                                        <div class="card-body">
+                                            <h5 class="card-title text-primary">
+                                                <i class="bi bi-mortarboard me-2"></i>Рецензенты
+                                            </h5>
+                                            @foreach (TeacherDisplayDto reviewer in displayDto.Рецензенты)
+                                            {
+                                                <p class="card-text mb-1 fs-5">
+                                                    @(reviewer.ФИО)
+                                                </p>
+                                                @if (!string.IsNullOrEmpty(reviewer.Должность))
+                                                {
+                                                    <p class="card-text text-muted">
+                                                        <i class="bi bi-briefcase me-1"></i>@(reviewer.Должность)
+                                                    </p>
+                                                }
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
 
-						<!-- Характеристики работы -->
-						<div class="card mb-4 border-0 bg-light">
-							<div class="card-body">
-								<h5 class="card-title text-primary mb-3">
-									<i class="bi bi-info-circle me-2"></i>Характеристики работы
-								</h5>
-								<div class="row">
-									<div class="col-sm-6">
-										<ul class="list-unstyled">
-											<li class="mb-2">
-												<i class="bi bi-file-text me-2 text-primary"></i>
-												<strong>Количество страниц:</strong>
-												@(work.КоличСтраниц?.ToString() ?? "Не указано")
-											</li>
-											<li class="mb-2">
-												<i class="bi bi-calendar-plus me-2 text-primary"></i>
-												<strong>Дата добавления:</strong>
-												@work.ДатаДобавления.ToString("dd.MM.yyyy")
-											</li>
-											@if (work.ДатаИзменения.HasValue)
-											{
-												<li class="mb-2">
-													<i class="bi bi-calendar-check me-2 text-primary"></i>
-													<strong>Последнее изменение:</strong>
-													@work.ДатаИзменения.Value.ToString("dd.MM.yyyy")
-												</li>
-											}
-										</ul>
-									</div>
-									<div class="col-sm-6">
-										<ul class="list-unstyled">
-											<li class="mb-2">
-												<i class="bi bi-folder me-2 text-primary"></i>
-												<strong>Тип работы:</strong>
-												@work.IdТипаРаботыNavigation.Название
-											</li>
-										</ul>
-									</div>
-								</div>
-							</div>
-						</div>
+                        <!-- Характеристики работы -->
+                        <div class="card mb-4 border-0 bg-light">
+                            <div class="card-body">
+                                <h5 class="card-title text-primary mb-3">
+                                    <i class="bi bi-info-circle me-2"></i>Характеристики работы
+                                </h5>
+                                <div class="row">
+                                    <div class="col-sm-6">
+                                        <ul class="list-unstyled">
+                                            <li class="mb-2">
+                                                <i class="bi bi-file-text me-2 text-primary"></i>
+                                                <strong>Количество страниц:</strong>
+                                                @(work.КоличСтраниц?.ToString() ?? "Не указано")
+                                            </li>
+                                            <li class="mb-2">
+                                                <i class="bi bi-calendar-plus me-2 text-primary"></i>
+                                                <strong>Дата добавления:</strong>
+                                                @work.ДатаДобавления.ToString("dd.MM.yyyy")
+                                            </li>
+                                            @if (work.ДатаИзменения.HasValue)
+                                            {
+                                                <li class="mb-2">
+                                                    <i class="bi bi-calendar-check me-2 text-primary"></i>
+                                                    <strong>Последнее изменение:</strong>
+                                                    @work.ДатаИзменения.Value.ToString("dd.MM.yyyy")
+                                                </li>
+                                            }
+                                        </ul>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <ul class="list-unstyled">
+                                            <li class="mb-2">
+                                                <i class="bi bi-folder me-2 text-primary"></i>
+                                                <strong>Тип работы:</strong>
+                                                @displayDto.ТипРаботы
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-						<!-- Аннотация -->
-						@if (!string.IsNullOrEmpty(work.Аннотация))
-						{
-							<div class="card mb-4 border-0 bg-light">
-								<div class="card-body">
-									<h5 class="card-title text-primary mb-3">
-										<i class="bi bi-info-circle me-2"></i>Аннотация
-									</h5>
-									@work.Аннотация
-								</div>
-							</div>
-						}
+                        <!-- Аннотация -->
+                        @if (!string.IsNullOrEmpty(work.Аннотация))
+                        {
+                            <div class="card mb-4 border-0 bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title text-primary mb-3">
+                                        <i class="bi bi-info-circle me-2"></i>Аннотация
+                                    </h5>
+                                    @work.Аннотация
+                                </div>
+                            </div>
+                        }
 
-						<!-- Атрибуты работы -->
-						@if (workAttributes != null && workAttributes.Any())
-						{
-							<div class="card mb-4 border-0 bg-light">
-								<div class="card-body">
-									<h5 class="card-title text-primary mb-3">
-										<i class="bi bi-tags me-2"></i>Атрибуты работы
-									</h5>
-									<div class="row">
-										@foreach (var attr in workAttributes)
-										{
-											<div class="col-md-6 mb-2">
-												<div class="d-flex align-items-center">
-													<span class="badge bg-secondary me-2">@attr.Key</span>
-													<span>@attr.Value</span>
-												</div>
-											</div>
-										}
-									</div>
-								</div>
-							</div>
-						}
-					</div>
+                        <!-- Атрибуты работы -->
+                        @if (workAttributes != null && workAttributes.Any())
+                        {
+                            <div class="card mb-4 border-0 bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title text-primary mb-3">
+                                        <i class="bi bi-tags me-2"></i>Атрибуты работы
+                                    </h5>
+                                    <div class="row">
+                                        @foreach (var attr in workAttributes)
+                                        {
+                                            <div class="col-md-6 mb-2">
+                                                <div class="d-flex align-items-center">
+                                                    <span class="badge bg-secondary me-2">@attr.Название</span>
+                                                    <span>@attr.Данные</span>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
 
-					<!-- Правая колонка: дополнительная информация -->
-					<div class="col-lg-4">
-						<!-- Информация о направлении/кафедре и т.д. -->
-						@if (work.IdСтудентаNavigation != null)
-						{
-							var direction = work.IdСтудентаNavigation.IdНаправленияNavigation;
-							<div class="card mb-4 border-0 bg-light">
-								<div class="card-body">
-									<h5 class="card-title text-primary mb-3">
-										<i class="bi bi-building me-2"></i>Образовательная программа
-									</h5>
-									<p class="mb-1">
-										<strong>Институт:</strong><br>
-										@work.IdСтудентаNavigation.IdИнститутаNavigation.Название
-									</p>
-									@if (direction.IdКафедрыNavigation.IdУгснNavigation != null)
-									{
-										<p class="mb-1">
-											<strong>Стандарт УГСН:</strong><br>
-											@direction.IdКафедрыNavigation.IdУгснNavigation.IdУгснСтандартаNavigation.Название
-										</p>
-										<p class="mb-1">
-											<strong>УГСН:</strong><br>
-											@direction.IdКафедрыNavigation.IdУгснNavigation.Название
-										</p>
-									}
-									<p class="mb-1">
-										<strong>Кафедра:</strong><br>
-										@direction.IdКафедрыNavigation.Название
-									</p>
-									<p class="mb-0">
-										<strong>Направление:</strong><br>
-										@direction.Название
-									</p>
-									@if (work.IdСтудентаNavigation.IdПрофиляNavigation != null)
-									{
-										<p class="mb-1">
-											<strong>Профиль:</strong><br>
-											@work.IdСтудентаNavigation.IdПрофиляNavigation.Название
-										</p>
-									}
-									<p class="mb-1">
-										<strong>Уровень образования:</strong><br>
-										@work.IdСтудентаNavigation.IdУровняОбразованияNavigation.Название
-									</p>
-									<p class="mb-1">
-										<strong>Форма образования:</strong><br>
-										@work.IdСтудентаNavigation.IdФормыОбученияNavigation.Название
-									</p>
-								</div>
-							</div>
-						}
-					</div>
-				</div>
-			</div>
-			<div class="card-footer text-muted">
-				<small>
-					<i class="bi bi-clock"></i>
-					Последнее обновление: @DateTime.Now.ToString("dd.MM.yyyy HH:mm")
-				</small>
-			</div>
-		</div>
-	}
+                    <!-- Правая колонка: дополнительная информация -->
+                    <div class="col-lg-4">
+                        <!-- Информация о направлении/кафедре и т.д. -->
+                        @{
+                            <div class="card mb-4 border-0 bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title text-primary mb-3">
+                                        <i class="bi bi-building me-2"></i>Образовательная программа
+                                    </h5>
+                                    <p class="mb-1">
+                                        <strong>Институт:</strong><br>
+                                        @displayDto.Студент.Институт
+                                    </p>
+                                    <p class="mb-1">
+                                        <strong>Стандарт УГСН:</strong><br>
+                                        @(displayDto.Студент.УгснСтандарт)
+                                    </p>
+                                    <p class="mb-1">
+                                        <strong>УГСН:</strong><br>
+                                        @(displayDto.Студент.Угсн)
+                                    </p>
+                                    <p class="mb-1">
+                                        <strong>Кафедра:</strong><br>
+                                        @(displayDto.Студент.Кафедра)
+                                    </p>
+                                    <p class="mb-0">
+                                        <strong>Направление:</strong><br>
+                                        @(displayDto.Студент.Направление)
+                                    </p>
+                                    @if (!string.IsNullOrEmpty(displayDto.Студент.Профиль))
+                                    {
+                                        <p class="mb-1">
+                                            <strong>Профиль:</strong><br>
+                                            @(displayDto.Студент.Профиль)
+                                        </p>
+                                    }
+                                    <p class="mb-1">
+                                        <strong>Уровень образования:</strong><br>
+                                        @(displayDto.Студент.УровеньОбразования)
+                                    </p>
+                                    <p class="mb-1">
+                                        <strong>Форма образования:</strong><br>
+                                        @(displayDto.Студент.ФормаОбучения)
+                                    </p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
-	[Parameter]
-	public int? WorkId { get; set; }
-	public Dictionary<string, string>? workAttributes { get; set; }
-	public Работа? work { get; set; }
-	private List<ВыдачаРаботы>? issuances;
-	List<Консультант>? consultants;
-	List<Рецензент>? reviewers;
-	private bool isLoading = true;
+    [Parameter]
+    public int? WorkId { get; set; }
+    private List<AttributeDto>? workAttributes;
+    private Работа? work;
+    private WorkDisplayDto displayDto = new();
+    private List<ВыдачаРаботы>? issuances;
 
-	protected override async Task OnInitializedAsync()
-	{
-		await LoadWorkDetails();
-	}
+    private bool isLoading = true;
 
-	private async Task LoadWorkDetails()
-	{
-		isLoading = true;
-		StateHasChanged();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkDetails();
+    }
 
-		try
-		{
-			WorkSearchModel wsm = new();
-			wsm.WorkId = WorkId ?? -1;
+    private async Task LoadWorkDetails()
+    {
+        isLoading = true;
+        StateHasChanged();
+        try
+        {
+            WorkSearchModel wsm = new();
+            wsm.WorkId = WorkId ?? -1;
 
-			// Загружаем работу со всеми связанными данными
-			work = (await WorkService.SearchWorksAsync(wsm)).Items.FirstOrDefault();
+            // Загружаем работу со всеми связанными данными
+            work = (await WorkService.SearchWorksAsync(wsm)).Items.FirstOrDefault();
 
-			if (work != null)
-			{
-				// Загружаем атрибуты работы
-				workAttributes = (await WorkService.GetWorksAttributesAsync(new List<Работа> { work })).FirstOrDefault().Value;
+            if (work != null)
+            {
+                // Загружаем атрибуты работы
+                workAttributes = (await WorkService.GetWorksAttributesAsync(new List<Работа> { work })).FirstOrDefault().Value;
 
-				// Загружаем историю выдач
-				issuances = work.ВыдачаРаботыs.ToList();
+                // Загружаем историю выдач
+                issuances = work.ВыдачаРаботыs.ToList();
 
-				consultants = await WorkService.GetConsultantsAsync(work);
-				reviewers = await WorkService.GetReviewersAsync(work);
-			}
-		}
-		finally
-		{
-			isLoading = false;
-			StateHasChanged();
-		}
-	}
+                displayDto = await WorkService.GetWorkDisplayAsync(work);
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
 
-	private string GetStatusBadgeClass(string status)
-	{
-		return status.ToLower() switch
-		{
-			"завершена" or "опубликована" => "bg-success",
-			"в работе" or "в обработке" => "bg-warning text-dark",
-			"на проверке" or "на рецензии" => "bg-info",
-			"отклонена" or "возвращена" => "bg-danger",
-			"черновик" => "bg-secondary",
-			_ => "bg-primary"
-		};
-	}
+    private string GetStatusBadgeClass(string status)
+    {
+        return status.ToLower() switch
+        {
+            "завершена" or "опубликована" => "bg-success",
+            "в работе" or "в обработке" => "bg-warning text-dark",
+            "на проверке" or "на рецензии" => "bg-info",
+            "отклонена" or "возвращена" => "bg-danger",
+            "черновик" => "bg-secondary",
+            _ => "bg-primary"
+        };
+    }
 }

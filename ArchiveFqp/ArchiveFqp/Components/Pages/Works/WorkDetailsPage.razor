@@ -1,0 +1,7 @@
+﻿@page "/works/{WorkId:int}"
+
+<WorkDetails WorkId="WorkId" ShowBackButton="true" @key="WorkId" />
+
+@code {
+    [Parameter] public int? WorkId { get; set; }
+}

@@ -2,18 +2,22 @@
 @using ArchiveFqp.Models.DTO.Work
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject ProtectedLocalStorage ProtectedSessionStore
-@* @rendermode @(new InteractiveServerRenderMode(prerender: false)) *@
+@rendermode @(new InteractiveServerRenderMode(prerender: true))
 
 <PageTitle>АГТУ - Добавление работы</PageTitle>
 
-<WorkAddOne UpdateSessionStore="false"
-            SessionStoreNameWorkDTO="@sessionStoreNameWorkDTOSingle"
-            @bind-WorkDto="@workDto" 
-            @bind-WorkDto:after="OnWorkDTOChanged" />
+@if (RendererInfo.IsInteractive)
+{
+    <WorkAddOne UpdateSessionStore="false"
+                SessionStoreNameWorkDTO="@sessionStoreNameWorkDTOSingle"
+                @bind-WorkDto="@workDto"
+                @bind-WorkDto:after="OnWorkDTOChanged" />
+}
 
 @code {
     private WorkCreateDto workDto = new();
-    private string sessionStoreNameWorkDTO = "workDTO";
+    //private string sessionStoreNameWorkDTO = "workDTO"; 
+    // TODO: реализовать WorkAddMultiple
     private string sessionStoreNameWorkDTOSingle = "workDTOSingle";
 
     private async Task OnWorkDTOChanged()
@@ -21,6 +25,8 @@
         if (workDto.AttributesValuesAdded)
         {
             await ProtectedSessionStore.DeleteAsync(sessionStoreNameWorkDTOSingle);
+            workDto = new();
+            StateHasChanged();
         }
 
     }

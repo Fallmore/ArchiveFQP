@@ -24,7 +24,7 @@ namespace ArchiveFqp.Services.ReferenceData
         private readonly ILogger<ReferenceDataService> _logger;
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
         private static readonly string s_cacheAllDataName = "all_reference_data";
-        private static readonly string s_cacheAttributeValues = "ref_attribute_values";
+        private static readonly string s_cacheAttributeValues = "ref_dict_attribute_values";
 
         public event EventHandler<List<string>>? TablesChanged;
 
@@ -36,18 +36,12 @@ namespace ArchiveFqp.Services.ReferenceData
         /// <summary>
         /// Таблицы, входящие в общий кэш. <br/> Названия таблиц имеют стиль snake_case
         /// </summary>
-        public List<string> TablesInSnapshot = [
-            "атрибут", "атрибут_учреждения", "атрибут_института", "атрибут_кафедры",
-                "атрибут_направления", "атрибут_профиля", "должность", "доступ_работы",
-                "институт", "кафедра", "консультант", "направление",
-                "преподаватель", "профиль", "рецензент", "роль_пользователя",
-                "статус_работы", "студент", "тип_работы", "угсн",
-                "угсн_стандарт", "уровень_образования", "форма_обучения"];
+        public List<string> TablesInSnapshot = GetTablesName(ReferenceDataSnapshot.GetStaticTableNames());
 
         /// <summary>
         /// Таблицы, не входящие в общий кэш. <br/> Названия таблиц имеют стиль snake_case
         /// </summary>
-        public List<string> TablesSeparated { get; set; } = ["пользователь"];
+        public List<string> TablesSeparated { get; set; } = ["пользователь", "выдача_работы", "статус_выдачи", "работа"];
 
         /// <summary>
         /// Таблицы, от которых наследуются другие таблицы
@@ -93,22 +87,21 @@ namespace ArchiveFqp.Services.ReferenceData
             {
                 await _notificationService.SubscribeAsync(tableNames, async (changeEvent) =>
                 {
-                    _logger.LogInformation("Таблица {TableName} изменена: {ChangeType}", changeEvent.TableName, changeEvent.ChangeType);
+                    _logger.LogInformation("[{Time}] Таблица {TableName} изменена: {ChangeType}",
+                        DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"), changeEvent.TableName, changeEvent.ChangeType);
 
-                    if (!TablesAttributeValues.Contains(changeEvent.TableName))
-                    {
-                        // Определяем класс таблицы по имени и вызываем обновление этой таблицы
-                        Type type = Type.GetType(GetTableClassFullName(changeEvent.TableName))!;
-                        MethodInfo? method = typeof(ReferenceDataService).GetMethod(nameof(UpdateSingleTableAsync));
-                        MethodInfo? genericMethod = method?.MakeGenericMethod(type);
-                        await (Task)genericMethod?.Invoke(this, [false])!;
-                    }
-                    else
+                    // Определяем класс таблицы по имени и вызываем обновление этой таблицы
+                    Type type = Type.GetType(GetTableClassFullName(changeEvent.TableName))!;
+                    MethodInfo? method = typeof(ReferenceDataService).GetMethod(nameof(UpdateSingleTableAsync));
+                    MethodInfo? genericMethod = method?.MakeGenericMethod(type);
+                    await (Task)genericMethod?.Invoke(this, [false, false])!;
+
+                    if (TablesAttributeValues.Contains(changeEvent.TableName))
                     {
                         await UpdateAttributeValuesAsync();
                     }
 
-                    OnTablesChanged([changeEvent.TableName]);
+                    OnTablesChanged([GetTableClassName(changeEvent.TableName)]);
 
                     // В итоге обновляем всю таблицу, а не измененную запись.
                     // Если обновление всей таблицы будет дорогой операцией для вас,
@@ -147,6 +140,18 @@ namespace ArchiveFqp.Services.ReferenceData
 
         [GeneratedRegex(@"[A-Z]|[А-Я]")]
         private static partial Regex UpperSymbols();
+
+        /// <summary>
+        /// CamelCase в snake_case
+        /// </summary>
+        /// <param name="tableNames"></param>
+        /// <returns></returns>
+        public static List<string> GetTablesName(List<string> tableNames)
+        {
+            return tableNames
+                .Select(n => UpperSymbols().Replace(n, m => m.Index == 0 ? m.Value.ToLower() : $"_{m.Value.ToLower()}"))
+                .ToList();
+        }
 
         /// <summary>
         /// snake_case в CamelCase
@@ -246,13 +251,19 @@ namespace ArchiveFqp.Services.ReferenceData
                     return;
                 }
 
-                _logger.LogInformation("Обновление всех данных из БД в кэш");
+                _logger.LogInformation("[{Time}] Обновление всех данных из БД в кэш",
+                    DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"));
 
                 using ArchiveFqpContext context = _dbFactory.CreateDbContext();
 
                 snapshot = new ReferenceDataSnapshot
                 {
                     Attributes = await context.Атрибутs.ToListAsync(),
+                    AttributesOrganization = await context.АтрибутУчрежденияs.ToListAsync(),
+                    AttributesInstitute = await context.АтрибутИнститутаs.ToListAsync(),
+                    AttributesDepartment = await context.АтрибутКафедрыs.ToListAsync(),
+                    AttributesDirection = await context.АтрибутНаправленияs.ToListAsync(),
+                    AttributesProfile = await context.АтрибутПрофиляs.ToListAsync(),
                     Posts = await context.Должностьs.ToListAsync(),
                     WorkAccess = await context.ДоступРаботыs.ToListAsync(),
                     Institutes = await context.Институтs.ToListAsync(),
@@ -300,7 +311,8 @@ namespace ArchiveFqp.Services.ReferenceData
             await semaphore.WaitAsync();
             try
             {
-                _logger.LogInformation("Загрузка данных {TableName} из БД", tableName);
+                _logger.LogInformation("[{Time}] Загрузка данных {TableName} из БД",
+                    DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"), tableName);
 
                 using ArchiveFqpContext? context = _dbFactory.CreateDbContext();
                 List<T> data = await LoadTableData<T>(context, onlyParentData);
@@ -309,7 +321,8 @@ namespace ArchiveFqp.Services.ReferenceData
                 {
                     Priority = CacheItemPriority.NeverRemove
                 });
-                _logger.LogInformation("Обновлены данные таблицы: {TableName}", tableName);
+                _logger.LogInformation("[{Time}] Обновлены данные таблицы: {TableName}",
+                    DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"), tableName);
             }
             finally
             {
@@ -349,7 +362,8 @@ namespace ArchiveFqp.Services.ReferenceData
                 {
                     Priority = CacheItemPriority.NeverRemove
                 });
-                _logger.LogInformation("Обновлены данные таблицы общего кэша: {TableName}", tableName);
+                _logger.LogInformation("[{Time}] Обновлены данные таблицы общего кэша: {TableName}",
+                    DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"), tableName);
             }
             finally
             {
@@ -365,25 +379,26 @@ namespace ArchiveFqp.Services.ReferenceData
             {
                 using ArchiveFqpContext context = _dbFactory.CreateDbContext();
 
-                var query = from data in context.ДанныеПоАтрибs
-                            join attrStruct in context.АтрибутУчрежденияs
+                var query = from data in (await GetAsync<ДанныеПоАтриб>(false, false))
+                            join attrStruct in (await GetAsync<АтрибутУчреждения>(false, false))
                                 on data.IdСтруктуры equals attrStruct.IdСтруктуры
                             select new { attrStruct.IdАтрибута, data.Данные };
 
-                List<AttributeValuesDto> attributeValues = await query
+                List<AttributeValuesDto> attributeValues = query
                     .GroupBy(x => x.IdАтрибута)
                     .Select(g => new AttributeValuesDto
                     {
                         IdАтрибута = g.Key,
                         Данные = g.Select(x => x.Данные).Distinct().ToList()
-                    }).ToListAsync();
+                    }).ToList();
 
                 _cache.Set(s_cacheAttributeValues, attributeValues, new MemoryCacheEntryOptions
                 {
                     Priority = CacheItemPriority.NeverRemove
                 });
 
-                _logger.LogInformation("Обновлены данные кэша атрибута-значений");
+                _logger.LogInformation("[{Time}] Обновлены данные кэша атрибута-значений",
+                    DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"));
             }
             finally
             {

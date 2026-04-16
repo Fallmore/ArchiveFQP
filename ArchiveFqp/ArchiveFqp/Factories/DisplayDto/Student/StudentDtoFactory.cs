@@ -22,10 +22,12 @@ namespace ArchiveFqp.Factories.DisplayDto.Student
         private List<УровеньОбразования> _levelEducations = [];
         private List<ФормаОбучения> _formEducations = [];
 
+        private Task _init;
+
         public StudentDtoFactory(IReferenceDataService refDataService)
         {
             _refDataService = refDataService;
-            _ = InitializeLists();
+            _init = Task.Run(InitializeLists);
         }
 
         private async Task InitializeLists()
@@ -43,6 +45,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Student
 
         public async Task<StudentDisplayDto> CreateDisplayDtoAsync(Студент student)
         {
+            _init.Wait();
             Кафедра кафедра = _departments.First(o => o.IdИнститута == student.IdИнститута);
             Угсн угсн = _ugsns.First(o => o.IdУгсн == кафедра.IdУгсн);
 
@@ -63,6 +66,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Student
 
         public async Task<StudentDisplayDto?> CreateDisplayDtoAsync(int id)
         {
+            _init.Wait();
             if (_students.Count == 0) _students = await _refDataService.GetAsync<Студент>();
             Студент? student = _students.FirstOrDefault(o => o.IdСтудента == id);
             if (student == null) return null;

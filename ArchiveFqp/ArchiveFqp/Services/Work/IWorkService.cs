@@ -1,6 +1,7 @@
 ﻿using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Attribute;
 using ArchiveFqp.Models.DTO.Work;
+using ArchiveFqp.Models.DTO.WorkApplication;
 using ArchiveFqp.Models.Search;
 
 namespace ArchiveFqp.Services.Work
@@ -10,39 +11,49 @@ namespace ArchiveFqp.Services.Work
     /// </summary>
     public interface IWorkService
 	{
-		/// <summary>
-		/// Значения атрибутов, которые не надо выбирать
-		/// </summary>
-		public readonly static List<string> AbandonedValues = ["Н/Д", "Ожидание поиска..."];
-
-        /// <summary>
-        /// Работы, являющиеся дипломными
-        /// </summary>
-        public readonly static List<string> FqpWorks = ["ВКРБ", "МД"];
-
-        /// <summary>
-        /// Работы, имеющие консультантов и рецензентов
-        /// </summary>
-        public readonly static List<string> FqpWorksWithCR = ["МД"];
-
-        /// <summary>
+                /// <summary>
         /// Поиск работ
         /// </summary>
         /// <param name="searchModel">Параметры поиска</param>
         /// <returns></returns>
-        Task<PaginatedResult<Работа>> SearchWorksAsync(WorkSearchModel searchModel);
+        Task<PaginatedResult<Работа>> FindWorksAsync(WorkSearchModel searchModel);
 
-		/// <summary>
-		/// Получение справочника типов работ
+        /// <summary>
+		/// Получение всех работ
 		/// </summary>
 		/// <returns></returns>
-		Task<List<ТипРаботы>> GetWorkTypesAsync();
+		Task<List<Работа>> GetWorksAsync();
 
-		/// <summary>
-		/// Получение справочника статусов работ
+        /// <summary>
+		/// Получение работы по id
+		/// </summary>
+		/// <param name="idWork"></param>
+		/// <returns></returns>
+		Task<Работа?> GetWorkAsync(int idWork);
+
+        /// <summary>
+        /// Получение справочника типов работ
+        /// </summary>
+        /// <returns></returns>
+        Task<List<ТипРаботы>> GetWorkTypesAsync();
+
+        /// <summary>
+		/// Получение списка выдачи работ
 		/// </summary>
 		/// <returns></returns>
-		Task<List<СтатусРаботы>> GetWorkStatusesAsync();
+		Task<List<ВыдачаРаботы>> GetWorkApplicationsAsync();
+
+        /// <summary>
+		/// Получение справочника статусов выдачи работ
+		/// </summary>
+		/// <returns></returns>
+		Task<List<СтатусВыдачи>> GetWorkApplicationsStatusesAsync();
+
+        /// <summary>
+        /// Получение справочника статусов работ
+        /// </summary>
+        /// <returns></returns>
+        Task<List<СтатусРаботы>> GetWorkStatusesAsync();
 
 		/// <summary>
 		/// Получение студентов, имеющие работы
@@ -108,7 +119,29 @@ namespace ArchiveFqp.Services.Work
         /// <returns>Словарь idРаботы-(Список атрибутDTO)</returns>
         Task<Dictionary<int, List<AttributeDto>>> GetWorksAttributesAsync(List<Работа> works, List<string>? abandonedValues = null);
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="work"></param>
+        /// <param name="consultants"></param>
+        /// <param name="reviewers"></param>
+        /// <returns></returns>
         Task<WorkDisplayDto> GetWorkDisplayAsync(Работа work, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null);
+        
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="idWork"></param>
+        /// <param name="consultants"></param>
+        /// <param name="reviewers"></param>
+        /// <returns></returns>
+        Task<WorkDisplayDto> GetWorkDisplayAsync(int idWork, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null);
+
+        /// <summary>
+        /// Получение выдачи работы
+        /// </summary>
+        /// <returns></returns>
+        Task<WorkApplicationDto> GetWorkApplicationAsync(ВыдачаРаботы app, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null);
 
         /// <summary>
         /// В зависимости от типа работы возвращает год
@@ -163,6 +196,8 @@ namespace ArchiveFqp.Services.Work
         /// <returns><c>true</c>, если все данные найдены,
         /// <br><c>false</c> - в обратном случае или если нет ID </br></returns>
         bool SetDepartment(WorkCreateDto work, int? idDepartment);
+
+        Task<bool> UpdateStatusAsync(int idWork, int idStatus);
     }
 
 }

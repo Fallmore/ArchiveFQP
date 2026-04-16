@@ -13,6 +13,8 @@ public partial class ВыдачаРаботы
 
     public string Цель { get; set; } = null!;
 
+    public int IdСтатусаВыдачи { get; set; }
+
     public DateTime ДатаПоступления { get; set; }
 
     public DateTime ДатаВозврПоЗаявл { get; set; }
@@ -26,4 +28,6 @@ public partial class ВыдачаРаботы
     public virtual Пользователь IdПользователяNavigation { get; set; } = null!;
 
     public virtual Работа IdРаботыNavigation { get; set; } = null!;
+
+    public virtual СтатусВыдачи IdСтатусВыдачиNavigation { get; set; } = null!;
 }

@@ -39,6 +39,18 @@ namespace ArchiveFqp.Services.ReferenceData
             return (DateTime.Now - LastUpdated).TotalMinutes > 30; // Обновляем каждые 30 минут
         }
 
+        public static List<string> GetStaticTableNames()
+        {
+            return typeof(ReferenceDataSnapshot)
+                .GetProperties()
+                .Where(p => p.PropertyType.IsGenericType &&
+                           p.PropertyType.GetGenericTypeDefinition() == typeof(List<>))
+                .Select(p => p.PropertyType.GenericTypeArguments[0].Name)
+                .ToList();
+        }
+
+        // Не забудьте обновлять этот метод при добавлении новых таблиц в ReferenceDataSnapshot,
+        // а также в ReferenceDataService.cs:RefreshReferenceDataSnapshot()
         public List<T> GetTable<T>() where T : class
         {
             return typeof(T).Name switch
@@ -70,6 +82,8 @@ namespace ArchiveFqp.Services.ReferenceData
             };
         }
 
+        // Не забудьте обновлять этот метод при добавлении новых таблиц в ReferenceDataSnapshot
+        // а также в ReferenceDataService.cs:RefreshReferenceDataSnapshot()
         public void SetTable<T>(List<T> table) where T : class
         {
             switch (typeof(T).Name)

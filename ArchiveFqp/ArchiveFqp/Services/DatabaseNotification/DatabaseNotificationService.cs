@@ -209,8 +209,8 @@ namespace ArchiveFqp.Services.DatabaseNotification
 
         private void OnNotification(object sender, NpgsqlNotificationEventArgs e)
         {
-            _logger.LogDebug("Получено уведомление: Channel={Channel}, Payload={Payload}",
-                e.Channel, e.Payload);
+            _logger.LogDebug("[{Time}] Получено уведомление: Channel={Channel}, Payload={Payload}",
+                DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"), e.Channel, e.Payload);
 
             if (!_handlers.TryGetValue(e.Channel, out List<Action<TableChangeEvent>>? handlers))
             {

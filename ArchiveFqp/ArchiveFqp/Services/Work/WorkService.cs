@@ -1,8 +1,11 @@
 ﻿using ArchiveFqp.Factories.DisplayDto.Work;
+using ArchiveFqp.Factories.DisplayDto.WorkApplication;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Attribute;
 using ArchiveFqp.Models.DTO.Work;
+using ArchiveFqp.Models.DTO.WorkApplication;
 using ArchiveFqp.Models.Search;
+using ArchiveFqp.Models.Settings.SettingsArchive;
 using ArchiveFqp.Services.ReferenceData;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -17,6 +20,7 @@ namespace ArchiveFqp.Services.Work
     {
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
         private readonly IReferenceDataService _refDataService;
+        private readonly SettingsArchive _settings;
 
         // Настройка сериалайзера для кириллицы
         private readonly JsonSerializerOptions _options = new()
@@ -25,13 +29,15 @@ namespace ArchiveFqp.Services.Work
             WriteIndented = true
         };
 
-        public WorkService(IDbContextFactory<ArchiveFqpContext> dbFactory, IReferenceDataService referenceDataService)
+        public WorkService(IDbContextFactory<ArchiveFqpContext> dbFactory, 
+            IReferenceDataService referenceDataService, SettingsArchive settings)
         {
             _dbFactory = dbFactory;
             _refDataService = referenceDataService;
+            _settings = settings;
         }
 
-        public async Task<PaginatedResult<Работа>> SearchWorksAsync(WorkSearchModel searchModel)
+        public async Task<PaginatedResult<Работа>> FindWorksAsync(WorkSearchModel searchModel)
         {
             using ArchiveFqpContext context = _dbFactory.CreateDbContext();
 
@@ -155,7 +161,7 @@ namespace ArchiveFqp.Services.Work
             using ArchiveFqpContext? context = _dbFactory.CreateDbContext();
 
             attrs ??= await _refDataService.GetAsync<Атрибут>();
-            abandonedValues ??= IWorkService.AbandonedValues;
+            abandonedValues ??= _settings.AttributesAbandonedValues;
 
             List<AttributeValuesDto> avDto = await _refDataService.GetAsync<AttributeValuesDto>();
             avDto.ForEach(av => av.Данные.RemoveAll(x => abandonedValues.Contains(x)));
@@ -179,15 +185,23 @@ namespace ArchiveFqp.Services.Work
             Dictionary<int, List<AttributeDto>> result = [];
 
             if (works.Count == 0) return result;
-            if (abandonedValues == default) abandonedValues = IWorkService.AbandonedValues;
+            if (abandonedValues == default) abandonedValues = _settings.AttributesAbandonedValues;
 
-            using ArchiveFqpContext? context = _dbFactory.CreateDbContext();
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
 
             List<int> workIds = works.Select(w => w.IdРаботы).ToList();
             List<Атрибут> attributes = await _refDataService.GetAsync<Атрибут>();
 
+            var f = await _refDataService.GetAsync<АтрибутУчреждения>();
+            var d = await _refDataService.GetAsync<ДанныеПоАтриб>();
+            var s = (await _refDataService.GetAsync<АтрибутУчреждения>())
+                .Join(await _refDataService.GetAsync<ДанныеПоАтриб>(), a => a.IdСтруктуры, d => d.IdСтруктуры,
+                    (a, d) => new AttributeDto(
+                        a.IdАтрибута, d.IdДанных,
+                        d.IdСтруктуры, d.IdРаботы,
+                        attributes.First(atr => atr.IdАтрибута == a.IdАтрибута).Название, d.Данные));
             List<AttributeDto> data = (await _refDataService.GetAsync<АтрибутУчреждения>())
-                .Join(context.ДанныеПоАтрибs, a => a.IdСтруктуры, d => d.IdСтруктуры,
+                .Join(await _refDataService.GetAsync<ДанныеПоАтриб>(), a => a.IdСтруктуры, d => d.IdСтруктуры,
                     (a, d) => new AttributeDto(
                         a.IdАтрибута, d.IdДанных,
                         d.IdСтруктуры, d.IdРаботы,
@@ -215,6 +229,21 @@ namespace ArchiveFqp.Services.Work
             reviewers ??= await GetReviewersAsync(work);
             WorkDtoFactory factory = new(_dbFactory, _refDataService);
             return await factory.CreateDisplayDtoAsync(work, consultants, reviewers);
+        }
+
+        public async Task<WorkDisplayDto> GetWorkDisplayAsync(int idWork, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null)
+        {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+            Работа? work = (await _refDataService.GetAsync<Работа>()).FirstOrDefault(w => w.IdРаботы == idWork);
+            if (work == null) return new();
+            return await GetWorkDisplayAsync(work, consultants, reviewers);
+        }
+
+        public async Task<WorkApplicationDto> GetWorkApplicationAsync(ВыдачаРаботы app, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null)
+        {
+            WorkDisplayDto work = await GetWorkDisplayAsync(app.IdРаботы);
+            WorkApplicationDtoFactory factory = new(_dbFactory, _refDataService);
+            return await factory.CreateDisplayDtoAsync(app, work);
         }
 
         public bool SetStudent(WorkCreateDto work, int? idStudent)
@@ -374,7 +403,7 @@ namespace ArchiveFqp.Services.Work
             string workType = GetWorkTypesAsync().Result
                 .First(t => t.IdТипаРаботы == work.IdТипаРаботы).Название;
 
-            if (IWorkService.FqpWorks.Contains(workType))
+            if (_settings.FqpWorks.Contains(workType))
             {
                 int dateGraduation = GetStudentsAsync().Result
                 .First(s => s.IdСтудента == work.IdСтудента).ГодОкончания;
@@ -386,10 +415,41 @@ namespace ArchiveFqp.Services.Work
 
         public int PickDateWork(WorkDisplayDto work)
         {
-            if (IWorkService.FqpWorks.Contains(work.ТипРаботы))
+            if (_settings.FqpWorks.Contains(work.ТипРаботы))
                 return work.Студент.ГодОкончания;
 
             return work.ДатаДобавления.Year;
+        }
+
+        public async Task<List<ВыдачаРаботы>> GetWorkApplicationsAsync()
+        {
+            return await _refDataService.GetAsync<ВыдачаРаботы>();
+        }
+
+        public async Task<List<СтатусВыдачи>> GetWorkApplicationsStatusesAsync()
+        {
+            return await _refDataService.GetAsync<СтатусВыдачи>();
+        }
+
+        public async Task<bool> UpdateStatusAsync(int idWork, int idStatus)
+        {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+            Работа? work = context.Работаs.Find(idWork);
+            if (work == null) return false;
+            
+            work.IdСтатусаРаботы = idStatus;
+            await context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<List<Работа>> GetWorksAsync()
+        {
+            return await _refDataService.GetAsync<Работа>();
+        }
+
+        public async Task<Работа?> GetWorkAsync(int idWork)
+        {
+            return (await GetWorksAsync()).FirstOrDefault(w => w.IdРаботы == idWork);
         }
     }
 

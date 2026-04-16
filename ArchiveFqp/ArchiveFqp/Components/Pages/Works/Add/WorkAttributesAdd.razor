@@ -1,4 +1,5 @@
 ﻿@using ArchiveFqp.Models.DTO.Attribute
+@using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Services
 @using ArchiveFqp.Services.Work
 @using Microsoft.EntityFrameworkCore
@@ -7,6 +8,7 @@
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject IWorkService WorkService
 @inject ILogger<WorkAdd> Logger
+@inject SettingsArchive Settings
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 @if (errorMessage != null && successMessage == null)
@@ -22,31 +24,28 @@
     <div class="alert alert-success">@successMessage</div>
 }
 
-<EditForm Model="@Attributes" OnValidSubmit="@HandleValidSubmit" FormName="workAttributesAdd">
+<EditForm EditContext="@editContext" OnValidSubmit="@HandleValidSubmit" FormName="workAttributesAdd" @onsubmit:preventDefault="true">
     <div class="card mb-2">
         <div class="card-body">
             <div class="row">
                 @for (int i = 0; i < Attributes.Count; i++)
                 {
                     int index = i;
-                    AttributeDto attribute = Attributes[index];
                     <div class="col-md-6 mb-2">
                         <div class="form-check">
                             <label class="form-check-label mb-0 fw-bold">
-                                @(attribute.Название)
+                                @(Attributes[index].Название)
                             </label>
                         </div>
 
                         <SearchableSelect TItem="string"
                                           TValue="string"
-                                          Items="attributeValues.First(av => av.IdАтрибута == attribute.IdАтрибута).Данные"
-                                          TextSelector="@((s) => s)"
-                                          ValueSelector="@(s => s)"
+                                          Items="@(attributeValues.First(av => av.IdАтрибута == Attributes[index].IdАтрибута).Данные.Prepend(Settings.AttributesValueNone).ToList())"
                                           Placeholder="Выберите или введите данные атрибута..."
                                           IsInvalid="@(string.IsNullOrWhiteSpace(Attributes[index].Данные))"
                                           SelectedValue="@(Attributes[index].Данные)"
-                                          SelectedValueChanged="@(async (s) => {Attributes[index].Данные = s; await AttributesChanged.InvokeAsync(Attributes);})"
-                                          OnCustomValue="@(async (s) => {Attributes[index].Данные = s; await AttributesChanged.InvokeAsync(Attributes);})"
+                                          SelectedValueChanged="@(async (s) => await SetAttribute(index, s))"
+                                          OnCustomValue="@(async (s) => await SetAttribute(index, s))"
                                           Disabled="@Disabled" />
                     </div>
                 }
@@ -76,7 +75,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-                    <button type="submit" class="btn btn-primary" data-bs-dismiss="modal">Подтвердить</button>
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal" @onclick="ConfirmSubmit">Подтвердить</button>
                 </div>
             </div>
         </div>
@@ -93,18 +92,49 @@
     private string? warningMessage;
     private string? successMessage;
 
+    private EditContext? editContext;
+
     protected override void OnInitialized()
     {
+        editContext = new(Attributes);
         attributeValues = Task.Run(() =>
         {
             return WorkService.GetAttributeValuesAsync(Attributes.Select(ad => ad.ToAttribute()).ToList());
         }).Result;
     }
 
+    protected override void OnParametersSet()
+    {
+        // Пересоздаём EditContext, если модель параметра изменилась (чтобы валидация работала корректно)
+        if (editContext == null || editContext.Model != Attributes)
+        {
+            editContext = new EditContext(Attributes);
+        }
+    }
+
+    private async Task ConfirmSubmit()
+    {
+        if (editContext != null && editContext.Validate())
+        {
+            await HandleValidSubmit();
+        }
+        else
+        {
+            // Если нужно — показать сообщение о неверных полях
+            StateHasChanged();
+        }
+    }
+
     private bool ValidateAttributes()
     {
         return Attributes.All(a => !string.IsNullOrWhiteSpace(a.Данные) &&
-            !IWorkService.AbandonedValues.Contains(a.Данные));
+            a.Данные != Settings.AttributesValueAwait);
+    }
+
+    private async Task SetAttribute(int index, string value)
+    {
+        Attributes[index].Данные = value;
+        await AttributesChanged.InvokeAsync(Attributes);
     }
 
     private async Task SetDisabled(bool disabled)

@@ -17,10 +17,12 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
         private List<Кафедра> _departments = [];
         private List<Должность> _posts = [];
 
+        private Task _init;
+
         public TeacherDtoFactory(IReferenceDataService refDataService)
         {
             _refDataService = refDataService;
-            _ = InitializeLists();
+            _init = Task.Run(InitializeLists);
         }
 
         private async Task InitializeLists()
@@ -33,6 +35,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
 
         public async Task<TeacherDisplayDto> CreateDisplayDtoAsync(Преподаватель teacher)
         {
+            _init.Wait();
             return new()
             {
                 Пользователь = _users.FirstOrDefault(o => o.IdПользователя == teacher.IdПользователя) ?? new(),
@@ -44,6 +47,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
 
         public async Task<TeacherDisplayDto?> CreateDisplayDtoAsync(int id)
         {
+            _init.Wait();
             if (_teachers.Count == 0) _teachers = await _refDataService.GetAsync<Преподаватель>();
             Преподаватель? teacher = _teachers.FirstOrDefault(o => o.IdПреподавателя == id);
             if (teacher == null) return null;
@@ -59,6 +63,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
         /// <returns></returns>
         public async Task<TeacherDisplayDto> CreateDisplayDtoAsync(int id, int idPost)
         {
+            _init.Wait();
             if (_teachers.Count == 0) _teachers = await _refDataService.GetAsync<Преподаватель>();
             Преподаватель? teacher = _teachers.FirstOrDefault(o => o.IdПреподавателя == id);
             if (teacher == null) return new();

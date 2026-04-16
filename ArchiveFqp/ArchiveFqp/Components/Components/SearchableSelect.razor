@@ -95,6 +95,11 @@
             {
                 searchText = GetItemText(selectedItem);
             }
+            else
+            {
+                if (typeof(TValue) == typeof(string))
+                    searchText = SelectedValue.ToString() ?? "";
+            }
         }
         else
         {
@@ -139,7 +144,7 @@
     {
         if (!Disabled)
         {
-            if (SelectedValue == null && !string.IsNullOrWhiteSpace(searchText))
+            if (selectedItem == null && !string.IsNullOrWhiteSpace(searchText))
             {
                 // Если ничего не выбрано, используем введенный текст
                 await OnCustomValue.InvokeAsync(searchText);
@@ -155,7 +160,7 @@
     private void OnBlur()
     {
         // Задержка, чтобы успел сработать клик по элементу списка
-        _ = Task.Delay(400).ContinueWith(_ =>
+        _ = Task.Delay(100).ContinueWith(_ =>
         {
             InvokeAsync(() =>
             {
@@ -171,9 +176,11 @@
         {
             isOpen = false;
         }
-        else if (selectedItem != null && e.Key == "Backspace")
+        else if ((selectedItem != null && e.Key == "Backspace") || searchText.Count() <= 1)
         {
             selectedItem = default;
+            SelectedValue = default;
+            isOpen = true;
         }
     }
 

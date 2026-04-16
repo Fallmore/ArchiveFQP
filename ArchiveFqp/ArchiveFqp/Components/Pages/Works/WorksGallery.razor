@@ -9,7 +9,6 @@
 @using ArchiveFqp.Models.Search
 @using ArchiveFqp.Services.Work
 @using ArchiveFqp.Services.ReferenceData
-@using Microsoft.EntityFrameworkCore
 @using System.Diagnostics
 @using System.Text
 @inject NavigationManager Navigation
@@ -435,7 +434,7 @@
 
         try
         {
-            result = await WorkService.SearchWorksAsync(searchModel);
+            result = await WorkService.FindWorksAsync(searchModel);
 
             if (result.Items.Count != 0)
             {
@@ -489,7 +488,7 @@
         // Кодируем для безопасной передачи в URL
         string encodedJson = HttpUtility.UrlEncode(encoded);
 
-        string newUrl = $"/works?s={encodedJson}";
+        string newUrl = $"/works/gallery?s={encodedJson}";
         // Обновляем URL без перезагрузки страницы
         Navigation.NavigateTo(newUrl, false);
     }
@@ -536,10 +535,12 @@
     {
         return status.ToLower() switch
         {
-            "завершена" => "bg-success",
-            "в работе" => "bg-warning",
+            "в архиве" => "bg-success",
+            "принято" => "bg-success",
+            "обработка нейросетью" => "bg-warning",
             "на проверке" => "bg-info",
-            "отклонена" => "bg-danger",
+            "отклонено" => "bg-danger",
+            "списано" => "bg-secondary",
             _ => "bg-secondary"
         };
     }

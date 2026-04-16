@@ -1,13 +1,11 @@
 ﻿@using ArchiveFqp.Components.Components
 @using ArchiveFqp.Factories.DisplayDto.Student
 @using ArchiveFqp.Factories.DisplayDto.Teacher
-@using ArchiveFqp.Models
 @using ArchiveFqp.Models.DTO
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.Work
-@using ArchiveFqp.Services
+@using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Services.FileUpload
-@using ArchiveFqp.Services.Hash
 @using ArchiveFqp.Services.ReferenceData
 @using ArchiveFqp.Services.Work
 @using Microsoft.EntityFrameworkCore
@@ -18,6 +16,7 @@
 @inject ILogger<WorkAdd> Logger
 @inject IWorkService WorkService
 @inject IReferenceDataService RefDataService
+@inject SettingsArchive Settings
 @implements IDisposable
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
@@ -101,7 +100,7 @@
                 <!-- Информация о руководителе (зависимая) -->
                 @if (selectedTeacher != null)
                 {
-                    <div class="col-md-6">
+                    <div class="col-md-6 mx-1">
                         <strong>Должность:</strong> @(selectedTeacher.Должность)
                     </div>
                 }
@@ -109,7 +108,7 @@
 
             <!-- Аннотация -->
             <div class="row-md-6 mb-2">
-                <label class="form-label mb-0">Аннотация</label>
+                <label class="form-label mb-0 mx-1 fw-bold">Аннотация</label>
                 <InputTextArea class="form-control" @bind-Value="WorkDto.Аннотация" @bind-Value:after="@(async () => await SaveStateWorkDTO())"
                                rows="4"
                                placeholder="Введите аннотацию работы (необязательно)"
@@ -305,6 +304,12 @@
         </div>
     </div>
 
+    @if (errorMessage != null && successMessage == null)
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+    <ValidationSummary class="alert alert-danger" />
+
     <!-- Выбранные файлы с папки -->
     @if (selectedFiles.Count != 0)
     {
@@ -447,16 +452,26 @@
         var result = await ProtectedSessionStore.GetAsync<WorkCreateDto>(SessionStoreNameWorkDTO);
         if (result.Success)
         {
-            WorkDto = result.Value ?? new();
+            WorkDto = result.Value!;
             await WorkDTOChanged.InvokeAsync(WorkDto);
         }
+        else WorkDto.IdСтатусаРаботы = snapshot.WorkStatuses.First(ws => ws.Название == Settings.WorkOnReviewStatus).IdСтатусаРаботы;
 
-        
         await UpdateDependentLists();
 
         if (FileUploadService is WorkFileUploadService workFileUploadService)
         {
             workFileUploadService.ProgressChanged += OnUploadProgressChanged;
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (WorkDto == null)
+        {
+            uploadResult = null;
+            successMessage = null;
+            selectedFiles = new();
         }
     }
 
@@ -595,10 +610,10 @@
 
     private void OnTypeWorkChanged()
     {
-        isFqp = IWorkService.FqpWorks
+        isFqp = Settings.FqpWorks
             .Contains(snapshot.WorkTypes
                 .Find(wt => wt.IdТипаРаботы == WorkDto.IdТипаРаботы)?.Название ?? "");
-        hasCR = IWorkService.FqpWorksWithCR
+        hasCR = Settings.FqpWorksWithCR
             .Contains(snapshot.WorkTypes
                 .Find(wt => wt.IdТипаРаботы == WorkDto.IdТипаРаботы)?.Название ?? "");
         if (!hasCR)
@@ -713,7 +728,7 @@
             // Если есть файлы для загрузки
             if (selectedFiles.Count != 0)
             {
-                if (context.Работаs.FirstOrDefault(w => w.IdСтудента == work.IdСтудента && w.Тема == work.Тема) != default)
+                if ((await WorkService.GetWorksAsync()).FirstOrDefault(w => w.IdСтудента == work.IdСтудента && w.Тема == work.Тема) != default)
                 {
                     throw new Exception("Такая работа уже существует!");
                 }
@@ -763,6 +778,7 @@
 
     private async Task<FileUploadWithHashResult?> UploadFiles()
     {
+        uploadResult = null;
         FileUploadWithHashResult? res = default;
         try
         {
@@ -789,7 +805,7 @@
                 Profile = profile.Название,
                 WorkType = workType.Название,
                 Year = WorkDto.ГодВыпуска ?? DateTime.Now.Year,
-                StudentName = studentDtoFactory.CreateDisplayDtoAsync(student).Result.ФИО,
+                StudentName = studentDtoFactory!.CreateDisplayDtoAsync(student).Result.ФИО,
                 WorkTitle = WorkDto.Тема,
 
                 ExplanatoryNoteWord = selectedFiles.GetValueOrDefault(FileType.ExplanatoryNoteWord)?.FirstOrDefault(),

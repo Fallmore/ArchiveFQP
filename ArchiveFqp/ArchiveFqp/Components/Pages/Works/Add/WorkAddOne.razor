@@ -1,11 +1,14 @@
 ﻿@using ArchiveFqp.Models.DTO
 @using ArchiveFqp.Models.DTO.Work
+@using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Services
+@using ArchiveFqp.Services.ReferenceData
 @using ArchiveFqp.Services.Work
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject ProtectedLocalStorage ProtectedSessionStore
 @inject IWorkService WorkService
 @inject IJSRuntime JSRuntime
+@inject SettingsArchive Settings
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <div class="container mt-4">
@@ -56,7 +59,7 @@
                                 </button>
                             </div>
 
-                            <div id="collapseWorkAttributes" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionWork">
+                            <div id="collapseWorkAttributes" class="accordion-collapse collapse show" aria-labelledby="headingTwo" data-bs-parent="#accordionWork">
                                 <div class="accordion-body">
                                     <div class="card-body">
                                         <WorkAttributesAdd @bind-Attributes="WorkDto.Attributes"
@@ -87,17 +90,26 @@
     {
         if (WorkDto.IdРаботы != 0)
         {
-            WorkDto.Attributes = Task.Run(() =>
-            {
-                return WorkService.GetWorkAttributesAsync(WorkDto.IdРаботы, []);
-            }).Result;
+            await Task.Delay(300);
+            WorkDto.Attributes = (await WorkService.GetWorkAttributesAsync(WorkDto.IdРаботы, []))
+            ?.Select(a =>
+                {
+                    if (a.Данные == Settings.AttributesValueAwait)
+                        a.Данные = "";
+                    return a;
+                }).ToList();
 
-            if (WorkDto.Attributes == default) WorkDto.AttributesValuesAdded = true;
+            if (WorkDto.Attributes == default)
+            {
+                WorkDto.AttributesValuesAdded = true;
+                await End();
+            }
             else
             {
                 StateHasChanged();
+                // Закрываем аккордеон данных и открываем - атрибутов
                 await JSRuntime.InvokeVoidAsync("eval",
-                "document.querySelector('[data-bs-target=\"#collapseWorkAttributes\"]').click()");
+                "document.querySelector('[data-bs-target=\"#collapseWorkData\"]').click()");
             }
         }
         StateHasChanged();
@@ -107,8 +119,24 @@
     private async Task OnAttributesChanged()
     {
         await ProtectedSessionStore.SetAsync(SessionStoreNameWorkDTO, WorkDto);
+        if (WorkDto.AttributesValuesAdded)
+        {
+            await End();
+
+            // Закрываем аккордеон атрибутов и открываем - данных
+            await JSRuntime.InvokeVoidAsync("eval",
+            "document.querySelector('[data-bs-target=\"#collapseWorkData\"]').click()");
+        }
         await WorkDTOChanged.InvokeAsync(WorkDto);
     }
 
+    private async Task End()
+    {
+        await WorkService.UpdateStatusAsync(WorkDto.IdРаботы, (await WorkService
+                .GetWorkStatusesAsync())
+                    .First(sw => sw.Название == Settings.WorkInArchiveStatus).IdСтатусаРаботы);
 
+        // Даем пользователю время на просмотр результата перед очисткой данных
+        await Task.Delay(2000);
+    }
 }

@@ -1,22 +1,30 @@
-﻿@page "/works/{WorkId:int}"
-@using ArchiveFqp.Models.DTO.Attribute
+﻿@using ArchiveFqp.Models.DTO.Attribute
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.Work
 @using ArchiveFqp.Models.Search
 @using ArchiveFqp.Services.Work
 @using ArchiveFqp.Services.ReferenceData
-@inject IReferenceDataService ReferenceDataService;
 @inject IWorkService WorkService
 
 <PageTitle>АГТУ - @(work?.Тема ?? "Детали работы")</PageTitle>
 
 <div class="container mt-4">
     <!-- Кнопка назад -->
-    <div class="mb-3">
-        <button class="btn btn-outline-primary" onclick="history.back();">
-            <i class="bi bi-arrow-left"></i> Назад
-        </button>
-    </div>
+    @if (ShowBackButton)
+    {
+        <div class="row mb-3">
+            <div class="col">
+                <button class="btn btn-outline-primary" onclick="history.back();">
+                    <i class="bi bi-arrow-left"></i> Назад
+                </button>
+            </div>
+            <div class="col">
+                <a class="btn btn-outline-primary" href="@($"/works/applications/send?w={work?.IdРаботы}")">
+                    <i class="bi bi-eye-fill"></i> Посмотреть ПЗ
+                </a>
+            </div>
+        </div>
+    }
 
     @if (isLoading)
     {
@@ -51,7 +59,7 @@
 
                 <div class="row">
                     <!-- Левая колонка: основная информация -->
-                    <div class="col-lg-8">
+                    <div class="col-lg-7">
                         <!-- Информация об авторе и руководителе -->
                         <div class="row mb-4">
                             <div class="col-md-6">
@@ -168,15 +176,6 @@
                                             }
                                         </ul>
                                     </div>
-                                    <div class="col-sm-6">
-                                        <ul class="list-unstyled">
-                                            <li class="mb-2">
-                                                <i class="bi bi-folder me-2 text-primary"></i>
-                                                <strong>Тип работы:</strong>
-                                                @displayDto.ТипРаботы
-                                            </li>
-                                        </ul>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -219,7 +218,7 @@
                     </div>
 
                     <!-- Правая колонка: дополнительная информация -->
-                    <div class="col-lg-4">
+                    <div class="col-lg-5">
                         <!-- Информация о направлении/кафедре и т.д. -->
                         @{
                             <div class="card mb-4 border-0 bg-light">
@@ -273,18 +272,28 @@
 </div>
 
 @code {
-    [Parameter]
-    public int? WorkId { get; set; }
+    [Parameter] public int? WorkId { get; set; }
+    [Parameter] public bool ShowBackButton { get; set; } = true;
     private List<AttributeDto>? workAttributes;
     private Работа? work;
+    private int? lastWorkId;
     private WorkDisplayDto displayDto = new();
-    private List<ВыдачаРаботы>? issuances;
 
     private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadWorkDetails();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        if (WorkId != lastWorkId)
+        {
+            await LoadWorkDetails();
+        }
     }
 
     private async Task LoadWorkDetails()
@@ -294,18 +303,24 @@
         try
         {
             WorkSearchModel wsm = new();
-            wsm.WorkId = WorkId ?? -1;
+            if (WorkId == null || WorkId < 1)
+            {
+                work = null;
+                workAttributes = null;
+                displayDto = new();
+                return;
+            }
+            
+            wsm.WorkId = WorkId.Value;
+            lastWorkId = wsm.WorkId;
 
             // Загружаем работу со всеми связанными данными
-            work = (await WorkService.SearchWorksAsync(wsm)).Items.FirstOrDefault();
+            work = await WorkService.GetWorkAsync(wsm.WorkId);
 
             if (work != null)
             {
                 // Загружаем атрибуты работы
                 workAttributes = (await WorkService.GetWorksAttributesAsync(new List<Работа> { work })).FirstOrDefault().Value;
-
-                // Загружаем историю выдач
-                issuances = work.ВыдачаРаботыs.ToList();
 
                 displayDto = await WorkService.GetWorkDisplayAsync(work);
             }

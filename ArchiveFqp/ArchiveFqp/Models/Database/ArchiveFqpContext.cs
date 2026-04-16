@@ -63,6 +63,8 @@ public partial class ArchiveFqpContext : DbContext
 
     public virtual DbSet<СтатусРаботы> СтатусРаботыs { get; set; }
 
+    public virtual DbSet<СтатусВыдачи> СтатусВыдачиs { get; set; }
+
     public virtual DbSet<Студент> Студентs { get; set; }
 
     public virtual DbSet<ТипРаботы> ТипРаботыs { get; set; }
@@ -238,6 +240,7 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.Property(e => e.IdВыдачи).HasColumnName("id_выдачи");
             entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
+            entity.Property(e => e.IdСтатусаВыдачи).HasColumnName("id_статуса_выдачи");
             entity.Property(e => e.IdРаботы).HasColumnName("id_работы");
             entity.Property(e => e.ДатаВозврПоЗаявл)
                 .HasColumnType("timestamp without time zone")
@@ -268,6 +271,11 @@ public partial class ArchiveFqpContext : DbContext
                 .HasForeignKey(d => d.IdРаботы)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("выдача_работы_id_работы_fkey");
+
+            entity.HasOne(d => d.IdСтатусВыдачиNavigation).WithMany(p => p.ВыдачаРаботыs)
+                .HasForeignKey(d => d.IdСтатусаВыдачи)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("выдача_работы_id_статуса_выдачи_fkey");
         });
 
         modelBuilder.Entity<ДанныеПоАтриб>(entity =>
@@ -654,6 +662,19 @@ public partial class ArchiveFqpContext : DbContext
             entity.HasIndex(e => e.Название, "статус_работы_название_key").IsUnique();
 
             entity.Property(e => e.IdСтатусаРаботы).HasColumnName("id_статуса_работы");
+            entity.Property(e => e.Название)
+                .HasColumnType("character varying")
+                .HasColumnName("название");
+        });
+
+        modelBuilder.Entity<СтатусВыдачи>(entity =>
+        {
+            entity.HasKey(e => e.IdСтатусаВыдачи).HasName("статус_выдачи_pkey");
+
+            entity.ToTable("статус_выдачи");
+            entity.HasIndex(e => e.Название, "статус_выдачи_название_key").IsUnique();
+
+            entity.Property(e => e.IdСтатусаВыдачи).HasColumnName("id_статуса_выдачи");
             entity.Property(e => e.Название)
                 .HasColumnType("character varying")
                 .HasColumnName("название");

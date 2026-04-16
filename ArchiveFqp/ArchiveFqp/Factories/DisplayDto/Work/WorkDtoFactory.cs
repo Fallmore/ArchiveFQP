@@ -21,6 +21,8 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
         private List<СтатусРаботы> _workStatus = [];
         private List<ДоступРаботы> _workAccess = [];
 
+        private Task _init;
+
         public WorkDtoFactory(
             IDbContextFactory<ArchiveFqpContext> dbFactory,
             IReferenceDataService refDataService)
@@ -30,7 +32,19 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
             _studentDtoFactory = new (refDataService);
             _teacherDtoFactory = new(refDataService);
 
-            _ = InitializeLists();
+            _init = Task.Run(InitializeLists);
+        }
+
+        public WorkDtoFactory(IDbContextFactory<ArchiveFqpContext> dbFactory, 
+            IReferenceDataService refDataService, StudentDtoFactory studentDtoFactory, 
+            TeacherDtoFactory teacherDtoFactory)
+        {
+            _dbFactory = dbFactory;
+            _refDataService = refDataService;
+            _studentDtoFactory = studentDtoFactory;
+            _teacherDtoFactory = teacherDtoFactory;
+
+            _init = Task.Run(InitializeLists);
         }
 
         private async Task InitializeLists()
@@ -42,6 +56,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
 
         public async Task<WorkDisplayDto> CreateDisplayDtoAsync(Работа work)
         {
+            _init.Wait();
             return new()
             {
                 IdРаботы = work.IdРаботы,
@@ -61,11 +76,12 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
 
         public async Task<WorkDisplayDto> CreateDisplayDtoAsync(Работа work, List<Консультант> consultants, List<Рецензент> reviewers)
         {
+            _init.Wait();
             return new()
             {
                 IdРаботы = work.IdРаботы,
                 Тема = work.Тема,
-                Студент = await _studentDtoFactory.CreateDisplayDtoAsync(work.IdСтудента),
+                Студент = (await _studentDtoFactory.CreateDisplayDtoAsync(work.IdСтудента))!,
                 Руководитель = await _teacherDtoFactory.CreateDisplayDtoAsync(work.IdПреподавателя, work.IdДолжности),
                 Консультанты = await _teacherDtoFactory.CreateDisplayDtoListAsync(consultants),
                 Рецензенты = await _teacherDtoFactory.CreateDisplayDtoListAsync(reviewers),
@@ -82,6 +98,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
 
         public async Task<WorkDisplayDto?> CreateDisplayDtoAsync(int id)
         {
+            _init.Wait();
             using ArchiveFqpContext context = _dbFactory.CreateDbContext();
             Работа? work = context.Работаs.FirstOrDefault(o => o.IdРаботы == id);
             if (work == null) return null;

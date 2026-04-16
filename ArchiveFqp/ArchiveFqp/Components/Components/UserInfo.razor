@@ -1,0 +1,99 @@
+﻿@using ArchiveFqp.Models.DTO.Student
+@using ArchiveFqp.Models.DTO.Teacher
+
+
+<div class="container mt-4">
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">
+                <i class="bi bi-person me-2"></i>
+                @UserName
+            </h4>
+            <p class="card-text bg-opacity-75 fs-6"><strong>@UserRole</strong> </p>
+        </div>
+        <div class="card-body">
+            @if (Teacher != null)
+            {
+                <p class="mb-0">
+                    <strong>Институт:</strong><br>
+                    @Teacher.Институт
+                </p>
+                <p class="mb-1">
+                    <strong>Кафедра:</strong><br>
+                    @Teacher.Кафедра
+                </p>
+                <p class="mb-1">
+                    <strong>Должность:</strong><br>
+                    @Teacher.Должность
+                </p>
+            }
+            @if (Student != null)
+            {
+                <p class="mb-1">
+                    <strong>Год выпуска:</strong><br>
+                    @Student.ГодОкончания
+                </p>
+                <p class="mb-1">
+                    <strong>Институт:</strong><br>
+                    @Student.Институт
+                </p>
+                <p class="mb-1">
+                    <strong>Стандарт УГСН:</strong><br>
+                    @Student.УгснСтандарт
+                </p>
+                <p class="mb-1">
+                    <strong>УГСН:</strong><br>
+                    @Student.Угсн
+                </p>
+                <p class="mb-1">
+                    <strong>Кафедра:</strong><br>
+                    @Student.Кафедра
+                </p>
+                <p class="mb-0">
+                    <strong>Направление:</strong><br>
+                    @Student.Направление
+                </p>
+                @if (!string.IsNullOrEmpty(Student.Профиль))
+                {
+                    <p class="mb-1">
+                        <strong>Профиль:</strong><br>
+                        @Student.Профиль
+                    </p>
+                }
+                <p class="mb-1">
+                    <strong>Уровень образования:</strong><br>
+                    @Student.УровеньОбразования
+                </p>
+                <p class="mb-1">
+                    <strong>Форма образования:</strong><br>
+                    @Student.ФормаОбучения
+                </p>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string UserName { get; set; } = "Гость";
+    [Parameter] public string UserRole { get; set; } = "Пользователь";
+    [Parameter] public StudentDisplayDto? Student { get; set; }
+    [Parameter] public TeacherDisplayDto? Teacher { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Student != null)
+        {
+            UserName = Student.ФИО;
+            UserRole = "Студент";
+            if (Teacher != null)
+            {
+                UserRole += " и Преподаватель";
+            }
+        }
+        else if (Teacher != null)
+        {
+            UserName = Teacher.ФИО;
+            UserRole = "Преподаватель";
+        }
+    }
+}

@@ -1,0 +1,162 @@
+﻿@using ArchiveFqp.Models.DTO.WorkApplication
+@using ArchiveFqp.Services.ReferenceData
+@using ArchiveFqp.Services.Work
+@inject IReferenceDataService RefDataService
+@inject IWorkService WorkService
+@implements IDisposable
+@rendermode @(new InteractiveServerRenderMode())
+
+@if (RendererInfo.IsInteractive)
+{
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 10%">Статус</th>
+                    <th style="width: 50%">Работа</th>
+                    <th style="width: 15%">Дата подачи</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (WorkApplicationDto application in workApplicationsDto.Skip((currentPage - 1) * pageSize).Take(pageSize))
+                {
+                    <tr role="button" @onclick="@(() => selectedWorkApplicationDto = application)" data-bs-toggle="modal" data-bs-target="#workApplicationModal">
+                        <td>
+                            <span class="badge @GetStatusBadgeClass(application.СтатусВыдачи) fs-6">
+                                @(application.СтатусВыдачи)
+                            </span>
+                        </td>
+                        <td>@application.Работа.Тема</td>
+                        <td>@application.ДатаПоступления</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <!-- Пагинация -->
+        <nav aria-label="Навигация по страницам" class="mt-4">
+            <ul class="pagination justify-content-center mb-1">
+                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                    <button class="page-link" @onclick="@(() => ChangePage(1))">
+                        <i class="bi bi-chevron-double-left"></i>
+                    </button>
+                </li>
+                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                    <button class="page-link" @onclick="@(() => ChangePage(currentPage - 1))">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                </li>
+
+                @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                {
+                    int page = i;
+                    <li class="page-item @(i == currentPage ? "active" : "")">
+                        <button class="page-link" @onclick="@(() => ChangePage(page))">@i</button>
+                    </li>
+                }
+
+                <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                    <button class="page-link" @onclick="@(() => ChangePage(currentPage + 1))">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </li>
+                <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                    <button class="page-link" @onclick="@(() => ChangePage(totalPages))">
+                        <i class="bi bi-chevron-double-right"></i>
+                    </button>
+                </li>
+            </ul>
+
+            <div class="text-center mt-0 mb-0">
+                <small class="text-muted">
+                    Страница @currentPage из @totalPages
+                </small>
+            </div>
+        </nav>
+
+        <div class="modal fade" id="workApplicationModal" tabindex="-1" aria-labelledby="workApplicationModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="workApplicationModal">Информация о заявлении</h5>
+                        <button type="button" @onclick="@(() => selectedWorkApplicationDto = null)" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        @if (selectedWorkApplicationDto != null)
+                        {
+                            <WorkApplication WorkApplictaionDto="selectedWorkApplicationDto"
+                                             IsEditMode="false"
+                                             IsReviewMode="@IsReviewMode"
+                                             @key="selectedWorkApplicationDto.IdРаботы" />
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsReviewMode { get; set; } = false;
+    private List<WorkApplicationDto> workApplicationsDto = new();
+    private List<ВыдачаРаботы> filteredApplications = new();
+    private WorkApplicationDto? selectedWorkApplicationDto;
+    private int pageSize = 5;
+    private int currentPage = 1;
+    private int totalPages => (int)Math.Ceiling((double)workApplicationsDto.Count / pageSize);
+
+    private EventHandler<List<string>>? _tablesChangedHandler;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetWorkApplications();
+        _tablesChangedHandler = (s, e) => InvokeAsync(() => GetWorkApplications(s, e));
+        RefDataService.TablesChanged += _tablesChangedHandler;
+    }
+
+    private async Task GetWorkApplications()
+    {
+        filteredApplications = await WorkService.GetWorkApplicationsAsync();
+        IEnumerable<Task<WorkApplicationDto>> tasks = filteredApplications
+            .Select(app => WorkService.GetWorkApplicationAsync(app));
+        WorkApplicationDto[] dtos = await Task.WhenAll(tasks);
+        workApplicationsDto = dtos.ToList();
+        if (IsReviewMode)
+            workApplicationsDto = workApplicationsDto.OrderBy(x => x.IdСтатусаВыдачи).ThenBy(x => x.ДатаПоступления).ToList();
+        else
+            workApplicationsDto = workApplicationsDto.OrderByDescending(x => x.ДатаПоступления).ToList();
+        StateHasChanged();
+    }
+
+    private async Task GetWorkApplications(object? sender, List<string> e)
+    {
+        if (e.Contains(typeof(ВыдачаРаботы).Name))
+        {
+            await GetWorkApplications();
+        }
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status.ToLower() switch
+        {
+            "в обработке" => "bg-info",
+            "отклонено" => "bg-danger",
+            "активно" => "bg-success",
+            "завершено" => "bg-secondary",
+            _ => "bg-secondary"
+        };
+    }
+
+    private async Task ChangePage(int page)
+    {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+    }
+
+    public void Dispose()
+    {
+        if (_tablesChangedHandler != null)
+            RefDataService.TablesChanged -= _tablesChangedHandler;
+    }
+}

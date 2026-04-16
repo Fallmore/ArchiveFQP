@@ -1,8 +1,9 @@
 using ArchiveFqp.Client.Pages;
 using ArchiveFqp.Components;
 using ArchiveFqp.Models.Database;
-using ArchiveFqp.Models.StateContainer;
+using ArchiveFqp.Models.Settings.SettingsArchive;
 using ArchiveFqp.Services.DatabaseNotification;
+using ArchiveFqp.Services.ExpirationCheck;
 using ArchiveFqp.Services.FileUpload;
 using ArchiveFqp.Services.Hash;
 using ArchiveFqp.Services.ReferenceData;
@@ -17,10 +18,13 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
 
+builder.Services.AddSingleton<SettingsArchive>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IDatabaseNotificationService, DatabaseNotificationService>();
-builder.Services.AddSingleton<IReferenceDataService, ReferenceDataService>();
-builder.Services.AddHostedService<ReferenceDataService>();
+builder.Services.AddSingleton<ReferenceDataService>();
+builder.Services.AddSingleton<IReferenceDataService>(sp => sp.GetRequiredService<ReferenceDataService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ReferenceDataService>());
+builder.Services.AddHostedService<ExpirationCheckService>();
 
 builder.Services.AddScoped<IWorkService, WorkService>();
 //builder.Services.AddTransient<StateContainer>();

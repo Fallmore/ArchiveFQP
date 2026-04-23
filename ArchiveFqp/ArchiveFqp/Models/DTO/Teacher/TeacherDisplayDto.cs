@@ -1,17 +1,18 @@
 ﻿using ArchiveFqp.Models.Database;
+using ArchiveFqp.Models.DTO.Structure;
+using ArchiveFqp.Models.DTO.User;
 
 namespace ArchiveFqp.Models.DTO.Teacher
 {
-    public class TeacherDisplayDto : IUserDisplayDto, IDisplayDto
+    /// <summary>
+    /// Объект преподавателя <see cref="Преподаватель"/> для отображения информации
+    /// </summary>
+    public class TeacherDisplayDto: IDisplayDto
     {
-        public Пользователь Пользователь { get; set; } = new();
+        public UserDisplayDto Пользователь { get; set; } = new();
 
         public string Должность { get; set; } = "";
 
-        public string Институт { get; set; } = "";
-        public string Кафедра { get; set; } = "";
-
-        public string ФИО => $"{Пользователь.Фамилия} {Пользователь.Имя}{(Пользователь.Отчество != null ? " " + Пользователь.Отчество : "")}";
-        public string ФИОИнициалы => $"{Пользователь.Фамилия} {Пользователь.Имя[0]}.{(Пользователь.Отчество != null ? " " + Пользователь.Отчество[0] + "." : "")}";
+        public StructureDto Структура { get; set; } = new();
     }
 }

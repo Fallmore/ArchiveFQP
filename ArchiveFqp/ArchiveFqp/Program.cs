@@ -2,11 +2,13 @@ using ArchiveFqp.Client.Pages;
 using ArchiveFqp.Components;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.Settings.SettingsArchive;
+using ArchiveFqp.Services.Applications;
 using ArchiveFqp.Services.DatabaseNotification;
 using ArchiveFqp.Services.ExpirationCheck;
 using ArchiveFqp.Services.FileUpload;
 using ArchiveFqp.Services.Hash;
 using ArchiveFqp.Services.ReferenceData;
+using ArchiveFqp.Services.User;
 using ArchiveFqp.Services.Work;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +29,8 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ReferenceDataServi
 builder.Services.AddHostedService<ExpirationCheckService>();
 
 builder.Services.AddScoped<IWorkService, WorkService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IApplicationsService, ApplicationsService>();
 //builder.Services.AddTransient<StateContainer>();
 //builder.Services.AddScoped<StateContainer>();
 

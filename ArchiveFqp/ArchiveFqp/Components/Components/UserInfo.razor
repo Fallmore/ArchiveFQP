@@ -1,5 +1,6 @@
 ﻿@using ArchiveFqp.Models.DTO.Student
 @using ArchiveFqp.Models.DTO.Teacher
+@using ArchiveFqp.Models.DTO.User
 
 
 <div class="container mt-4">
@@ -9,18 +10,21 @@
                 <i class="bi bi-person me-2"></i>
                 @UserName
             </h4>
-            <p class="card-text bg-opacity-75 fs-6"><strong>@UserRole</strong> </p>
         </div>
         <div class="card-body">
+            <p class="mb-1">
+                <strong>Роли:</strong><br>
+                @(string.Join(", ", UserRoles))
+            </p>
             @if (Teacher != null)
             {
-                <p class="mb-0">
+                <p class="mb-1">
                     <strong>Институт:</strong><br>
-                    @Teacher.Институт
+                    @Teacher.Структура.Институт.Название
                 </p>
                 <p class="mb-1">
                     <strong>Кафедра:</strong><br>
-                    @Teacher.Кафедра
+                    @Teacher.Структура.Кафедра.Название
                 </p>
                 <p class="mb-1">
                     <strong>Должность:</strong><br>
@@ -35,29 +39,29 @@
                 </p>
                 <p class="mb-1">
                     <strong>Институт:</strong><br>
-                    @Student.Институт
+                    @Student.Структура.Институт.Название
                 </p>
                 <p class="mb-1">
                     <strong>Стандарт УГСН:</strong><br>
-                    @Student.УгснСтандарт
+                    @Student.Структура.УгснСтандарт.Название
                 </p>
                 <p class="mb-1">
                     <strong>УГСН:</strong><br>
-                    @Student.Угсн
+                    @Student.Структура.Угсн.Название
                 </p>
                 <p class="mb-1">
                     <strong>Кафедра:</strong><br>
-                    @Student.Кафедра
+                    @Student.Структура.Кафедра.Название
                 </p>
                 <p class="mb-0">
                     <strong>Направление:</strong><br>
-                    @Student.Направление
+                    @Student.Структура.Направление.Название
                 </p>
-                @if (!string.IsNullOrEmpty(Student.Профиль))
+                @if (Student.Структура.Профиль != null && !string.IsNullOrEmpty(Student.Структура.Профиль.Название))
                 {
                     <p class="mb-1">
                         <strong>Профиль:</strong><br>
-                        @Student.Профиль
+                        @Student.Структура.Профиль.Название
                     </p>
                 }
                 <p class="mb-1">
@@ -75,25 +79,27 @@
 
 @code {
     [Parameter] public string UserName { get; set; } = "Гость";
-    [Parameter] public string UserRole { get; set; } = "Пользователь";
+    [Parameter] public List<string> UserRoles { get; set; } = ["Пользователь"];
     [Parameter] public StudentDisplayDto? Student { get; set; }
     [Parameter] public TeacherDisplayDto? Teacher { get; set; }
+    [Parameter] public UserDisplayDto? User { get; set; }
 
     protected override void OnParametersSet()
     {
         if (Student != null)
         {
-            UserName = Student.ФИО;
-            UserRole = "Студент";
-            if (Teacher != null)
-            {
-                UserRole += " и Преподаватель";
-            }
+            UserName = Student.Пользователь.ФИО;
+            UserRoles = Student.Пользователь.Роли;
         }
         else if (Teacher != null)
         {
-            UserName = Teacher.ФИО;
-            UserRole = "Преподаватель";
+            UserName = Teacher.Пользователь.ФИО;
+            UserRoles = Teacher.Пользователь.Роли;
+        }
+        else if (User != null)
+        {
+            UserName = User.ФИО;
+            UserRoles = User.Роли;
         }
     }
 }

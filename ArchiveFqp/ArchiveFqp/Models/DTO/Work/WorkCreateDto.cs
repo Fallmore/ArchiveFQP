@@ -59,8 +59,7 @@ namespace ArchiveFqp.Models.DTO.Work
         [Required(ErrorMessage = "Выберите доступ работы")]
         public int? IdДоступаРаботы { get; set; }
 
-#warning Поменять константу на точный ID статуса работы
-        public int IdСтатусаРаботы { get; set; } = 3; // "На проверке"
+        public int IdСтатусаРаботы { get; set; } = -1;
 
         public bool AttributesValuesAdded { get; set; } = false;
 

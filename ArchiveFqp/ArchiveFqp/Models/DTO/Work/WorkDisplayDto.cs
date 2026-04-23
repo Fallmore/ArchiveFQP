@@ -3,6 +3,9 @@ using ArchiveFqp.Models.DTO.Teacher;
 
 namespace ArchiveFqp.Models.DTO.Work
 {
+    /// <summary>
+    /// Объект работы <see cref="Работа"/> для отображения информации
+    /// </summary>
     public class WorkDisplayDto: IDisplayDto
     {
         public int IdРаботы { get; set; }

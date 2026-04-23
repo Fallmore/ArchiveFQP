@@ -69,7 +69,7 @@
                                             <i class="bi bi-person-circle me-2"></i>Студент
                                         </h5>
                                         <p class="card-text mb-1 fs-5">
-                                            @(displayDto.Студент.ФИО)
+                                            @(displayDto.Студент.Пользователь.ФИО)
                                         </p>
                                     </div>
                                 </div>
@@ -81,7 +81,7 @@
                                             <i class="bi bi-mortarboard me-2"></i>Руководитель
                                         </h5>
                                         <p class="card-text mb-1 fs-5">
-                                            @(displayDto.Руководитель.ФИО)
+                                            @(displayDto.Руководитель.Пользователь.ФИО)
                                         </p>
                                         @if (!string.IsNullOrEmpty(displayDto.Руководитель.Должность))
                                         {
@@ -107,7 +107,7 @@
                                             @foreach (TeacherDisplayDto consultant in displayDto.Консультанты)
                                             {
                                                 <p class="card-text mb-1 fs-5">
-                                                    @(consultant.ФИО)
+                                                    @(consultant.Пользователь.ФИО)
                                                 </p>
                                                 @if (!string.IsNullOrEmpty(consultant.Должность))
                                                 {
@@ -132,7 +132,7 @@
                                             @foreach (TeacherDisplayDto reviewer in displayDto.Рецензенты)
                                             {
                                                 <p class="card-text mb-1 fs-5">
-                                                    @(reviewer.ФИО)
+                                                    @(reviewer.Пользователь.ФИО)
                                                 </p>
                                                 @if (!string.IsNullOrEmpty(reviewer.Должность))
                                                 {
@@ -228,29 +228,29 @@
                                     </h5>
                                     <p class="mb-1">
                                         <strong>Институт:</strong><br>
-                                        @displayDto.Студент.Институт
+                                        @displayDto.Студент.Структура.Институт.Название
                                     </p>
                                     <p class="mb-1">
                                         <strong>Стандарт УГСН:</strong><br>
-                                        @(displayDto.Студент.УгснСтандарт)
+                                        @(displayDto.Студент.Структура.УгснСтандарт.Название)
                                     </p>
                                     <p class="mb-1">
                                         <strong>УГСН:</strong><br>
-                                        @(displayDto.Студент.Угсн)
+                                        @(displayDto.Студент.Структура.Угсн.Название)
                                     </p>
                                     <p class="mb-1">
                                         <strong>Кафедра:</strong><br>
-                                        @(displayDto.Студент.Кафедра)
+                                        @(displayDto.Студент.Структура.Кафедра.Название)
                                     </p>
                                     <p class="mb-0">
                                         <strong>Направление:</strong><br>
-                                        @(displayDto.Студент.Направление)
+                                        @(displayDto.Студент.Структура.Направление.Название)
                                     </p>
-                                    @if (!string.IsNullOrEmpty(displayDto.Студент.Профиль))
+                                    @if (displayDto.Студент.Структура.Профиль != null && !string.IsNullOrEmpty(displayDto.Студент.Структура.Профиль.Название))
                                     {
                                         <p class="mb-1">
                                             <strong>Профиль:</strong><br>
-                                            @(displayDto.Студент.Профиль)
+                                            @(displayDto.Студент.Структура.Профиль.Название)
                                         </p>
                                     }
                                     <p class="mb-1">

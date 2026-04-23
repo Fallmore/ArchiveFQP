@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
 {
-    public class WorkApplicationDtoFactory : IDisplayDtoFactory<WorkApplicationDto, ВыдачаРаботы>
+    public class WorkApplicationDtoFactory : IDisplayDtoFactory<WorkApplicationDto, ЗаявлениеРаботы>
     {
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
         private readonly IReferenceDataService _refDataService;
@@ -21,8 +21,8 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
         private List<Пользователь> _users = [];
         private List<Студент> _students = [];
         private List<Преподаватель> _teachers = [];
-        private List<ВыдачаРаботы> _workApplications = [];
-        private List<СтатусВыдачи> _workApplicationStatus = [];
+        private List<ЗаявлениеРаботы> _workApplications = [];
+        private List<СтатусЗаявления> _workApplicationStatus = [];
 
         private Task _init;
 
@@ -44,10 +44,10 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
             _users = await _refDataService.GetAsync<Пользователь>();
             _students = await _refDataService.GetAsync<Студент>();
             _teachers = await _refDataService.GetAsync<Преподаватель>();
-            _workApplicationStatus = await _refDataService.GetAsync<СтатусВыдачи>();
+            _workApplicationStatus = await _refDataService.GetAsync<СтатусЗаявления>();
         }
 
-        public async Task<WorkApplicationDto> CreateDisplayDtoAsync(ВыдачаРаботы wApps)
+        public async Task<WorkApplicationDto> CreateDisplayDtoAsync(ЗаявлениеРаботы wApps)
         {
             return await CreateDisplayDtoAsync(wApps, (await _workDtoFactory.CreateDisplayDtoAsync(wApps.IdРаботы))!);
         }
@@ -59,22 +59,22 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
         /// <param name="wApps"></param>
         /// <param name="work"></param>
         /// <returns></returns>
-        public async Task<WorkApplicationDto> CreateDisplayDtoAsync(ВыдачаРаботы wApps, WorkDisplayDto work)
+        public async Task<WorkApplicationDto> CreateDisplayDtoAsync(ЗаявлениеРаботы wApps, WorkDisplayDto work)
         {
             _init.Wait();
             Студент? student = _students.FirstOrDefault(o => o.IdПользователя == wApps.IdПользователя);
             Преподаватель? teacher = _teachers.FirstOrDefault(o => o.IdПользователя == wApps.IdПользователя);
             return new()
             {
-                IdВыдачи = wApps.IdВыдачи,
+                IdЗаявления = wApps.IdЗаявления,
                 IdРаботы = wApps.IdРаботы,
                 Работа = work,
                 IdПользователя = wApps.IdПользователя,
                 ПользовательСтудент = student != null ? await _studentDtoFactory.CreateDisplayDtoAsync(student) : null,
                 ПользовательПреподаватель = teacher != null ? await _teacherDtoFactory.CreateDisplayDtoAsync(teacher) : null,
                 Цель = wApps.Цель,
-                IdСтатусаВыдачи = wApps.IdСтатусаВыдачи,
-                СтатусВыдачи = _workApplicationStatus.FirstOrDefault(o => o.IdСтатусаВыдачи == wApps.IdСтатусаВыдачи)?.Название ?? "",
+                IdСтатуса = wApps.IdСтатуса,
+                Статус = _workApplicationStatus.FirstOrDefault(o => o.IdСтатуса == wApps.IdСтатуса)?.Название ?? "",
                 ДатаПоступления = wApps.ДатаПоступления,
                 ДатаВозврПоЗаявл = wApps.ДатаВозврПоЗаявл,
                 Ответ = wApps.Ответ,
@@ -86,14 +86,14 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
         public async Task<WorkApplicationDto?> CreateDisplayDtoAsync(int id)
         {
             _init.Wait();
-            if (_workApplications.Count == 0) _workApplications = await _refDataService.GetAsync<ВыдачаРаботы>();
-            ВыдачаРаботы? wApps = _workApplications.FirstOrDefault(o => o.IdВыдачи == id);
+            if (_workApplications.Count == 0) _workApplications = await _refDataService.GetAsync<ЗаявлениеРаботы>();
+            ЗаявлениеРаботы? wApps = _workApplications.FirstOrDefault(o => o.IdЗаявления == id);
             if (wApps == null) return null;
 
             return await CreateDisplayDtoAsync(wApps);
         }
 
-        public async Task<List<WorkApplicationDto>> CreateDisplayDtoListAsync(IEnumerable<ВыдачаРаботы> wApps)
+        public async Task<List<WorkApplicationDto>> CreateDisplayDtoListAsync(IEnumerable<ЗаявлениеРаботы> wApps)
         {
             IEnumerable<Task<WorkApplicationDto>> tasks = wApps.Select(CreateDisplayDtoAsync);
             WorkApplicationDto[] results = await Task.WhenAll(tasks);

@@ -1,23 +1,20 @@
 ﻿using ArchiveFqp.Models.Database;
+using ArchiveFqp.Models.DTO.Structure;
+using ArchiveFqp.Models.DTO.User;
 
 namespace ArchiveFqp.Models.DTO.Student
 {
-    public class StudentDisplayDto : IUserDisplayDto, IDisplayDto
+    /// <summary>
+    /// Объект студента <see cref="Студент"/> для отображения информации
+    /// </summary>
+    public class StudentDisplayDto : IDisplayDto
     {
-        public Пользователь Пользователь { get; set; } = new();
+        public UserDisplayDto Пользователь { get; set; } = new();
 
-        public string Институт { get; set; } = "";
-        public string Кафедра { get; set; } = "";
-        public string Угсн { get; set; } = "";
-        public string УгснСтандарт { get; set; } = "";
-        public string Направление { get; set; } = "";
-        public string? Профиль { get; set; } = "";
+        public StructureDto Структура { get; set; } = new();
 
         public string УровеньОбразования { get; set; } = "";
         public string ФормаОбучения { get; set; } = "";
         public int ГодОкончания { get; set; }
-
-        public string ФИО => $"{Пользователь.Фамилия} {Пользователь.Имя}{(Пользователь.Отчество != null ? " " + Пользователь.Отчество : "")}";
-        public string ФИОИнициалы => $"{Пользователь.Фамилия} {Пользователь.Имя[0]}.{(Пользователь.Отчество != null ? " " + Пользователь.Отчество[0] + "." : "")}";
     }
 }

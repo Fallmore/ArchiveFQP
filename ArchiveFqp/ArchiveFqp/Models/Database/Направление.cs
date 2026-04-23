@@ -16,4 +16,7 @@ public partial class Направление
     public virtual ICollection<Профиль> Профильs { get; set; } = new List<Профиль>();
 
     public virtual ICollection<Студент> Студентs { get; set; } = new List<Студент>();
+
+    public virtual ICollection<ЗаявлениеАтрибута> ЗаявлениеАтрибутаs { get; set; } = new List<ЗаявлениеАтрибута>();
+
 }

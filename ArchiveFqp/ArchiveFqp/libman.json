@@ -9,18 +9,6 @@
     {
       "library": "bootstrap-icons@1.11.3",
       "destination": "wwwroot/vendor/bootstrap-icons"
-    },
-    {
-      "library": "aos@2.3.4",
-      "destination": "wwwroot/vendor/aos"
-    },
-    {
-      "library": "glightbox@3.3.0",
-      "destination": "wwwroot/vendor/glightbox"
-    },
-    {
-      "library": "Swiper@11.0.5",
-      "destination": "wwwroot/vendor/Swiper"
     }
   ]
 }

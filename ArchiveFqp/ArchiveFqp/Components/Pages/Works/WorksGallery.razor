@@ -135,7 +135,7 @@
                             <SearchableSelect TItem="Студент"
                                               TValue="int"
                                               Items="@workStudents"
-                                              TextSelector="@((s) => studentDtoFactory!.CreateDisplayDtoAsync(s).Result.ФИО)"
+                                              TextSelector="@((s) => studentDtoFactory!.CreateDisplayDtoAsync(s).Result.Пользователь.ФИО)"
                                               ValueSelector="@(s => s.IdСтудента)"
                                               Placeholder="Выберите или введите студента..."
                                               @bind-SelectedValue="@searchModel.StudentId"
@@ -147,7 +147,7 @@
                             <SearchableSelect TItem="Преподаватель"
                                               TValue="int"
                                               Items="workTeachers"
-                                              TextSelector="@((s) => teacherDtoFactory!.CreateDisplayDtoAsync(s).Result.ФИО)"
+                                              TextSelector="@((s) => teacherDtoFactory!.CreateDisplayDtoAsync(s).Result.Пользователь.ФИО)"
                                               ValueSelector="@(s => s.IdПреподавателя)"
                                               Placeholder="Выберите или введите руководителя..."
                                               @bind-SelectedValue="@searchModel.TeacherId"
@@ -162,7 +162,7 @@
                                                       DefaultValue="-1"
                                                       @bind-SelectedValues="searchModel.ConsultantsId"
                                                       Items="workTeachers"
-                                                      TextSelector="@(t => teacherDtoFactory!.CreateDisplayDtoAsync(t).Result.ФИО)"
+                                                      TextSelector="@(t => teacherDtoFactory!.CreateDisplayDtoAsync(t).Result.Пользователь.ФИО)"
                                                       ValueSelector="@(t => t.IdПреподавателя)"
                                                       OnCustomValue="@((i) => searchModel.ConsultantsId[i] = -1)" />
                         </div>
@@ -175,7 +175,7 @@
                                                       DefaultValue="-1"
                                                       @bind-SelectedValues="searchModel.ReviewersId"
                                                       Items="workTeachers"
-                                                      TextSelector="@(t => teacherDtoFactory!.CreateDisplayDtoAsync(t).Result.ФИО)"
+                                                      TextSelector="@(t => teacherDtoFactory!.CreateDisplayDtoAsync(t).Result.Пользователь.ФИО)"
                                                       ValueSelector="@(t => t.IdПреподавателя)"
                                                       OnCustomValue="@((i) => searchModel.ReviewersId[i] = -1)" />
                         </div>
@@ -278,11 +278,11 @@
                                     <div class="mb-2">
                                         <span class="badge bg-secondary">
                                             <i class="bi bi-person"></i>
-                                            @(w.Студент.ФИО)
+                                            @(w.Студент.Пользователь.ФИО)
                                         </span>
                                         <span class="badge bg-info ms-1">
                                             <i class="bi bi-mortarboard"></i>
-                                            @(w.Руководитель.ФИО)
+                                            @(w.Руководитель.Пользователь.ФИО)
                                         </span>
                                     </div>
 

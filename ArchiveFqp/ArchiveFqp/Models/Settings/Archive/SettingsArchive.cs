@@ -5,14 +5,16 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
 {
     public class SettingsArchive
     {
+        public int MinDayWatchWorks { get; set; } = 3;
         public int MaxDayWatchWorks { get; set; } = 14;
         public bool SendNotifications { get; set; }
         public bool SendNotificationsOnEmail { get; set; } 
 
-        public string WorkApplicationsInProcessStatus { get; set; } = "В обработке";
-        public string WorkApplicationsRejectStatus { get; set; } = "Отклонено";
-        public string WorkApplicationsActiveStatus { get; set; } = "Активно";
-        public string WorkApplicationsCompleteStatus { get; set; } = "Завершено";
+        public string ApplicationsInProcessStatus { get; set; } = "На рассмотрении";
+        public string ApplicationsRejectStatus { get; set; } = "Отклонено";
+        public string ApplicationsAcceptStatus { get; set; } = "Принято";
+        public string ApplicationsActiveStatus { get; set; } = "Активно";
+        public string ApplicationsCompleteStatus { get; set; } = "Завершено";
 
         public string WorkOnReviewStatus { get; set; } = "На проверке";
         public string WorkOnProcessStatus { get; set; } = "Обработка нейросетью";

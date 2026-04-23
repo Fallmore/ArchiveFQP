@@ -29,8 +29,6 @@ public partial class ArchiveFqpContext : DbContext
 
     public virtual DbSet<АтрибутУчреждения> АтрибутУчрежденияs { get; set; }
 
-    public virtual DbSet<ВыдачаРаботы> ВыдачаРаботыs { get; set; }
-
     public virtual DbSet<ДанныеПоАтриб> ДанныеПоАтрибs { get; set; }
 
     public virtual DbSet<Должность> Должностьs { get; set; }
@@ -38,6 +36,10 @@ public partial class ArchiveFqpContext : DbContext
     public virtual DbSet<ДоступРаботы> ДоступРаботыs { get; set; }
 
     public virtual DbSet<ЖурналДействий> ЖурналДействийs { get; set; }
+    
+    public virtual DbSet<ЗаявлениеРаботы> ЗаявлениеРаботыs { get; set; }
+
+    public virtual DbSet<ЗаявлениеАтрибута> ЗаявлениеАтрибутаs { get; set; }
 
     public virtual DbSet<Институт> Институтs { get; set; }
 
@@ -63,7 +65,7 @@ public partial class ArchiveFqpContext : DbContext
 
     public virtual DbSet<СтатусРаботы> СтатусРаботыs { get; set; }
 
-    public virtual DbSet<СтатусВыдачи> СтатусВыдачиs { get; set; }
+    public virtual DbSet<СтатусЗаявления> СтатусЗаявленияs { get; set; }
 
     public virtual DbSet<Студент> Студентs { get; set; }
 
@@ -232,52 +234,6 @@ public partial class ArchiveFqpContext : DbContext
                 .HasConstraintName("атрибут_учреждени_id_типа_работы_fkey");
         });
 
-        modelBuilder.Entity<ВыдачаРаботы>(entity =>
-        {
-            entity.HasKey(e => e.IdВыдачи).HasName("выдача_работы_pkey");
-
-            entity.ToTable("выдача_работы");
-
-            entity.Property(e => e.IdВыдачи).HasColumnName("id_выдачи");
-            entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
-            entity.Property(e => e.IdСтатусаВыдачи).HasColumnName("id_статуса_выдачи");
-            entity.Property(e => e.IdРаботы).HasColumnName("id_работы");
-            entity.Property(e => e.ДатаВозврПоЗаявл)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("дата_возвр_по_заявл");
-            entity.Property(e => e.ДатаВозврПоФакту)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("дата_возвр_по_факту");
-            entity.Property(e => e.ДатаОтвета)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("дата_ответа");
-            entity.Property(e => e.ДатаПоступления)
-                .HasDefaultValueSql("now()")
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("дата_поступления");
-            entity.Property(e => e.Ответ)
-                .HasColumnType("character varying")
-                .HasColumnName("ответ");
-            entity.Property(e => e.Цель)
-                .HasColumnType("character varying")
-                .HasColumnName("цель");
-
-            entity.HasOne(d => d.IdПользователяNavigation).WithMany(p => p.ВыдачаРаботыs)
-                .HasForeignKey(d => d.IdПользователя)
-                .OnDelete(DeleteBehavior.Restrict)
-                .HasConstraintName("выдача_работы_id_пользователя_fkey");
-
-            entity.HasOne(d => d.IdРаботыNavigation).WithMany(p => p.ВыдачаРаботыs)
-                .HasForeignKey(d => d.IdРаботы)
-                .OnDelete(DeleteBehavior.Restrict)
-                .HasConstraintName("выдача_работы_id_работы_fkey");
-
-            entity.HasOne(d => d.IdСтатусВыдачиNavigation).WithMany(p => p.ВыдачаРаботыs)
-                .HasForeignKey(d => d.IdСтатусаВыдачи)
-                .OnDelete(DeleteBehavior.Restrict)
-                .HasConstraintName("выдача_работы_id_статуса_выдачи_fkey");
-        });
-
         modelBuilder.Entity<ДанныеПоАтриб>(entity =>
         {
             entity.HasKey(e => e.IdДанных).HasName("данные_по_атриб_pkey");
@@ -352,6 +308,123 @@ public partial class ArchiveFqpContext : DbContext
             entity.Property(e => e.Таблица)
                 .HasColumnType("character varying")
                 .HasColumnName("таблица");
+        });
+
+        modelBuilder.Entity<ЗаявлениеАтрибута>(entity =>
+        {
+            entity.HasKey(e => e.IdЗаявления).HasName("заявление_атрибута_pkey");
+
+            entity.ToTable("заявление_атрибута");
+
+            entity.Property(e => e.IdЗаявления).HasColumnName("id_заявления");
+            entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
+            entity.Property(e => e.IdАтрибута).HasColumnName("id_атрибута");
+            entity.Property(e => e.IdИнститута).HasColumnName("id_института");
+            entity.Property(e => e.IdКафедры).HasColumnName("id_кафедры");
+            entity.Property(e => e.IdНаправления).HasColumnName("id_направления");
+            entity.Property(e => e.IdПрофиля).HasColumnName("id_профиля");
+            entity.Property(e => e.IdСтатуса).HasColumnName("id_статуса");
+            entity.Property(e => e.ДатаОтвета)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("дата_ответа");
+            entity.Property(e => e.ДатаПоступления)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("дата_поступления");
+            entity.Property(e => e.Ответ)
+                .HasColumnType("character varying")
+                .HasColumnName("ответ");
+            entity.Property(e => e.Название)
+                .HasColumnType("character varying")
+                .HasColumnName("название");
+            entity.Property(e => e.Описание)
+                .HasColumnType("character varying")
+                .HasColumnName("описание");
+            entity.Property(e => e.Новый)
+                .HasColumnType("boolean")
+                .HasColumnName("новый");
+            entity.Property(e => e.Примеры).HasColumnName("примеры");
+
+            entity.HasOne(d => d.IdПользователяNavigation).WithMany(p => p.ЗаявлениеАтрибутаs)
+                .HasForeignKey(d => d.IdПользователя)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("заявление_атрибута_id_пользователя_fkey");
+
+            entity.HasOne(d => d.IdАтрибутаNavigation).WithMany(p => p.ЗаявлениеАтрибутаs)
+                .HasForeignKey(d => d.IdАтрибута)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("заявление_атрибута_id_атрибута_fkey");
+
+            entity.HasOne(d => d.IdИнститутаNavigation).WithMany(p => p.ЗаявлениеАтрибутаs)
+                .HasForeignKey(d => d.IdИнститута)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("заявление_атрибута_id_института_fkey");
+
+            entity.HasOne(d => d.IdКафедрыNavigation).WithMany(p => p.ЗаявлениеАтрибутаs)
+                .HasForeignKey(d => d.IdКафедры)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("заявление_атрибута_id_кафедры_fkey");
+
+            entity.HasOne(d => d.IdНаправленияNavigation).WithMany(p => p.ЗаявлениеАтрибутаs)
+                .HasForeignKey(d => d.IdНаправления)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("заявление_атрибута_id_направления_fkey");
+
+            entity.HasOne(d => d.IdПрофиляNavigation).WithMany(p => p.ЗаявлениеАтрибутаs)
+                .HasForeignKey(d => d.IdПрофиля)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("заявление_атрибута_id_профиля_fkey");
+
+            entity.HasOne(d => d.IdСтатусЗаявленияNavigation).WithMany(p => p.ЗаявлениеАтрибутаs)
+                .HasForeignKey(d => d.IdСтатуса)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("заявление_атрибута_id_статуса_заявления_fkey");
+        });
+
+        modelBuilder.Entity<ЗаявлениеРаботы>(entity =>
+        {
+            entity.HasKey(e => e.IdЗаявления).HasName("заявление_работы_pkey");
+
+            entity.ToTable("заявление_работы");
+
+            entity.Property(e => e.IdЗаявления).HasColumnName("id_заявления");
+            entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
+            entity.Property(e => e.IdСтатуса).HasColumnName("id_статуса");
+            entity.Property(e => e.IdРаботы).HasColumnName("id_работы");
+            entity.Property(e => e.ДатаВозврПоЗаявл)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("дата_возвр_по_заявл");
+            entity.Property(e => e.ДатаВозврПоФакту)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("дата_возвр_по_факту");
+            entity.Property(e => e.ДатаОтвета)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("дата_ответа");
+            entity.Property(e => e.ДатаПоступления)
+                .HasDefaultValueSql("now()")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("дата_поступления");
+            entity.Property(e => e.Ответ)
+                .HasColumnType("character varying")
+                .HasColumnName("ответ");
+            entity.Property(e => e.Цель)
+                .HasColumnType("character varying")
+                .HasColumnName("цель");
+
+            entity.HasOne(d => d.IdПользователяNavigation).WithMany(p => p.ЗаявлениеРаботыs)
+                .HasForeignKey(d => d.IdПользователя)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("заявление_работы_id_пользователя_fkey");
+
+            entity.HasOne(d => d.IdРаботыNavigation).WithMany(p => p.ЗаявлениеРаботыs)
+                .HasForeignKey(d => d.IdРаботы)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("заявление_работы_id_работы_fkey");
+
+            entity.HasOne(d => d.IdСтатусЗаявленияNavigation).WithMany(p => p.ЗаявлениеРаботыs)
+                .HasForeignKey(d => d.IdСтатуса)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("заявление_работы_id_статуса_заявления_fkey");
         });
 
         modelBuilder.Entity<Институт>(entity =>
@@ -667,14 +740,14 @@ public partial class ArchiveFqpContext : DbContext
                 .HasColumnName("название");
         });
 
-        modelBuilder.Entity<СтатусВыдачи>(entity =>
+        modelBuilder.Entity<СтатусЗаявления>(entity =>
         {
-            entity.HasKey(e => e.IdСтатусаВыдачи).HasName("статус_выдачи_pkey");
+            entity.HasKey(e => e.IdСтатуса).HasName("статус_заявления_pkey");
 
-            entity.ToTable("статус_выдачи");
-            entity.HasIndex(e => e.Название, "статус_выдачи_название_key").IsUnique();
+            entity.ToTable("статус_заявления");
+            entity.HasIndex(e => e.Название, "статус_заявления_название_key").IsUnique();
 
-            entity.Property(e => e.IdСтатусаВыдачи).HasColumnName("id_статуса_выдачи");
+            entity.Property(e => e.IdСтатуса).HasColumnName("id_статуса");
             entity.Property(e => e.Название)
                 .HasColumnType("character varying")
                 .HasColumnName("название");

@@ -1,5 +1,620 @@
-﻿<h3>Attribute</h3>
+﻿@using ArchiveFqp.Components.Components
+@using ArchiveFqp.Factories.DisplayDto.Structure
+@using ArchiveFqp.Models.DTO.Structure
+@using ArchiveFqp.Models.DTO.Teacher
+@using ArchiveFqp.Models.DTO.User
+@using ArchiveFqp.Models.DTO.WorkApplication
+@using ArchiveFqp.Models.Settings.SettingsArchive
+@using ArchiveFqp.Services.Applications
+@using ArchiveFqp.Services.ReferenceData
+@using ArchiveFqp.Services.User
+@using ArchiveFqp.Services.Work
+@using Microsoft.EntityFrameworkCore
+@inject SettingsArchive Settings
+@inject IDbContextFactory<ArchiveFqpContext> DbFactory
+@inject IWorkService WorkService
+@inject IUserService UserService
+@inject IApplicationsService ApplicationsService
+@inject IReferenceDataService RefDataService
+@inject IJSRuntime JS
+@implements IDisposable
+@rendermode @(new InteractiveServerRenderMode())
+
+@if (RendererInfo.IsInteractive)
+{
+    if (errorMessage != null && successMessage == null)
+    {
+        <div class="alert alert-danger">@(errorMarkUp)</div>
+    }
+    if (successMessage != null)
+    {
+        <div class="alert alert-success">@successMessage</div>
+    }
+
+    <EditForm Model="@attributeApplication" OnValidSubmit="@HandleValidSubmit" FormName="attributeApplicationAdd">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="alert alert-danger" />
+
+        <!-- Основная информация -->
+        <div class="col">
+            @if (IsEditMode)
+            {
+                <div class="row-md-6 mb-1">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind="attributeApplication.Новый" id="flexCheckDefault" />
+                        <label class="form-check-label" for="flexCheckDefault">
+                            Новый атрибут
+                        </label>
+                    </div>
+                </div>
+                
+                @if (!attributeApplication.Новый)
+                {
+                    <div class="row-md-6 mb-1">
+                        <!-- Атрибуты -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Атрибут <span class="text-danger">*</span></label>
+                        <SearchableSelect TItem="Атрибут"
+                                          TValue="int?"
+                                          Items="@(attributes.OrderBy(x => x.Название))"
+                                          TextSelector="@((s) => s.Название)"
+                                          ValueSelector="@(s => s.IdАтрибута)"
+                                          Placeholder="Выберите или введите существующий атрибут..."
+                                          IsInvalid="attributeApplication.IdАтрибута == null && !attributeApplication.Новый"
+                                          Disabled="attributeApplication.Новый"
+                                          @bind-SelectedValue="@attributeApplication.IdАтрибута"
+                                          @bind-SelectedValue:after="GetAttributeName"
+                                          OnCustomValue="@(() => attributeApplication.IdАтрибута = null)" />
+                    </div>
+                }
+                
+                @if (attributeApplication.Новый)
+                {
+                    <div class="row-md-6 mb-1">
+                        <!-- Название -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Название <span class="text-danger">*</span></label>
+                        <InputText class="form-control " @bind-Value="attributeApplication.Название"
+                                   disabled="@(!attributeApplication.Новый)"
+                                   placeholder="@(attributeApplication.Новый ? "Укажите название предложенного вами нового атрибута" : "")" />
+                    </div>
+                }
+
+                <div class="row-md-6 mb-1">
+                    <!-- Описание -->
+                    <label class="form-label mb-0 mx-1 fw-bold">Описание <span class="text-danger">*</span></label>
+                    <InputTextArea class="form-control " @bind-Value="attributeApplication.Описание"
+                                   rows="3"
+                                   placeholder="@(attributeApplication.Новый ? "Укажите обоснование добавления атрибута и описание того, что подразумевает под собой предложенный вами атрибут" : "Укажите обоснование добавления атрибута")" />
+                </div>
+
+                @if (attributeApplication.Новый)
+                {
+                    <div class="row-md-6 mb-1">
+                        <!-- Примеры -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Примеры <span class="text-danger">*</span></label>
+                        <InputTextArea class="form-control" @bind-Value="attributeExamples"
+                                       disabled="@(!attributeApplication.Новый)"
+                                       @onfocusout="ToArrayExamples"
+                                       rows="3"
+                                       placeholder="Введите через запятую примеры данных" />
+                    </div>
+                }
+
+                <!-- Структуры -->
+                <h5 class="mt-4 mb-0"><strong>На какие структуру(ы) добавить атрибут</strong></h5>
+                <p class="fs-6 mt-0 mb-1 text-muted">Отсутствие выбранной структуры будет подразумевать за собой весь университет</p>
+                <div class="row-md-6 mb-1">
+                    <!-- Институт -->
+                    <label class="form-label mb-0 mx-1 fw-bold">Институт</label>
+                    <InputSelect class="form-select" @bind-Value="attributeApplication.IdИнститута">
+                        <option value="">Выберите институт</option>
+                        @foreach (Институт i in snapshot.Institutes.OrderBy(x => x.Название))
+                        {
+                            <option value="@i.IdИнститута">@i.Название</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="row-md-6 mb-1">
+                    <!-- Кафедра -->
+                    <label class="form-label mb-0 mx-1 fw-bold">Кафедра</label>
+                    <InputSelect class="form-select"
+                                 @bind-Value="attributeApplication.IdКафедры"
+                                 data-bs-toggle="tooltip" title="@(attributeApplication.IdКафедры.HasValue? GetStructureInfo<Кафедра>(attributeApplication.IdКафедры.Value) : "Выберите кафедру")">
+                        <option value="">Выберите кафедру</option>
+                        @foreach (Кафедра i in snapshot.Departments.OrderBy(x => x.Название))
+                        {
+                            <option value="@i.IdКафедры" data-bs-toggle="tooltip"
+                                    title="@(GetStructureInfo<Кафедра>(i.IdКафедры))">
+                                @i.Название
+                            </option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="row-md-6 mb-1">
+                    <!-- Направление -->
+                    <label class="form-label mb-0 mx-1 fw-bold">Направление</label>
+                    <InputSelect class="form-select"
+                                 @bind-Value="attributeApplication.IdНаправления"
+                                 data-bs-toggle="tooltip" title="@(attributeApplication.IdНаправления.HasValue? GetStructureInfo<Направление>(attributeApplication.IdНаправления.Value) : "Выберите направление")">
+                        <option value="">Выберите направление</option>
+                        @foreach (Направление i in snapshot.Directions.OrderBy(x => x.Название))
+                        {
+                            <option value="@i.IdНаправления" data-bs-toggle="tooltip"
+                                    title="@(GetStructureInfo<Направление>(i.IdНаправления))">
+                                @i.Название
+                            </option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="row-md-6 mb-1">
+                    <!-- Профиль -->
+                    <label class="form-label mb-0 mx-1 fw-bold">Профиль</label>
+                    <InputSelect class="form-select"
+                                 @bind-Value="attributeApplication.IdПрофиля"
+                                 data-bs-toggle="tooltip" title="@(attributeApplication.IdПрофиля.HasValue? GetStructureInfo<Профиль>(attributeApplication.IdПрофиля.Value) : "Выберите кафедру")">
+                        <option value="">Выберите профиль</option>
+                        @foreach (Профиль i in snapshot.Profiles.OrderBy(x => x.Название))
+                        {
+                            <option value="@i.IdПрофиля" data-bs-toggle="tooltip"
+                                    title="@(GetStructureInfo<Профиль>(i.IdПрофиля))">
+                                @i.Название
+                            </option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="row-md-6">
+                    <button type="submit" class="btn btn-success mt-3">
+                        Подать заявку
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="row-md-6 mb-1">
+                    <!-- Новый атрибут -->
+                    @{
+                        string mes = attributeApplication.Новый
+                        ? "Новый атрибут"
+                        : "Имеющийся атрибут";
+                        <h5><strong>@mes</strong></h5>
+                    }
+                </div>
+
+                <div class="row-md-6">
+                    <!-- Дата поступления -->
+                    <label class="form-label mb-0 mx-1 fw-bold">Дата подачи</label>
+                    <br />
+                    <span class="mx-1">@(attributeApplication.ДатаПоступления)</span>
+                </div>
+
+                <div class="row-md-6 mb-1">
+                    <!-- Атрибут -->
+                    <label class="form-label mb-0 mx-1 fw-bold">Атрибут</label>
+                    <br />
+                    <span class="mx-1">@(attributeApplication.Название)</span>
+                </div>
+
+                <div class="row-md-6 mb-1">
+                    <!-- Описание -->
+                    <label class="form-label mb-0 mx-1 fw-bold">Описание</label>
+                    <br />
+                    <span class="mx-1">@(attributeApplication.Описание)</span>
+                </div>
+
+                @if (attributeApplication.Новый)
+                {
+                    <div class="row-md-6 mb-1">
+                        <!-- Примеры -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Примеры</label>
+                        <br />
+                        <span class="mx-1">@(string.Join(", ", attributeApplication.Примеры ?? ["Примеры отсутствуют"]))</span>
+                    </div>
+                }
+
+                <!-- Структуры -->
+                @if (attributeApplication.IdИнститута.HasValue)
+                {
+                    <div class="row-md-6 mb-1">
+                        <!-- Институт -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Институт</label>
+                        <br />
+                        <span class="mx-1 text-decoration-underline" style="cursor:default">
+                            @(snapshot.Institutes
+                                    .Find(x => x.IdИнститута == attributeApplication.IdИнститута)?.Название
+                                    ?? "Институт не найден")
+                        </span>
+                    </div>
+                }
+                @if (attributeApplication.IdКафедры.HasValue)
+                {
+                    <div class="row-md-6 mb-1">
+                        <!-- Кафедра -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Кафедра</label>
+                        <br />
+                        <span class="mx-1 text-decoration-underline" style="cursor:default"
+                              data-bs-toggle="tooltip" title="@(GetStructureInfo<Кафедра>(attributeApplication.IdКафедры!.Value))">
+                            @(snapshot.Departments
+                                    .Find(x => x.IdКафедры == attributeApplication.IdКафедры)?.Название
+                                    ?? "Кафедра не найдена")
+                        </span>
+                    </div>
+                }
+                @if (attributeApplication.IdНаправления.HasValue)
+                {
+                    <div class="row-md-6 mb-1">
+                        <!-- Направление -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Направление</label>
+                        <br />
+                        <span class="mx-1 text-decoration-underline" style="cursor:default"
+                              data-bs-toggle="tooltip" title="@(GetStructureInfo<Направление>(attributeApplication.IdНаправления!.Value))">
+                            @(snapshot.Directions
+                                    .Find(x => x.IdНаправления == attributeApplication.IdНаправления)?.Название
+                                    ?? "Направление не найдено")
+                        </span>
+                    </div>
+                }
+                @if (attributeApplication.IdПрофиля.HasValue)
+                {
+                    <div class="row-md-6 mb-1">
+                        <!-- Профиль -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Профиль</label>
+                        <br />
+                        <span class="mx-1 text-decoration-underline" style="cursor:default"
+                              data-bs-toggle="tooltip" title="@(GetStructureInfo<Профиль>(attributeApplication.IdПрофиля!.Value))">
+                            @(snapshot.Profiles
+                                    .Find(x => x.IdПрофиля == attributeApplication.IdПрофиля)?.Название
+                                    ?? "Профиль не найден")
+                        </span>
+                    </div>
+                }
+
+                // Если статус не "На рассмотрении"
+                @if (isAnswered)
+                {
+                    <div class="row-md-6">
+                        <!-- Дата ответа -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Дата ответа</label>
+                        <br />
+                        <span class="mx-1">@(attributeApplication.ДатаОтвета)</span>
+                    </div>
+
+                    <div class="row-md-6">
+                        <!-- Ответ -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Ответ</label>
+                        <br />
+                        <span class="mx-1">@(attributeApplication.Ответ)</span>
+                    </div>
+                }
+                else if (IsReviewMode)
+                {
+                    <div class="row-md-6 mb-1">
+                        <!-- Заявитель -->
+                        @{
+                            string idModal = "userInfoModal" + attributeApplication.IdПользователя;
+                            string idModalLabel = "userInfoModalLabel" + attributeApplication.IdПользователя;
+
+                            <button type="button" class="btn btn-primary" @onclick="@(() => OpenModal(idModal))">
+                                Заявитель
+                            </button>
+                    
+                            <div class="modal fade" id="@idModal" tabindex="-1" aria-labelledby="@idModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-xl">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="@idModalLabel">Информация о выбранной работе</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body pt-0">
+                                            <UserInfo Teacher="teacherDisplay"
+                                                      User="userDisplay"
+                                                      @key="attributeApplication.IdПользователя" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="row-md-6 mb-1">
+                        <!-- Ответ -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Ответ <span class="text-danger">*</span></label>
+                        <InputTextArea class="form-control " @bind-Value="attributeApplication.Ответ"
+                                       rows="3"
+                                       placeholder="Опишите причину решения" />
+                    </div>
+
+                    <div class="row-md-3 mb-1">
+                        <!-- Статус выдачи -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Вердикт <span class="text-danger">*</span></label>
+                        <div class="col-md-5">
+                            <InputSelect class="form-select" @bind-Value="attributeApplication.IdСтатуса">
+                                @{
+                                    int inReviewStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
+                                    int rejectStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsRejectStatus).IdСтатуса;
+                                    int acceptStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsAcceptStatus).IdСтатуса;
+                                    <option value="@inReviewStatusId">Выберите вердикт</option>
+                                    <option value="@rejectStatusId">Отклонить</option>
+                                    <option value="@acceptStatusId">Одобрить</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="row-md-6">
+                        <button type="submit" class="btn btn-success mt-3">
+                            Отправить ответ
+                        </button>
+                    </div>
+                }
+            }
+        </div>
+    </EditForm>
+}
+
+<script>
+        window.openModal = (modalId) => {
+        const modalElement = document.getElementById(modalId);
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        }
+    };
+</script>
 
 @code {
+    [Parameter] public int? WorkId { get; set; }
+    [Parameter] public bool IsEditMode { get; set; } = true;
+    [Parameter] public bool IsReviewMode { get; set; } = false;
+    [Parameter] public ЗаявлениеАтрибута? AttributeApplication { get; set; }
+    private ЗаявлениеАтрибута attributeApplication = new();
+    private string attributeExamples = "";
+    private TeacherDisplayDto? teacherDisplay;
+    private UserDisplayDto? userDisplay;
+    private List<СтатусЗаявления> applicationStatuses = null!;
+    private List<Атрибут> attributes = null!;
+    private int currentStatusId;
+    private bool isAnswered = false;
 
+    private ReferenceDataSnapshot snapshot = new();
+
+    private StructureDtoFactory structureFactory = null!;
+    private List<StructureDto> structureDepartments = [];
+    private List<StructureDto> structureDirections = [];
+    private List<StructureDto> structureProfiles = [];
+
+    private string? errorMessage;
+    private MarkupString errorMarkUp => new MarkupString(errorMessage!);
+
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AttributeApplication != null) attributeApplication = AttributeApplication;
+
+        structureFactory = new(RefDataService);
+        snapshot = await RefDataService.GetAllAsync();
+        await GetStructures();
+        attributes = await WorkService.GetAllAttributesAsync();
+        applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
+        currentStatusId = attributeApplication.IdСтатуса;
+        isAnswered = currentStatusId != applicationStatuses
+            .First(w => w.Название == Settings.ApplicationsInProcessStatus)
+                .IdСтатуса;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (AttributeApplication != null) attributeApplication = AttributeApplication;
+
+        currentStatusId = attributeApplication.IdСтатуса;
+        isAnswered = currentStatusId != applicationStatuses
+            .First(w => w.Название == Settings.ApplicationsInProcessStatus)
+                .IdСтатуса;
+    }
+
+    private async Task GetStructures()
+    {
+        structureDepartments = await structureFactory.CreateDisplayDtoListAsync(snapshot.Departments);
+        structureDirections = await structureFactory.CreateDisplayDtoListAsync(snapshot.Directions);
+        structureProfiles = await structureFactory.CreateDisplayDtoListAsync(snapshot.Profiles);
+    }
+
+    private string GetStructureInfo<T>(int id) where T : class
+    {
+        StructureDto? str;
+        string info = "";
+        switch (typeof(T).Name)
+        {
+            case nameof(Кафедра):
+                str = structureDepartments.First(x => x.Кафедра.IdКафедры == id);
+                info = $"УГСН: {str.Угсн.Название}\n" +
+                        $"Стандарт УГСН: {str.УгснСтандарт.Название}\n" +
+                        $"Институт: {str.Институт.Название}\n";
+                break;
+            case nameof(Направление):
+                str = structureDirections.First(x => x.Направление.IdНаправления == id);
+                info = $"Кафедра: {str.Кафедра.Название}\n" +
+                        $"УГСН: {str.Угсн.Название}\n" +
+                        $"Стандарт УГСН: {str.УгснСтандарт.Название}\n" +
+                        $"Институт: {str.Институт.Название}";
+                break;
+            case nameof(Профиль):
+                str = structureProfiles.First(x => id == (x.Профиль?.IdПрофиля ?? -1));
+                info = $"Направление: {str.Направление.Название}\n" +
+                        $"Кафедра: {str.Кафедра.Название}\n" +
+                        $"УГСН: {str.Угсн.Название}\n" +
+                        $"Стандарт УГСН: {str.УгснСтандарт.Название}\n" +
+                        $"Институт: {str.Институт.Название}";
+                break;
+            default:
+                break;
+        }
+
+        return info;
+    }
+
+    private async Task OpenModal(string modal)
+    {
+        await JS.InvokeVoidAsync("openModal", modal);
+        userDisplay = await UserService.GetUserDisplayAsync(attributeApplication.IdПользователя);
+        teacherDisplay = await UserService.GetTeacherDisplayAsync(attributeApplication.IdПользователя);
+    }
+
+    private void ToArrayExamples()
+    {
+        attributeExamples = attributeExamples.Trim();
+        if (string.IsNullOrWhiteSpace(attributeExamples))
+        {
+            attributeApplication.Примеры = null;
+            return;
+        }
+        attributeApplication.Примеры = attributeExamples.Split(',')
+        .Select(x => x.Trim())
+        .Where(x => !string.IsNullOrEmpty(x))
+        .ToArray();
+        attributeExamples = string.Join(',', attributeApplication.Примеры);
+    }
+
+    private void GetAttributeName()
+    {
+        attributeApplication.Название = attributes
+            .FirstOrDefault(x => x.IdАтрибута == attributeApplication.IdАтрибута)?.Название ?? "";
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (!IsReviewMode)
+        {
+            if (!ValidateAdd()) return;
+            await AddWorkApplication();
+        }
+        else
+        {
+            if (!ValidateAnswer()) return;
+            await AddAnswer();
+        }
+    }
+
+    private bool ValidateAdd()
+    {
+        bool isOk = true;
+        errorMessage = "";
+        if (attributeApplication.Новый)
+        {
+            if (string.IsNullOrWhiteSpace(attributeApplication.Название))
+            {
+                errorMessage = "Введите название атрибута";
+                isOk = false;
+            }
+            if (attributeApplication.Примеры == null || attributeApplication.Примеры.Count() == 0)
+            {
+                errorMessage += (isOk ? "" : "\n<br/>") + "Введите примеры";
+                isOk = false;
+            }
+        }
+        else
+        {
+            if (attributeApplication.IdАтрибута == null)
+            {
+                errorMessage = "Выберите атрибут";
+                isOk = false;
+            }
+        }
+
+        return isOk;
+    }
+
+    private async Task AddWorkApplication()
+    {
+        try
+        {
+            using var context = DbFactory.CreateDbContext();
+
+            ЗаявлениеАтрибута newApp = new()
+            {
+                IdАтрибута = attributeApplication.IdАтрибута,
+                Описание = attributeApplication.Описание!,
+                ДатаПоступления = DateTime.Now,
+                IdИнститута = attributeApplication.IdИнститута,
+                IdКафедры = attributeApplication.IdКафедры,
+                IdНаправления = attributeApplication.IdНаправления,
+                IdПрофиля = attributeApplication.IdПрофиля,
+                Название = attributeApplication.Название,
+                Новый = attributeApplication.Новый,
+                Примеры = attributeApplication.Новый ? attributeApplication.Примеры : null,
+                IdПользователя = 2, // TODO: Получать из контекста авторизации
+                IdСтатуса = (await ApplicationsService.GetApplicationsStatusesAsync())
+                    .First(ws => ws.Название == Settings.ApplicationsInProcessStatus).IdСтатуса
+            };
+
+            context.ЗаявлениеАтрибутаs.Add(newApp);
+            await context.SaveChangesAsync();
+            successMessage = "Заявление успешно отправлено!";
+            attributeApplication = new();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка при отправке: {ex.Message}";
+        }
+    }
+
+    private bool ValidateAnswer()
+    {
+        bool isOk = true;
+        int inReviewStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
+        int rejectStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsRejectStatus).IdСтатуса;
+        errorMessage = "";
+        if (attributeApplication.IdСтатуса == inReviewStatusId)
+        {
+            errorMessage = "Выберите вердикт!";
+            isOk = false;
+        }
+        // Если происходит отказ, то необходимо объяснение ответа
+        if (string.IsNullOrWhiteSpace(attributeApplication.Ответ)
+            && attributeApplication.IdСтатуса == rejectStatusId)
+        {
+            errorMessage += (isOk ? "" : "\n") + "Напишите объяснение ответа!";
+            isOk = false;
+        }
+
+        return isOk;
+    }
+
+    private async Task AddAnswer()
+    {
+        try
+        {
+            using var context = DbFactory.CreateDbContext();
+
+            ЗаявлениеАтрибута? app = context.ЗаявлениеАтрибутаs.Find(attributeApplication.IdЗаявления);
+            if (app == null)
+            {
+                errorMessage = "Заявление не найдено, либо удалено";
+                return;
+            }
+
+            app.Ответ = attributeApplication.Ответ;
+            app.ДатаОтвета = DateTime.Now;
+            app.IdСтатуса = attributeApplication.IdСтатуса;
+
+            await context.SaveChangesAsync();
+            successMessage = "Ответ успешно отправлен!";
+            isAnswered = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка при отправке: {ex.Message}";
+        }
+    }
+
+    public void Dispose()
+    {
+        if (!string.IsNullOrWhiteSpace(successMessage))
+            AttributeApplication?.IdСтатуса = currentStatusId;
+    }
 }

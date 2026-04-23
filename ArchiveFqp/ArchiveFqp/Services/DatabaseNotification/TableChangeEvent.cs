@@ -7,6 +7,9 @@ namespace ArchiveFqp.Services.DatabaseNotification
     /// </summary>
     public class TableChangeEvent
     {
+        /// <summary>
+        /// Имя таблицы в стиле snake_case
+        /// </summary>
         public string TableName { get; set; } = "";
         public TableChangeType ChangeType { get; set; }
         public JObject? Old { get; set; }

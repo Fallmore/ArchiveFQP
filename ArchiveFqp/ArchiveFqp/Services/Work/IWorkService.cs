@@ -38,18 +38,6 @@ namespace ArchiveFqp.Services.Work
         Task<List<ТипРаботы>> GetWorkTypesAsync();
 
         /// <summary>
-		/// Получение списка выдачи работ
-		/// </summary>
-		/// <returns></returns>
-		Task<List<ВыдачаРаботы>> GetWorkApplicationsAsync();
-
-        /// <summary>
-		/// Получение справочника статусов выдачи работ
-		/// </summary>
-		/// <returns></returns>
-		Task<List<СтатусВыдачи>> GetWorkApplicationsStatusesAsync();
-
-        /// <summary>
         /// Получение справочника статусов работ
         /// </summary>
         /// <returns></returns>
@@ -120,28 +108,22 @@ namespace ArchiveFqp.Services.Work
         Task<Dictionary<int, List<AttributeDto>>> GetWorksAttributesAsync(List<Работа> works, List<string>? abandonedValues = null);
 
         /// <summary>
-        /// 
+        /// Получение объекта работы как <see cref="WorkDisplayDto"/> для отображение данных в виде строк
         /// </summary>
         /// <param name="work"></param>
         /// <param name="consultants"></param>
         /// <param name="reviewers"></param>
         /// <returns></returns>
         Task<WorkDisplayDto> GetWorkDisplayAsync(Работа work, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null);
-        
+
         /// <summary>
-        /// 
+        /// Получение объекта работы как <see cref="WorkDisplayDto"/> для отображение данных в виде строк
         /// </summary>
         /// <param name="idWork"></param>
         /// <param name="consultants"></param>
         /// <param name="reviewers"></param>
         /// <returns></returns>
         Task<WorkDisplayDto> GetWorkDisplayAsync(int idWork, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null);
-
-        /// <summary>
-        /// Получение выдачи работы
-        /// </summary>
-        /// <returns></returns>
-        Task<WorkApplicationDto> GetWorkApplicationAsync(ВыдачаРаботы app, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null);
 
         /// <summary>
         /// В зависимости от типа работы возвращает год
@@ -197,6 +179,12 @@ namespace ArchiveFqp.Services.Work
         /// <br><c>false</c> - в обратном случае или если нет ID </br></returns>
         bool SetDepartment(WorkCreateDto work, int? idDepartment);
 
+        /// <summary>
+        /// Обновляет статус работы
+        /// </summary>
+        /// <param name="idWork"></param>
+        /// <param name="idStatus"></param>
+        /// <returns></returns>
         Task<bool> UpdateStatusAsync(int idWork, int idStatus);
     }
 

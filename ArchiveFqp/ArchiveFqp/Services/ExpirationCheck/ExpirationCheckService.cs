@@ -14,11 +14,11 @@ namespace ArchiveFqp.Services.ExpirationCheck
         private readonly ILogger<ReferenceDataService> _logger;
         private readonly IReferenceDataService _refDataService;
         private readonly SettingsArchive _settings;
-        private List<ВыдачаРаботы> _workApplications = null!;
-        private СтатусВыдачи _workApplicationsActiveStatus = null!;
-        private СтатусВыдачи _workApplicationsRejectStatus = null!;
-        private СтатусВыдачи _workApplicationsCompleteStatus = null!;
-        private List<ВыдачаРаботы> _workApplicationsActive = null!;
+        private List<ЗаявлениеРаботы> _workApplications = null!;
+        private СтатусЗаявления _workApplicationsActiveStatus = null!;
+        private СтатусЗаявления _workApplicationsRejectStatus = null!;
+        private СтатусЗаявления _workApplicationsCompleteStatus = null!;
+        private List<ЗаявлениеРаботы> _workApplicationsActive = null!;
 
         public ExpirationCheckService(IDbContextFactory<ArchiveFqpContext> dbFactory,
             ILogger<ReferenceDataService> logger, IReferenceDataService refDataService,
@@ -33,7 +33,7 @@ namespace ArchiveFqp.Services.ExpirationCheck
         public override async Task StartAsync(CancellationToken cancellationToken)
         {
             // загружаем справочные данные асинхронно при старте
-            _workApplications = await _refDataService.GetAsync<ВыдачаРаботы>();
+            _workApplications = await _refDataService.GetAsync<ЗаявлениеРаботы>();
             await GetWorkApplicationsStatusesAsync();
             _workApplicationsActive = UpdateWorkApplicationsActive();
 
@@ -77,19 +77,19 @@ namespace ArchiveFqp.Services.ExpirationCheck
         {
             using ArchiveFqpContext context = _dbFactory.CreateDbContext();
 
-            List<ВыдачаРаботы> expiredWorkApplications = _workApplicationsActive
+            List<ЗаявлениеРаботы> expiredWorkApplications = _workApplicationsActive
                 .Where(a => a.ДатаВозврПоЗаявл <= DateTime.Now)
                 .Select(a =>
                 {
                     // Если срок действия заявления истек, то статус меняется на "Завершено",
                     // если он был "Активно", и на "Отклонено" во всех остальных случаях
-                    if (a.IdСтатусаВыдачи == _workApplicationsActiveStatus.IdСтатусаВыдачи)
+                    if (a.IdСтатуса == _workApplicationsActiveStatus.IdСтатуса)
                     {
-                        a.IdСтатусаВыдачи = _workApplicationsCompleteStatus.IdСтатусаВыдачи;
+                        a.IdСтатуса = _workApplicationsCompleteStatus.IdСтатуса;
                     }
                     else
                     {
-                        a.IdСтатусаВыдачи = _workApplicationsRejectStatus.IdСтатусаВыдачи;
+                        a.IdСтатуса = _workApplicationsRejectStatus.IdСтатуса;
                         a.ДатаОтвета = DateTime.Now;
                         a.Ответ = "Заявление отклонено системой из-за истечения срока проверки.";
                     }
@@ -100,23 +100,23 @@ namespace ArchiveFqp.Services.ExpirationCheck
             if (expiredWorkApplications.Count != 0)
             {
                 _logger.LogDebug("Найдено {Count} истекших заявлений на выдачу работ. Обновление статусов...", expiredWorkApplications.Count);
-                context.ВыдачаРаботыs.UpdateRange(expiredWorkApplications);
+                context.ЗаявлениеРаботыs.UpdateRange(expiredWorkApplications);
                 await context.SaveChangesAsync(stoppingToken);
             }
         }
 
         private async void UpdateWorkApplicationsData(object? sender, List<string> e)
         {
-            if (e.Contains(typeof(ВыдачаРаботы).Name))
+            if (e.Contains(typeof(ЗаявлениеРаботы).Name))
             {
                 try
                 {
-                    _workApplications = await _refDataService.GetAsync<ВыдачаРаботы>();
+                    _workApplications = await _refDataService.GetAsync<ЗаявлениеРаботы>();
                     _workApplicationsActive = UpdateWorkApplicationsActive();
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Ошибка обновления кэша {Name}", typeof(ВыдачаРаботы).Name);
+                    _logger.LogError(ex, "Ошибка обновления кэша {Name}", typeof(ЗаявлениеРаботы).Name);
                 }
             }
         }
@@ -126,11 +126,11 @@ namespace ArchiveFqp.Services.ExpirationCheck
         /// исключая те, которые уже завершены или отклонены
         /// </summary>
         /// <returns></returns>
-        private List<ВыдачаРаботы> UpdateWorkApplicationsActive()
+        private List<ЗаявлениеРаботы> UpdateWorkApplicationsActive()
         {
             return _workApplications
-                .Where(a => a.IdСтатусаВыдачи != _workApplicationsCompleteStatus.IdСтатусаВыдачи &&
-                            a.IdСтатусаВыдачи != _workApplicationsRejectStatus.IdСтатусаВыдачи)
+                .Where(a => a.IdСтатуса != _workApplicationsCompleteStatus.IdСтатуса &&
+                            a.IdСтатуса != _workApplicationsRejectStatus.IdСтатуса)
                 .ToList();
         }
 
@@ -142,15 +142,15 @@ namespace ArchiveFqp.Services.ExpirationCheck
         /// данных.</remarks>
         private async Task GetWorkApplicationsStatusesAsync()
         {
-            List<СтатусВыдачи> statuses = await _refDataService.GetAsync<СтатусВыдачи>();
+            List<СтатусЗаявления> statuses = await _refDataService.GetAsync<СтатусЗаявления>();
             _workApplicationsCompleteStatus = statuses
-                        .First(a => _settings.WorkApplicationsCompleteStatus == a.Название);
+                        .First(a => _settings.ApplicationsCompleteStatus == a.Название);
 
             _workApplicationsActiveStatus = statuses
-                .First(a => _settings.WorkApplicationsActiveStatus == a.Название);
+                .First(a => _settings.ApplicationsActiveStatus == a.Название);
 
             _workApplicationsRejectStatus = statuses
-                .First(a => _settings.WorkApplicationsRejectStatus == a.Название);
+                .First(a => _settings.ApplicationsRejectStatus == a.Название);
         }
 
         public override void Dispose()

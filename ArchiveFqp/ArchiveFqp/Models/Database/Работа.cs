@@ -45,7 +45,7 @@ public partial class Работа
 
     public virtual ТипРаботы IdТипаРаботыNavigation { get; set; } = null!;
 
-    public virtual ICollection<ВыдачаРаботы> ВыдачаРаботыs { get; set; } = new List<ВыдачаРаботы>();
+    public virtual ICollection<ЗаявлениеРаботы> ЗаявлениеРаботыs { get; set; } = new List<ЗаявлениеРаботы>();
 
     public virtual ICollection<Консультант> Консультантs { get; set; } = new List<Консультант>();
 

@@ -20,4 +20,7 @@ public partial class Кафедра
     public virtual ICollection<Направление> Направлениеs { get; set; } = new List<Направление>();
 
     public virtual ICollection<Преподаватель> Преподавательs { get; set; } = new List<Преподаватель>();
+
+    public virtual ICollection<ЗаявлениеАтрибута> ЗаявлениеАтрибутаs { get; set; } = new List<ЗаявлениеАтрибута>();
+
 }

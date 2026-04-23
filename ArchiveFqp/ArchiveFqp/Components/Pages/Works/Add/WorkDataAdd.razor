@@ -88,7 +88,7 @@
                 <SearchableSelect TItem="Преподаватель"
                                   TValue="int?"
                                   Items="@snapshot.Teachers"
-                                  TextSelector="@((s) => teacherDtoFactory!.CreateDisplayDtoAsync(s).Result.ФИО)"
+                                  TextSelector="@((s) => teacherDtoFactory!.CreateDisplayDtoAsync(s).Result.Пользователь.ФИО)"
                                   ValueSelector="@(s => s.IdПреподавателя)"
                                   Placeholder="Выберите или введите руководителя..."
                                   IsInvalid="@(WorkDto.IdПреподавателя == null)"
@@ -128,7 +128,7 @@
                                               DefaultValue="-1"
                                               @bind-SelectedValues="WorkDto.IdКонсультантов"
                                               Items="snapshot.Teachers"
-                                              TextSelector="@(t => teacherDtoFactory!.CreateDisplayDtoAsync(t).Result.ФИО)"
+                                              TextSelector="@(t => teacherDtoFactory!.CreateDisplayDtoAsync(t).Result.Пользователь.ФИО)"
                                               ValueSelector="@(t => t.IdПреподавателя)"
                                               OnChange="@(async () => await SaveStateWorkDTO())"
                                               OnCustomValue="@(async (i) => {WorkDto.IdКонсультантов[i] = -1; await SaveStateWorkDTO();})"
@@ -144,7 +144,7 @@
                                               DefaultValue="-1"
                                               @bind-SelectedValues="WorkDto.IdРецензентов"
                                               Items="snapshot.Teachers"
-                                              TextSelector="@(t => teacherDtoFactory!.CreateDisplayDtoAsync(t).Result.ФИО)"
+                                              TextSelector="@(t => teacherDtoFactory!.CreateDisplayDtoAsync(t).Result.Пользователь.ФИО)"
                                               ValueSelector="@(t => t.IdПреподавателя)"
                                               OnChange="@(async () => await SaveStateWorkDTO())"
                                               OnCustomValue="@(async (i) => {WorkDto.IdРецензентов[i] = -1; await SaveStateWorkDTO();})"
@@ -161,7 +161,7 @@
                     <SearchableSelect TItem="Студент"
                                       TValue="int?"
                                       Items="@snapshot.Students"
-                                      TextSelector="@((s) => studentDtoFactory!.CreateDisplayDtoAsync(s).Result.ФИО)"
+                                      TextSelector="@((s) => studentDtoFactory!.CreateDisplayDtoAsync(s).Result.Пользователь.ФИО)"
                                       ValueSelector="@(s => s.IdСтудента)"
                                       Placeholder="Выберите или введите студента..."
                                       IsInvalid="@(WorkDto.IdСтудента == null)"
@@ -215,7 +215,7 @@
                 <label class="form-label mb-0 mx-1 fw-bold">Институт <span class="text-danger">*</span></label>
                 <InputSelect class="form-select" @bind-Value="WorkDto.IdИнститута" @bind-Value:after="OnInstituteChanged" disabled="@disabled">
                     <option value="">Выберите институт</option>
-                    @foreach (Институт institute in snapshot.Institutes)
+                    @foreach (Институт institute in snapshot.Institutes.OrderBy(x => x.Название))
                     {
                         <option value="@institute.IdИнститута">@institute.Название</option>
                     }
@@ -231,7 +231,7 @@
                     <option value="">
                         @(WorkDto.IdИнститута == null ? "" : "Выберите кафедру")
                     </option>
-                    @foreach (Кафедра dept in filteredDepartments)
+                    @foreach (Кафедра dept in filteredDepartments.OrderBy(x => x.Название))
                     {
                         <option value="@dept.IdКафедры">@dept.Название</option>
                     }
@@ -246,7 +246,7 @@
                                  @bind-Value:after="OnUgsnStandartChanged"
                                  disabled="@(disabled || WorkDto.IdКафедры == null)">
                         <option value="">@(WorkDto.IdКафедры == null ? "" : "Выберите стандарт УГСН")</option>
-                        @foreach (УгснСтандарт standard in snapshot.UgsnStandarts)
+                        @foreach (УгснСтандарт standard in snapshot.UgsnStandarts.OrderBy(x => x.Название))
                         {
                             <option value="@standard.IdУгснСтандарта">@standard.Название</option>
                         }
@@ -259,7 +259,7 @@
                     <InputSelect class="form-select" @bind-Value="WorkDto.IdУгсн"
                                  @bind-Value:after="OnUgsnChanged" disabled="@(disabled || WorkDto.IdУгснСтандарта == null)">
                         <option value="">@(WorkDto.IdУгснСтандарта == null ? "" : "Выберите УГСН")</option>
-                        @foreach (Угсн ugsn in filteredUgsns)
+                        @foreach (Угсн ugsn in filteredUgsns.OrderBy(x => x.Название))
                         {
                             <option value="@ugsn.IdУгсн">@ugsn.Название</option>
                         }
@@ -274,7 +274,7 @@
                              @bind-Value:after="OnDirectionChanged"
                              disabled="@(disabled || WorkDto.IdУгсн == null)">
                     <option value="">@(WorkDto.IdУгсн == null ? "" : "Выберите направление/специальность")</option>
-                    @foreach (Направление direction in filteredDirections)
+                    @foreach (Направление direction in filteredDirections.OrderBy(x => x.Название))
                     {
                         <option value="@direction.IdНаправления">@direction.Название</option>
                     }
@@ -288,7 +288,7 @@
                              @bind-Value:after="OnProfileChanged"
                              disabled="@(disabled || WorkDto.IdНаправления == null)">
                     <option value="">@(WorkDto.IdНаправления == null ? "" : "Выберите профиль/магистерскую программу/специалзиацию")</option>
-                    @foreach (Профиль profile in filteredProfiles)
+                    @foreach (Профиль profile in filteredProfiles.OrderBy(x => x.Название))
                     {
                         <option value="@profile.IdПрофиля">@profile.Название</option>
                     }
@@ -805,7 +805,7 @@
                 Profile = profile.Название,
                 WorkType = workType.Название,
                 Year = WorkDto.ГодВыпуска ?? DateTime.Now.Year,
-                StudentName = studentDtoFactory!.CreateDisplayDtoAsync(student).Result.ФИО,
+                StudentName = studentDtoFactory!.CreateDisplayDtoAsync(student).Result.Пользователь.ФИО,
                 WorkTitle = WorkDto.Тема,
 
                 ExplanatoryNoteWord = selectedFiles.GetValueOrDefault(FileType.ExplanatoryNoteWord)?.FirstOrDefault(),

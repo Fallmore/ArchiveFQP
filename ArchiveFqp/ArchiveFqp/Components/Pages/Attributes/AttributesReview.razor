@@ -1,5 +1,18 @@
-﻿<h3>AttributesReview</h3>
+﻿@page "/works/attributes/review"
+@rendermode @(new InteractiveServerRenderMode())
 
-@code {
+<PageTitle>АГТУ - Заявления на просмотр работы</PageTitle>
 
+@if (RendererInfo.IsInteractive)
+{
+    <div class="container">
+        <div class="row-md-12">
+            <div class="card mb-1">
+                <div class="card-body">
+                    <div class="card-title fw-bold fs-4">Все заявления</div>
+                    <Attributes IsReviewMode="true" />
+                </div>
+            </div>
+        </div>
+    </div>
 }

@@ -14,4 +14,7 @@ public partial class Профиль
     public virtual Направление IdНаправленияNavigation { get; set; } = null!;
 
     public virtual ICollection<Студент> Студентs { get; set; } = new List<Студент>();
+
+    public virtual ICollection<ЗаявлениеАтрибута> ЗаявлениеАтрибутаs { get; set; } = new List<ЗаявлениеАтрибута>();
+
 }

@@ -239,13 +239,6 @@ namespace ArchiveFqp.Services.Work
             return await GetWorkDisplayAsync(work, consultants, reviewers);
         }
 
-        public async Task<WorkApplicationDto> GetWorkApplicationAsync(ВыдачаРаботы app, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null)
-        {
-            WorkDisplayDto work = await GetWorkDisplayAsync(app.IdРаботы);
-            WorkApplicationDtoFactory factory = new(_dbFactory, _refDataService);
-            return await factory.CreateDisplayDtoAsync(app, work);
-        }
-
         public bool SetStudent(WorkCreateDto work, int? idStudent)
         {
             bool nulify()
@@ -419,16 +412,6 @@ namespace ArchiveFqp.Services.Work
                 return work.Студент.ГодОкончания;
 
             return work.ДатаДобавления.Year;
-        }
-
-        public async Task<List<ВыдачаРаботы>> GetWorkApplicationsAsync()
-        {
-            return await _refDataService.GetAsync<ВыдачаРаботы>();
-        }
-
-        public async Task<List<СтатусВыдачи>> GetWorkApplicationsStatusesAsync()
-        {
-            return await _refDataService.GetAsync<СтатусВыдачи>();
         }
 
         public async Task<bool> UpdateStatusAsync(int idWork, int idStatus)

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 
 namespace ArchiveFqp.Models.Database;
 
-public partial class ВыдачаРаботы
+public partial class ЗаявлениеРаботы
 {
-    public int IdВыдачи { get; set; }
+    public int IdЗаявления { get; set; }
 
     public int IdРаботы { get; set; }
 
@@ -13,7 +13,7 @@ public partial class ВыдачаРаботы
 
     public string Цель { get; set; } = null!;
 
-    public int IdСтатусаВыдачи { get; set; }
+    public int IdСтатуса { get; set; }
 
     public DateTime ДатаПоступления { get; set; }
 
@@ -29,5 +29,5 @@ public partial class ВыдачаРаботы
 
     public virtual Работа IdРаботыNavigation { get; set; } = null!;
 
-    public virtual СтатусВыдачи IdСтатусВыдачиNavigation { get; set; } = null!;
+    public virtual СтатусЗаявления IdСтатусЗаявленияNavigation { get; set; } = null!;
 }

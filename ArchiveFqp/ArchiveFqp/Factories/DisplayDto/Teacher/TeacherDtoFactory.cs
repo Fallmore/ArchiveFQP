@@ -1,4 +1,6 @@
 ﻿using ArchiveFqp.Factories.DisplayDto;
+using ArchiveFqp.Factories.DisplayDto.Structure;
+using ArchiveFqp.Factories.DisplayDto.User;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Teacher;
 using ArchiveFqp.Services.ReferenceData;
@@ -10,26 +12,25 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
     public class TeacherDtoFactory : IDisplayDtoFactory<TeacherDisplayDto, Преподаватель>
     {
         private readonly IReferenceDataService _refDataService;
+        private readonly UserDtoFactory _userDisplayFactory;
+        private readonly StructureDtoFactory _structureDisplayFactory;
 
-        private List<Пользователь> _users = [];
         private List<Преподаватель> _teachers = [];
-        private List<Институт> _institutes = [];
-        private List<Кафедра> _departments = [];
         private List<Должность> _posts = [];
 
         private Task _init;
 
-        public TeacherDtoFactory(IReferenceDataService refDataService)
+        public TeacherDtoFactory(IReferenceDataService refDataService,
+            UserDtoFactory? userDisplayFactory = null, StructureDtoFactory? structureDisplayFactory = null)
         {
             _refDataService = refDataService;
+            _userDisplayFactory = userDisplayFactory ?? new(_refDataService);
+            _structureDisplayFactory = structureDisplayFactory ?? new(_refDataService);
             _init = Task.Run(InitializeLists);
         }
 
         private async Task InitializeLists()
         {
-            _users = await _refDataService.GetAsync<Пользователь>();
-            _institutes = await _refDataService.GetAsync<Институт>();
-            _departments = await _refDataService.GetAsync<Кафедра>();
             _posts = await _refDataService.GetAsync<Должность>();
         }
 
@@ -38,9 +39,8 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
             _init.Wait();
             return new()
             {
-                Пользователь = _users.FirstOrDefault(o => o.IdПользователя == teacher.IdПользователя) ?? new(),
-                Институт = _institutes.FirstOrDefault(o => o.IdИнститута == teacher.IdИнститута)?.Название ?? "",
-                Кафедра = _departments.FirstOrDefault(o => o.IdИнститута == teacher.IdИнститута)?.Название ?? "",
+                Пользователь = await _userDisplayFactory.CreateDisplayDtoAsync(teacher.IdПользователя) ?? new(),
+                Структура = await _structureDisplayFactory.CreateDisplayDtoAsync<Кафедра>(teacher.IdКафедры) ?? new(),
                 Должность = _posts.FirstOrDefault(o => o.IdДолжности == teacher.IdДолжности)?.Название ?? ""
             };
         }

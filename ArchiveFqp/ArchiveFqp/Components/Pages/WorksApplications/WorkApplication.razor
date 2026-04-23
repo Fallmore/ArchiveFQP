@@ -1,11 +1,13 @@
 ﻿@using ArchiveFqp.Components.Components
 @using ArchiveFqp.Models.DTO.WorkApplication
 @using ArchiveFqp.Models.Settings.SettingsArchive
+@using ArchiveFqp.Services.Applications
 @using ArchiveFqp.Services.Work
 @using Microsoft.EntityFrameworkCore
 @inject SettingsArchive Settings
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject IWorkService WorkService
+@inject IApplicationsService ApplicationsService
 @inject IJSRuntime JS
 @implements IDisposable
 @rendermode @(new InteractiveServerRenderMode())
@@ -77,7 +79,7 @@
                         <input type="date" class="form-control" @bind="workApplictaionDto.ДатаВозврПоЗаявл"
                                disabled="@(workApplictaionDto.IdРаботы == null)"
                                placeholder="Выберите дату"
-                               min="@(DateTime.Now.AddDays(3).ToString("yyyy-MM-dd"))" max="@(DateTime.Now.AddDays(Settings.MaxDayWatchWorks).ToString("yyyy-MM-dd"))" />
+                               min="@(DateTime.Now.AddDays(Settings.MinDayWatchWorks).ToString("yyyy-MM-dd"))" max="@(DateTime.Now.AddDays(Settings.MaxDayWatchWorks).ToString("yyyy-MM-dd"))" />
                     </div>
                 </div>
 
@@ -180,11 +182,11 @@
                         <!-- Статус выдачи -->
                         <label class="form-label mb-0 mx-1 fw-bold">Вердикт <span class="text-danger">*</span></label>
                         <div class="col-md-5">
-                            <InputSelect class="form-select" @bind-Value="workApplictaionDto.IdСтатусаВыдачи">
+                            <InputSelect class="form-select" @bind-Value="workApplictaionDto.IdСтатуса">
                                 @{
-                                    int inReviewStatusId = workApplicationStatuses.First(w => w.Название == Settings.WorkApplicationsInProcessStatus).IdСтатусаВыдачи;
-                                    int rejectStatusId = workApplicationStatuses.First(w => w.Название == Settings.WorkApplicationsRejectStatus).IdСтатусаВыдачи;
-                                    int activeStatusId = workApplicationStatuses.First(w => w.Название == Settings.WorkApplicationsActiveStatus).IdСтатусаВыдачи;
+                                    int inReviewStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
+                                    int rejectStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsRejectStatus).IdСтатуса;
+                                    int activeStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsActiveStatus).IdСтатуса;
                                     <option value="@inReviewStatusId">Выберите вердикт</option>
                                     <option value="@rejectStatusId">Отклонить</option>
                                     <option value="@activeStatusId">Одобрить</option>
@@ -220,7 +222,7 @@
     [Parameter] public bool IsReviewMode { get; set; } = false;
     [Parameter] public WorkApplicationDto? WorkApplictaionDto { get; set; }
     private WorkApplicationDto workApplictaionDto = new();
-    private List<СтатусВыдачи> workApplicationStatuses = [];
+    private List<СтатусЗаявления> applicationStatuses = [];
     private int currentStatusId;
     private bool isAnswered = false;
 
@@ -236,11 +238,26 @@
             if (WorkId.HasValue)
                 workApplictaionDto.Работа = await WorkService.GetWorkDisplayAsync(WorkId.Value);
         }
-        workApplicationStatuses = await WorkService.GetWorkApplicationsStatusesAsync();
-        currentStatusId = workApplictaionDto.IdСтатусаВыдачи;
-        isAnswered = currentStatusId != workApplicationStatuses
-            .First(w => w.Название == Settings.WorkApplicationsInProcessStatus)
-                .IdСтатусаВыдачи;
+        applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
+        currentStatusId = workApplictaionDto.IdСтатуса;
+        isAnswered = currentStatusId != applicationStatuses
+            .First(w => w.Название == Settings.ApplicationsInProcessStatus)
+                .IdСтатуса;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (WorkApplictaionDto != null) workApplictaionDto = WorkApplictaionDto;
+        else
+        {
+            workApplictaionDto.IdРаботы = WorkId;
+            if (WorkId.HasValue)
+                workApplictaionDto.Работа = await WorkService.GetWorkDisplayAsync(WorkId.Value);
+        }
+        currentStatusId = workApplictaionDto.IdСтатуса;
+        isAnswered = currentStatusId != applicationStatuses
+            .First(w => w.Название == Settings.ApplicationsInProcessStatus)
+                .IdСтатуса;
     }
 
     private async Task OpenModal(string modal)
@@ -267,18 +284,18 @@
         {
             using var context = DbFactory.CreateDbContext();
 
-            ВыдачаРаботы newApp = new()
+            ЗаявлениеРаботы newApp = new()
             {
                 IdРаботы = workApplictaionDto.IdРаботы!.Value,
                 Цель = workApplictaionDto.Цель!,
                 ДатаПоступления = DateTime.Now,
                 ДатаВозврПоЗаявл = workApplictaionDto.ДатаВозврПоЗаявл!.Value,
                 IdПользователя = 10, // TODO: Получать из контекста авторизации
-                IdСтатусаВыдачи = (await WorkService.GetWorkApplicationsStatusesAsync())
-                    .First(ws => ws.Название == Settings.WorkApplicationsInProcessStatus).IdСтатусаВыдачи
+                IdСтатуса = (await ApplicationsService.GetApplicationsStatusesAsync())
+                    .First(ws => ws.Название == Settings.ApplicationsInProcessStatus).IdСтатуса
             };
 
-            context.ВыдачаРаботыs.Add(newApp);
+            context.ЗаявлениеРаботыs.Add(newApp);
             await context.SaveChangesAsync();
             successMessage = "Заявление успешно отправлено!";
             workApplictaionDto.IdРаботы = WorkId = null;
@@ -293,16 +310,17 @@
     private bool ValidateAnswer()
     {
         bool isOk = true;
-        int inReviewStatusId = workApplicationStatuses.First(w => w.Название == Settings.WorkApplicationsInProcessStatus).IdСтатусаВыдачи;
-        int rejectStatusId = workApplicationStatuses.First(w => w.Название == Settings.WorkApplicationsRejectStatus).IdСтатусаВыдачи;
-        if (workApplictaionDto.IdСтатусаВыдачи == inReviewStatusId)
+        int inReviewStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
+        int rejectStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsRejectStatus).IdСтатуса;
+        errorMessage = "";
+        if (workApplictaionDto.IdСтатуса == inReviewStatusId)
         {
             errorMessage = "Выберите вердикт!";
             isOk = false;
         }
         // Если происходит отказ, то необходимо объяснение ответа
         if (string.IsNullOrWhiteSpace(workApplictaionDto.Ответ)
-            && workApplictaionDto.IdСтатусаВыдачи == rejectStatusId)
+            && workApplictaionDto.IdСтатуса == rejectStatusId)
         {
             errorMessage += (isOk ? "" : "\n") + "Напишите объяснение ответа!";
             isOk = false;
@@ -317,7 +335,7 @@
         {
             using var context = DbFactory.CreateDbContext();
 
-            ВыдачаРаботы? app = context.ВыдачаРаботыs.Find(workApplictaionDto.IdВыдачи);
+            ЗаявлениеРаботы? app = context.ЗаявлениеРаботыs.Find(workApplictaionDto.IdЗаявления);
             if (app == null)
             {
                 errorMessage = "Заявление не найдено, либо удалено";
@@ -326,7 +344,7 @@
 
             app.Ответ = workApplictaionDto.Ответ;
             app.ДатаОтвета = DateTime.Now;
-            app.IdСтатусаВыдачи = workApplictaionDto.IdСтатусаВыдачи;
+            app.IdСтатуса = workApplictaionDto.IdСтатуса;
 
             await context.SaveChangesAsync();
             successMessage = "Ответ успешно отправлен!";
@@ -342,6 +360,6 @@
     public void Dispose()
     {
         if (!string.IsNullOrWhiteSpace(successMessage))
-            WorkApplictaionDto?.IdСтатусаВыдачи = currentStatusId;
+            WorkApplictaionDto?.IdСтатуса = currentStatusId;
     }
 }

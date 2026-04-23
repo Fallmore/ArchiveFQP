@@ -1,5 +1,74 @@
-﻿<h3>AttributesSend</h3>
+﻿@page "/works/attributes/send"
+@rendermode @(new InteractiveServerRenderMode())
+
+<PageTitle>АГТУ - Заявления на добавление атрибута</PageTitle>
+
+@if (RendererInfo.IsInteractive)
+{
+    <div class="container">
+        <div class="row">
+            <div class="col-md-7">
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <div class="card-title fw-bold">Новое заявление</div>
+                        <Attribute />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Информация -->
+            <div class="col-md-5">
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <div class="card-title fw-bold">Информация</div>
+                        <div class="fs-6">
+                            <div>
+                                <h5 class="fw-semibold mb-0">Что такое атрибут?</h5>
+                                <p class="text-gray-600 mb-1">
+                                    Атрибут - это характеристика работы. Работы могут иметь разные атрибуты,
+                                    в зависимости от того, к какой структуре университета они принадлежат.
+                                </p>
+                            </div>
+
+                            <div>
+                                <h5 class="fw-semibold mb-0">Зачем нужны атрибуты?</h5>
+                                <p class="text-gray-600 mb-1">
+                                    Атрибуты упрощают поиск работ, увеличивают их статистический потенциал и
+                                    позволяют проще определять, какие методы, инструменты и технологии 
+                                    используются в работе.
+                                </p>
+                            </div>
+
+                            <div>
+                                <h5 class="fw-semibold mb-0">Срок рассмотрения</h5>
+                                <p class="text-gray-600 mb-1">
+                                    Заявки рассматриваются от 2-3 рабочих дней. Вы получите уведомление о решении.
+                                </p>
+                            </div>
+
+                            <div>
+                                <h5 class="fw-semibold mb-0">Важно</h5>
+                                <p class="text-gray-600 mb-1">
+                                    Атрибуты добавятся ко всем работам выбранной вами структуры. Поиск данных
+                                    атрибутов будет осуществляться нейросетью, которую обучат по примерам, 
+                                    которые вы предоставите.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row-md-12">
+            <div class="card mb-1">
+                <div class="card-body">
+                    <div class="card-title fw-bold fs-4">Все заявления</div>
+                    <Attributes />
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
-
 }

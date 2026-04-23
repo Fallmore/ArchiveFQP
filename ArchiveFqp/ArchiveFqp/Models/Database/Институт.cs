@@ -14,4 +14,7 @@ public partial class Институт
     public virtual ICollection<Преподаватель> Преподавательs { get; set; } = new List<Преподаватель>();
 
     public virtual ICollection<Студент> Студентs { get; set; } = new List<Студент>();
+
+    public virtual ICollection<ЗаявлениеАтрибута> ЗаявлениеАтрибутаs { get; set; } = new List<ЗаявлениеАтрибута>();
+
 }

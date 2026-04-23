@@ -1,5 +1,7 @@
-﻿using ArchiveFqp.Models.Database;
+﻿using ArchiveFqp.Factories.DisplayDto.User;
+using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Attribute;
+using ArchiveFqp.Models.DTO.User;
 using ArchiveFqp.Services.DatabaseNotification;
 using ArchiveFqp.Services.Work;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +27,7 @@ namespace ArchiveFqp.Services.ReferenceData
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
         private static readonly string s_cacheAllDataName = "all_reference_data";
         private static readonly string s_cacheAttributeValues = "ref_dict_attribute_values";
+        private static readonly string s_cacheUserAccounts = "ref_user_account_values";
 
         public event EventHandler<List<string>>? TablesChanged;
 
@@ -41,7 +44,8 @@ namespace ArchiveFqp.Services.ReferenceData
         /// <summary>
         /// Таблицы, не входящие в общий кэш. <br/> Названия таблиц имеют стиль snake_case
         /// </summary>
-        public List<string> TablesSeparated { get; set; } = ["пользователь", "выдача_работы", "статус_выдачи", "работа"];
+        public List<string> TablesSeparated { get; set; } = ["пользователь", "заявление_работы",
+            "статус_заявления", "работа", "роль_пользователя", "аккаунт_пользователя", "заявление_атрибута"];
 
         /// <summary>
         /// Таблицы, от которых наследуются другие таблицы
@@ -68,6 +72,7 @@ namespace ArchiveFqp.Services.ReferenceData
             await SubscribeToTableChanges();
             await UpdateAttributeValuesAsync();
             await RefreshSnapshotAsync();
+            await UpdateUserAccountAsync();
         }
 
         private async Task SubscribeToTableChanges()
@@ -90,6 +95,13 @@ namespace ArchiveFqp.Services.ReferenceData
                     _logger.LogInformation("[{Time}] Таблица {TableName} изменена: {ChangeType}",
                         DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"), changeEvent.TableName, changeEvent.ChangeType);
 
+                    if (GetTableClassName(changeEvent.TableName) == typeof(АккаунтПользователя).Name)
+                    {
+                        await UpdateUserAccountAsync();
+                        OnTablesChanged([GetTableClassName(changeEvent.TableName)]);
+                        return;
+                    }
+
                     // Определяем класс таблицы по имени и вызываем обновление этой таблицы
                     Type type = Type.GetType(GetTableClassFullName(changeEvent.TableName))!;
                     MethodInfo? method = typeof(ReferenceDataService).GetMethod(nameof(UpdateSingleTableAsync));
@@ -99,6 +111,10 @@ namespace ArchiveFqp.Services.ReferenceData
                     if (TablesAttributeValues.Contains(changeEvent.TableName))
                     {
                         await UpdateAttributeValuesAsync();
+                    }
+                    else if (GetTableClassName(changeEvent.TableName) == typeof(Пользователь).Name)
+                    {
+                        await UpdateUserAccountAsync();
                     }
 
                     OnTablesChanged([GetTableClassName(changeEvent.TableName)]);
@@ -196,6 +212,15 @@ namespace ArchiveFqp.Services.ReferenceData
             return await context.Set<T>().ToListAsync();
         }
 
+        /// <summary>
+        /// <inheritdoc cref="IReferenceDataService.GetAsync{T}(bool, bool)"/>
+        /// </summary>
+        /// <remarks>Также поддерживает такие DTO объекты как <see cref="AttributeValuesDto"/>
+        /// и <see cref="UserDisplayDto"/> (вместо <see cref="АккаунтПользователя"/>)</remarks>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="forceRefresh"></param>
+        /// <param name="onlyParentData"></param>
+        /// <returns><inheritdoc cref="IReferenceDataService.GetAsync{T}(bool, bool)"/></returns>
         public async Task<List<T>> GetAsync<T>(bool forceRefresh, bool onlyParentData) where T : class
         {
             string tableName = GetTableName<T>();
@@ -224,9 +249,14 @@ namespace ArchiveFqp.Services.ReferenceData
             }
 
             await UpdateSingleTableAsync<T>(forceRefresh, onlyParentData);
-            return _cache.Get<List<T>>(cacheKey)!;
+            return _cache.Get<List<T>>(cacheKey) ?? [];
         }
 
+        /// <summary>
+        /// <inheritdoc cref="IReferenceDataService.GetAllAsync(bool)"/>
+        /// </summary>
+        /// <param name="forceRefresh"></param>
+        /// <returns></returns>
         public async Task<ReferenceDataSnapshot> GetAllAsync(bool forceRefresh = false)
         {
             if (!forceRefresh && _cache.TryGetValue(s_cacheAllDataName, out ReferenceDataSnapshot? snapshot))
@@ -238,6 +268,10 @@ namespace ArchiveFqp.Services.ReferenceData
             return _cache.Get<ReferenceDataSnapshot>(s_cacheAllDataName)!;
         }
 
+        /// <summary>
+        /// Обновляет кэш с данными объекта типа <see cref="ReferenceDataSnapshot"/>
+        /// </summary>
+        /// <returns></returns>
         private async Task RefreshSnapshotAsync()
         {
             SemaphoreSlim semaphore = _locks.GetOrAdd(s_cacheAllDataName, _ => new SemaphoreSlim(1, 1));
@@ -295,6 +329,13 @@ namespace ArchiveFqp.Services.ReferenceData
             }
         }
 
+        /// <summary>
+        /// Обновляет кэш с данными одиночных таблиц
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="forceFullRefresh"></param>
+        /// <param name="onlyParentData"></param>
+        /// <returns></returns>
         public async Task UpdateSingleTableAsync<T>(bool forceFullRefresh = false, bool onlyParentData = false) where T : class
         {
             string tableName = GetTableName<T>();
@@ -331,6 +372,13 @@ namespace ArchiveFqp.Services.ReferenceData
 
         }
 
+
+        /// <summary>
+        /// Обновляет кэш с данными объекта типа <see cref="ReferenceDataSnapshot"/>, обновляя 1 таблицу
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="forceFullRefresh"></param>
+        /// <returns></returns>
         private async Task UpdateSingleTableSnapshotAsync<T>(bool forceFullRefresh = false) where T : class
         {
             string tableName = GetTableName<T>();
@@ -371,6 +419,10 @@ namespace ArchiveFqp.Services.ReferenceData
             }
         }
 
+        /// <summary>
+        /// Обновляет в кэше справочник данных всех атрибутов в качестве <see cref="AttributeValuesDto"/>
+        /// </summary>
+        /// <returns></returns>
         private async Task UpdateAttributeValuesAsync()
         {
             SemaphoreSlim semaphore = _locks.GetOrAdd(s_cacheAttributeValues, _ => new SemaphoreSlim(1, 1));
@@ -398,6 +450,36 @@ namespace ArchiveFqp.Services.ReferenceData
                 });
 
                 _logger.LogInformation("[{Time}] Обновлены данные кэша атрибута-значений",
+                    DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"));
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+
+        /// <summary>
+        /// Обновляет в кэше безопасные данные (без логина и пароля) от 
+        /// акаунта пользователя в качестве <see cref="UserDisplayDto"/>
+        /// </summary>
+        /// <returns></returns>
+        private async Task UpdateUserAccountAsync()
+        {
+            SemaphoreSlim semaphore = _locks.GetOrAdd(s_cacheUserAccounts, _ => new SemaphoreSlim(1, 1));
+            await semaphore.WaitAsync();
+            try
+            {
+                UserDtoFactory factory = new(this);
+
+                List<Пользователь> list = await GetAsync<Пользователь>(false, false);
+                List<UserDisplayDto> result = await factory.CreateDisplayDtoListAsync(list);
+
+                _cache.Set(s_cacheUserAccounts, result, new MemoryCacheEntryOptions
+                {
+                    Priority = CacheItemPriority.NeverRemove
+                });
+
+                _logger.LogInformation("[{Time}] Обновлены данные кэша акаунта_пользователя",
                     DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"));
             }
             finally

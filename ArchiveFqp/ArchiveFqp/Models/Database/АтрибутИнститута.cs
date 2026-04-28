@@ -15,5 +15,11 @@ public partial class АтрибутИнститута
 
     public int IdИнститута { get; set; }
 
+    public virtual Атрибут IdАтрибутаNavigation { get; set; } = null!;
+
     public virtual Институт IdИнститутаNavigation { get; set; } = null!;
+
+    public virtual СтатусРаботы? IdСтатусаРаботыNavigation { get; set; }
+
+    public virtual ТипРаботы? IdТипаРаботыNavigation { get; set; }
 }

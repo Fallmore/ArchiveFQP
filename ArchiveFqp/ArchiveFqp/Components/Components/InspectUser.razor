@@ -1,0 +1,40 @@
+﻿@using System.Net
+@rendermode @(new InteractiveServerRenderMode())
+
+@if (RendererInfo.IsInteractive)
+{
+    <BrowserDetect @bind-BrowserInfo="@Info" />
+
+    @if (Info is not null && RendererInfo.IsInteractive)
+    {
+        <p>TimeZone: @Info.TimeZone</p>
+        <p>Browser: @Info.BrowserName @Info.BrowserVersion</p>
+        <p>OS: @Info.OSName @Info.OSVersion</p>
+        <p>Device: @(Info.IsMobile == true ? "Mobile" : Info.IsTablet == true ? "Tablet" : "Desktop")</p>
+        <p>Screen: @Info.ScreenResolution</p>
+        <p>GPU: @Info.GPURenderer</p>
+    }
+}
+
+@code {
+    [Inject]
+    private IHttpContextAccessor _httpContextAccessor { get; set; } = null!;
+    
+    public BrowserInfo? Info { get; set; }
+
+    private string ipAddress = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        @if (RendererInfo.IsInteractive)
+        {
+            IPAddress? remoteIpAddress = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress;
+            
+            // Раскомментируйте, если приложение работает за прокси-сервером
+            if (remoteIpAddress != null)
+            {
+                ipAddress = remoteIpAddress.MapToIPv4().ToString();
+            }
+        }
+    }
+}

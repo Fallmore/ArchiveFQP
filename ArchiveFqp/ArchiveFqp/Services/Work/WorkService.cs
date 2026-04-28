@@ -1,12 +1,13 @@
 ﻿using ArchiveFqp.Factories.DisplayDto.Work;
 using ArchiveFqp.Factories.DisplayDto.WorkApplication;
+using ArchiveFqp.Interfaces.ReferenceData;
+using ArchiveFqp.Interfaces.Work;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Attribute;
 using ArchiveFqp.Models.DTO.Work;
 using ArchiveFqp.Models.DTO.WorkApplication;
 using ArchiveFqp.Models.Search;
 using ArchiveFqp.Models.Settings.SettingsArchive;
-using ArchiveFqp.Services.ReferenceData;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 

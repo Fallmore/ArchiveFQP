@@ -1,8 +1,8 @@
 ﻿using ArchiveFqp.Factories.DisplayDto.User;
+using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Structure;
 using ArchiveFqp.Models.DTO.Student;
-using ArchiveFqp.Services.ReferenceData;
 
 namespace ArchiveFqp.Factories.DisplayDto.Structure
 {

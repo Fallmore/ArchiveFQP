@@ -1,4 +1,5 @@
-﻿using ArchiveFqp.Models.Database;
+﻿using ArchiveFqp.Interfaces.ReferenceData;
+using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.Settings.SettingsArchive;
 using ArchiveFqp.Services.ReferenceData;
 using Microsoft.EntityFrameworkCore;
@@ -52,7 +53,7 @@ namespace ArchiveFqp.Services.ExpirationCheck
                 try
                 {
                     await CheckExpiredApplications(stoppingToken);
-                    await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+                    await Task.Delay(TimeSpan.FromMinutes(int.Min(1, _settings.ApplicationTimeCheckMinutes)), stoppingToken);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {

@@ -1,0 +1,73 @@
+﻿@using ArchiveFqp.Models.DTO.Student
+@using ArchiveFqp.Models.DTO.Teacher
+@using ArchiveFqp.Models.DTO.User
+@using ArchiveFqp.Interfaces.User
+@using System.Net.Mail
+@inject IUserService UserService
+
+@if (Teacher == null && Student == null)
+{
+    <h4><strong>Вы не студент и не преподаватель</strong></h4>
+}
+@if (Teacher != null)
+{
+    <p class="mb-1">
+        <strong>Институт:</strong><br>
+        @Teacher.Структура.Институт.Название
+    </p>
+    <p class="mb-1">
+        <strong>Кафедра:</strong><br>
+        @Teacher.Структура.Кафедра.Название
+    </p>
+    <p class="mb-1">
+        <strong>Должность:</strong><br>
+        @Teacher.Должность
+    </p>
+}
+@if (Student != null)
+{
+    <p class="mb-1">
+        <strong>Год выпуска:</strong><br>
+        @Student.ГодОкончания
+    </p>
+    <p class="mb-1">
+        <strong>Институт:</strong><br>
+        @Student.Структура.Институт.Название
+    </p>
+    <p class="mb-1">
+        <strong>Стандарт УГСН:</strong><br>
+        @Student.Структура.УгснСтандарт.Название
+    </p>
+    <p class="mb-1">
+        <strong>УГСН:</strong><br>
+        @Student.Структура.Угсн.Название
+    </p>
+    <p class="mb-1">
+        <strong>Кафедра:</strong><br>
+        @Student.Структура.Кафедра.Название
+    </p>
+    <p class="mb-0">
+        <strong>Направление:</strong><br>
+        @Student.Структура.Направление.Название
+    </p>
+    @if (Student.Структура.Профиль != null && !string.IsNullOrEmpty(Student.Структура.Профиль.Название))
+    {
+        <p class="mb-1">
+            <strong>Профиль:</strong><br>
+            @Student.Структура.Профиль.Название
+        </p>
+    }
+    <p class="mb-1">
+        <strong>Уровень образования:</strong><br>
+        @Student.УровеньОбразования
+    </p>
+    <p class="mb-1">
+        <strong>Форма образования:</strong><br>
+        @Student.ФормаОбучения
+    </p>
+}
+
+@code {
+    [Parameter] public StudentDisplayDto? Student { get; set; }
+    [Parameter] public TeacherDisplayDto? Teacher { get; set; }
+}

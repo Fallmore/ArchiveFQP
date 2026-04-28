@@ -1,8 +1,5 @@
-﻿@using ArchiveFqp.Models.DTO.WorkApplication
-@using ArchiveFqp.Models.Settings.SettingsArchive
-@using ArchiveFqp.Services.Applications
-@using ArchiveFqp.Services.ReferenceData
-@using ArchiveFqp.Services.Work
+﻿@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Interfaces.Applications
 @inject IReferenceDataService RefDataService
 @inject IApplicationsService ApplicationsService
 @inject IJSRuntime JS
@@ -117,6 +114,14 @@
         if (modalElement) {
             const modal = new bootstrap.Modal(modalElement);
             modal.show();
+        }
+    };
+
+    window.closeModal = (modalId) => {
+        const modalElement = document.getElementById(modalId);
+        if (modalElement) {
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            modal.hide();
         }
     };
 </script>

@@ -5,6 +5,8 @@ namespace ArchiveFqp.Models.Database;
 
 public partial class АккаунтПользователя
 {
+    public int IdАккаунта { get; set; }
+
     public int IdПользователя { get; set; }
 
     public string Логин { get; set; } = null!;

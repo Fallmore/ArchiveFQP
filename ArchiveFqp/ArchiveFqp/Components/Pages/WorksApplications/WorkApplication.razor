@@ -1,11 +1,10 @@
 ﻿@using ArchiveFqp.Components.Components
 @using ArchiveFqp.Models.DTO.WorkApplication
 @using ArchiveFqp.Models.Settings.SettingsArchive
-@using ArchiveFqp.Services.Applications
-@using ArchiveFqp.Services.Work
+@using ArchiveFqp.Interfaces.Applications
+@using ArchiveFqp.Interfaces.Work
 @using Microsoft.EntityFrameworkCore
 @inject SettingsArchive Settings
-@inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject IWorkService WorkService
 @inject IApplicationsService ApplicationsService
 @inject IJSRuntime JS
@@ -23,7 +22,7 @@
         <div class="alert alert-success">@successMessage</div>
     }
 
-    <EditForm Model="@workApplictaionDto" OnValidSubmit="@HandleValidSubmit" FormName="workApplicationAdd">
+    <EditForm EditContext="editContext" OnValidSubmit="@HandleValidSubmit" FormName="workApplicationAdd">
         <DataAnnotationsValidator />
         <ValidationSummary class="alert alert-danger" />
 
@@ -226,6 +225,8 @@
     private int currentStatusId;
     private bool isAnswered = false;
 
+    EditContext? editContext;
+    ValidationMessageStore? messageStore;
     private string? errorMessage;
     private string? successMessage;
 
@@ -243,6 +244,10 @@
         isAnswered = currentStatusId != applicationStatuses
             .First(w => w.Название == Settings.ApplicationsInProcessStatus)
                 .IdСтатуса;
+
+        editContext = new(workApplictaionDto);
+        messageStore = new(editContext);
+        editContext.OnValidationStateChanged += HandleValidationRequested;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -267,36 +272,52 @@
 
     private async Task HandleValidSubmit()
     {
+        errorMessage = successMessage = null;
         if (!IsReviewMode)
         {
             await AddWorkApplication();
         }
         else
         {
-            if (!ValidateAnswer()) return;
             await AddAnswer();
         }
+    }
+
+    void HandleValidationRequested(object? sender, ValidationStateChangedEventArgs args)
+    {
+        successMessage = null;
+        messageStore?.Clear();
+
+#pragma warning disable CS8603 // Возможно, возврат ссылки, допускающей значение NULL.
+        if (IsReviewMode)
+        {
+            int inReviewStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
+            int rejectStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsRejectStatus).IdСтатуса;
+            errorMessage = null;
+            if (workApplictaionDto.IdСтатуса == inReviewStatusId)
+            {
+                messageStore?.Add(() => workApplictaionDto.IdСтатуса, "Выберите вердикт");
+            }
+            // Если происходит отказ, то необходимо объяснение отказа
+            if (string.IsNullOrWhiteSpace(workApplictaionDto.Ответ)
+                && workApplictaionDto.IdСтатуса == rejectStatusId)
+            {
+                messageStore?.Add(() => workApplictaionDto.Ответ, "Введите объяснение отказа");
+            }
+        }
+#pragma warning restore CS8603
     }
 
     private async Task AddWorkApplication()
     {
         try
         {
-            using var context = DbFactory.CreateDbContext();
+            workApplictaionDto.IdПользователя = 10; // TODO: Получать из контекста авторизации
+            workApplictaionDto.IdСтатуса = (await ApplicationsService.GetApplicationsStatusesAsync())
+                    .First(ws => ws.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
 
-            ЗаявлениеРаботы newApp = new()
-            {
-                IdРаботы = workApplictaionDto.IdРаботы!.Value,
-                Цель = workApplictaionDto.Цель!,
-                ДатаПоступления = DateTime.Now,
-                ДатаВозврПоЗаявл = workApplictaionDto.ДатаВозврПоЗаявл!.Value,
-                IdПользователя = 10, // TODO: Получать из контекста авторизации
-                IdСтатуса = (await ApplicationsService.GetApplicationsStatusesAsync())
-                    .First(ws => ws.Название == Settings.ApplicationsInProcessStatus).IdСтатуса
-            };
+            await ApplicationsService.AddWorkApplication(workApplictaionDto);
 
-            context.ЗаявлениеРаботыs.Add(newApp);
-            await context.SaveChangesAsync();
             successMessage = "Заявление успешно отправлено!";
             workApplictaionDto.IdРаботы = WorkId = null;
             StateHasChanged();
@@ -307,47 +328,19 @@
         }
     }
 
-    private bool ValidateAnswer()
-    {
-        bool isOk = true;
-        int inReviewStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
-        int rejectStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsRejectStatus).IdСтатуса;
-        errorMessage = "";
-        if (workApplictaionDto.IdСтатуса == inReviewStatusId)
-        {
-            errorMessage = "Выберите вердикт!";
-            isOk = false;
-        }
-        // Если происходит отказ, то необходимо объяснение ответа
-        if (string.IsNullOrWhiteSpace(workApplictaionDto.Ответ)
-            && workApplictaionDto.IdСтатуса == rejectStatusId)
-        {
-            errorMessage += (isOk ? "" : "\n") + "Напишите объяснение ответа!";
-            isOk = false;
-        }
-
-        return isOk;
-    }
-
     private async Task AddAnswer()
     {
         try
         {
-            using var context = DbFactory.CreateDbContext();
-
-            ЗаявлениеРаботы? app = context.ЗаявлениеРаботыs.Find(workApplictaionDto.IdЗаявления);
-            if (app == null)
+            if (!(await ApplicationsService.AddAnswerWorkApplication(workApplictaionDto)))
             {
                 errorMessage = "Заявление не найдено, либо удалено";
-                return;
+            }
+            else
+            {
+                successMessage = "Ответ успешно отправлен!";
             }
 
-            app.Ответ = workApplictaionDto.Ответ;
-            app.ДатаОтвета = DateTime.Now;
-            app.IdСтатуса = workApplictaionDto.IdСтатуса;
-
-            await context.SaveChangesAsync();
-            successMessage = "Ответ успешно отправлен!";
             isAnswered = true;
             StateHasChanged();
         }
@@ -361,5 +354,8 @@
     {
         if (!string.IsNullOrWhiteSpace(successMessage))
             WorkApplictaionDto?.IdСтатуса = currentStatusId;
+
+        if (editContext != null)
+            editContext.OnValidationStateChanged -= HandleValidationRequested;
     }
 }

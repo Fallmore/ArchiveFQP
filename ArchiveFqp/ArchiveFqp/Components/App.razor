@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@using ArchiveFqp.Components.Components
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -18,8 +19,10 @@
 <body>
     <Routes />
     <ReconnectModal />
+    <InspectUser/>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
-    <script src="@Assets["vendor/bootstrap/js/bootstrap.js"]"></script>
+    <script src="@Assets["vendor/bootstrap/js/bootstrap.bundle.js"]"></script>
+    @* <script src="@Assets["vendor/bootstrap/js/bootstrap.js"]"></script> *@
 </body>
 
 </html>

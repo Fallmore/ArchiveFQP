@@ -15,5 +15,11 @@ public partial class АтрибутНаправления
 
     public int IdНаправления { get; set; }
 
+    public virtual Атрибут IdАтрибутаNavigation { get; set; } = null!;
+
     public virtual Направление IdНаправленияNavigation { get; set; } = null!;
+
+    public virtual СтатусРаботы? IdСтатусаРаботыNavigation { get; set; }
+
+    public virtual ТипРаботы? IdТипаРаботыNavigation { get; set; }
 }

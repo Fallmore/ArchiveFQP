@@ -1,0 +1,186 @@
+﻿@page "/user/profile"
+@using ArchiveFqp.Models.DTO.Student
+@using ArchiveFqp.Models.DTO.Teacher
+@using ArchiveFqp.Models.DTO.User
+@using ArchiveFqp.Models.Settings.User
+@using ArchiveFqp.Interfaces.User
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@inject IUserService UserService
+@rendermode @(new InteractiveServerRenderMode())
+@attribute [Authorize]
+
+<PageTitle>АГТУ - Заявления на просмотр работы</PageTitle>
+
+@if (RendererInfo.IsInteractive && user.IsInited)
+{
+    <div class="container">
+        <div class="container mt-4">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-person me-2"></i>
+                        @userName
+                    </h4>
+                    <span class="bg-opacity-75 fs-6">
+                        @(string.Join(", ", userRoles))
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row-md-12">
+                        <div class="accordion" id="accordionUserPage">
+                            <div class="accordion-item">
+                                <button class="accordion-button" style="height:30px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGeneral" aria-expanded="true" aria-controls="collapseGeneral">
+                                    <strong class="fs-5">Основное</strong>
+                                </button>
+                                <div id="collapseGeneral" class="accordion-collapse collapse show" aria-labelledby="headingOne">
+                                    <div class="accordion-body">
+                                        <UserGeneral User="user.User" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (user.IsTeacher || user.IsStudent)
+                            {
+                                <div class="accordion-item">
+                                    <button class="accordion-button collapsed" style="height:30px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEducation" aria-expanded="false" aria-controls="collapseEducation">
+                                        <strong class="fs-5">Учебная информация</strong>
+                                    </button>
+                                    <div id="collapseEducation" class="accordion-collapse collapse" aria-labelledby="headingTwo">
+                                        <div class="accordion-body">
+                                            <UserEducation Student="user.Student" Teacher="user.Teacher" />
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
+                            @if (!isGuest)
+                            {
+                                <div class="accordion-item">
+                                    <button class="accordion-button collapsed" style="height:30px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSecurity" aria-expanded="false" aria-controls="collapseSecurity">
+                                        <strong class="fs-5">Безопасность</strong>
+                                    </button>
+                                    <div id="collapseSecurity" class="accordion-collapse collapse" aria-labelledby="headingThree">
+                                        <div class="accordion-body">
+                                            <UserSecurity User="user.Account" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="accordion-item">
+                                    <button class="accordion-button collapsed" style="height:30px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSettings" aria-expanded="false" aria-controls="collapseSettings">
+                                        <strong class="fs-5">Настройки</strong>
+                                    </button>
+                                    <div id="collapseSettings" class="accordion-collapse collapse" aria-labelledby="headingFour">
+                                        <div class="accordion-body">
+                                            @* <UserEducation Student="student" Teacher="teacher" /> *@
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Альтернативный вариант -->
+                        @* <div class="card mb-1">
+                            <div class="card-body">
+                                <nav>
+                                    <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                                        <button class="nav-link active" id="nav-general-tab"
+                                                data-bs-toggle="tab" data-bs-target="#nav-general"
+                                                type="button" role="tab" aria-controls="nav-general"
+                                                aria-selected="true">
+                                            Основное
+                                        </button>
+                                        <button class="nav-link" id="nav-education-tab"
+                                                data-bs-toggle="tab" data-bs-target="#nav-education"
+                                                type="button" role="tab" aria-controls="nav-education"
+                                                aria-selected="false" disabled="@isGuest">
+                                            Учебное
+                                        </button>
+                                        <button class="nav-link" id="nav-security-tab"
+                                                data-bs-toggle="tab" data-bs-target="#nav-security"
+                                                type="button" role="tab" aria-controls="nav-security"
+                                                aria-selected="false" disabled="@isGuest">
+                                            Безопасность
+                                        </button>
+                                        <button class="nav-link" id="nav-settings-tab"
+                                                data-bs-toggle="tab" data-bs-target="#nav-settings"
+                                                type="button" role="tab" aria-controls="nav-settings"
+                                                aria-selected="false" disabled="@isGuest">
+                                            Настройки
+                                        </button>
+                                    </div>
+                                </nav>
+                                <div class="tab-content mt-3 mx-3" id="nav-tabContent">
+                                    <div class="tab-pane fade show active" id="nav-general" role="tabpanel" aria-labelledby="nav-general-tab" tabindex="0"><UserGeneral User="user" /></div>
+                                    <div class="tab-pane fade" id="nav-education" role="tabpanel" aria-labelledby="nav-education-tab" tabindex="0"><UserEducation Student="student" Teacher="teacher" /></div>
+                                    <div class="tab-pane fade" id="nav-security" role="tabpanel" aria-labelledby="nav-security-tab" tabindex="0">...</div>
+                                    <div class="tab-pane fade" id="nav-settings" role="tabpanel" aria-labelledby="nav-settings-tab" tabindex="0">...</div>
+                                </div>
+                            </div>
+                        </div> *@
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; } = null!;
+    private string userName { get; set; } = "Гость";
+    private List<string> userRoles { get; set; } = ["Пользователь"];
+    private CurrentUser user = null!;
+    private bool isGuest => user.UserDisplay == null;
+
+    public class CurrentUser
+    {
+        public Пользователь? User { get; set; } = null!;
+        public АккаунтПользователя? Account { get; set; } = null!;
+
+        public UserDisplayDto? UserDisplay { get; set; }
+        public StudentDisplayDto? Student { get; set; }
+        public bool IsStudent => Student != null;
+        public TeacherDisplayDto? Teacher { get; set; }
+        public bool IsTeacher => Teacher != null;
+
+        public bool IsInited { get; set; } = false;
+
+        public async Task Init(IUserService userService, int idUser)
+        {
+            User = await userService.GetUserAsync(idUser);
+            if (User != null)
+            {
+                UserDisplay = await userService.GetUserDisplayAsync(User);
+                Account = await userService.GetUserAccountAsync(User);
+                Student = await userService.GetStudentDisplayAsync(User);
+                Teacher = await userService.GetTeacherDisplayAsync(User);
+            }
+            IsInited = true;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RendererInfo.IsInteractive)
+        {
+            AuthenticationState authState = await authenticationStateTask;
+            ClaimsPrincipal userClaims = authState.User;
+
+            if (userClaims.Identity?.IsAuthenticated == true)
+            {
+                int id = int.Parse(userClaims.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
+                user = new();
+                await user.Init(UserService, id);
+
+                if (user.UserDisplay != null)
+                {
+                    userName = user.UserDisplay.ФИО;
+                    userRoles = user.UserDisplay.Роли;
+                }
+                StateHasChanged();
+            }
+        }
+    }
+}

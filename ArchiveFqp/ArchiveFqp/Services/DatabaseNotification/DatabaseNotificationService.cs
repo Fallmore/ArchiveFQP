@@ -1,4 +1,6 @@
-﻿using Newtonsoft.Json;
+﻿using ArchiveFqp.Interfaces.DatabaseNotification;
+using ArchiveFqp.Models.DatabaseNotification;
+using Newtonsoft.Json;
 using Npgsql;
 using System.Collections.Concurrent;
 using System.Threading.Channels;

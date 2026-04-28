@@ -15,5 +15,11 @@ public partial class АтрибутПрофиля
 
     public int IdПрофиля { get; set; }
 
+    public virtual Атрибут IdАтрибутаNavigation { get; set; } = null!;
+
     public virtual Профиль IdПрофиляNavigation { get; set; } = null!;
+
+    public virtual СтатусРаботы? IdСтатусаРаботыNavigation { get; set; }
+
+    public virtual ТипРаботы? IdТипаРаботыNavigation { get; set; }
 }

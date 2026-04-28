@@ -7,8 +7,8 @@
 @using ArchiveFqp.Models.DTO.Attribute
 @using ArchiveFqp.Models.DTO.Work
 @using ArchiveFqp.Models.Search
-@using ArchiveFqp.Services.Work
-@using ArchiveFqp.Services.ReferenceData
+@using ArchiveFqp.Interfaces.Work
+@using ArchiveFqp.Interfaces.ReferenceData
 @using System.Diagnostics
 @using System.Text
 @inject NavigationManager Navigation
@@ -33,10 +33,10 @@
                                @bind="searchModel.SearchText"
                                @bind:event="oninput"
                                @onkeypress="@(e => { if (e.Key == "Enter") { searchModel.Page = 1; UpdateUrl(); } })" />
-                        <button class="btn btn-outline-secondary" type="button" @onclick="@(() => { searchModel.Page = 1; UpdateUrl(); })">
+                        <button class="btn btn-outline-secondary z-0" type="button" @onclick="@(() => { searchModel.Page = 1; UpdateUrl(); })">
                             <i class="bi bi-search"></i> Найти
                         </button>
-                        <button class="btn btn-outline-primary" type="button" @onclick="ToggleAdvancedSearch"
+                        <button class="btn btn-outline-primary z-0" type="button" @onclick="ToggleAdvancedSearch"
                                 data-bs-toggle="collapse" data-bs-target="#collapseAdvancedSearch"
                                 aria-expanded="false" aria-controls="collapseAdvancedSearch">
                             <i class="bi bi-funnel"></i> Расширенный поиск

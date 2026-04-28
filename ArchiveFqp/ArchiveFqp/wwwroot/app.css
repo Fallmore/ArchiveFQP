@@ -58,3 +58,26 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+.checkbox-password[type=checkbox] {
+    display: none;
+}
+
+.checkbox-password[type=checkbox] + label {
+    display: inline-block;
+    padding: 0 0 0 0px;
+    background: url("images/eyeClosed.png") no-repeat;
+    height: 25px;
+    width: 25px;
+    background-size: 100%;
+    background-color: transparent;
+    border-color: transparent;
+}
+
+.checkbox-password[type=checkbox]:checked + label {
+    background: url("images/eyeOpened.png") no-repeat;
+    height: 25px;
+    width: 25px;
+    display: inline-block;
+    background-size: 100%;
+}

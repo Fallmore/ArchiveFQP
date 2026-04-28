@@ -1,7 +1,6 @@
 ﻿@using ArchiveFqp.Models.DTO.Attribute
 @using ArchiveFqp.Models.Settings.SettingsArchive
-@using ArchiveFqp.Services
-@using ArchiveFqp.Services.Work
+@using ArchiveFqp.Interfaces.Work
 @using Microsoft.EntityFrameworkCore
 @using ArchiveFqp.Components.Components
 @using ArchiveFqp.Models.DTO
@@ -24,7 +23,7 @@
     <div class="alert alert-success">@successMessage</div>
 }
 
-<EditForm EditContext="@editContext" OnValidSubmit="@HandleValidSubmit" FormName="workAttributesAdd" @onsubmit:preventDefault="true">
+<EditForm EditContext="@editContext" FormName="workAttributesAdd" @onsubmit:preventDefault="true">
     <div class="card mb-2">
         <div class="card-body">
             <div class="row">

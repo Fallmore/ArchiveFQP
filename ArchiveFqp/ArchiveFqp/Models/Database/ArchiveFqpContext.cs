@@ -36,7 +36,7 @@ public partial class ArchiveFqpContext : DbContext
     public virtual DbSet<ДоступРаботы> ДоступРаботыs { get; set; }
 
     public virtual DbSet<ЖурналДействий> ЖурналДействийs { get; set; }
-    
+
     public virtual DbSet<ЗаявлениеРаботы> ЗаявлениеРаботыs { get; set; }
 
     public virtual DbSet<ЗаявлениеАтрибута> ЗаявлениеАтрибутаs { get; set; }
@@ -48,6 +48,14 @@ public partial class ArchiveFqpContext : DbContext
     public virtual DbSet<Консультант> Консультантs { get; set; }
 
     public virtual DbSet<Направление> Направлениеs { get; set; }
+
+    public virtual DbSet<НастройкиИнститута> НастройкиИнститутаs { get; set; }
+
+    public virtual DbSet<НастройкиКафедры> НастройкиКафедрыs { get; set; }
+
+    public virtual DbSet<НастройкиПользователя> НастройкиПользователяs { get; set; }
+
+    public virtual DbSet<НастройкиУчреждения> НастройкиУчрежденияs { get; set; }
 
     public virtual DbSet<ОценкаПреподавателя> ОценкаПреподавателяs { get; set; }
 
@@ -62,6 +70,8 @@ public partial class ArchiveFqpContext : DbContext
     public virtual DbSet<Рецензент> Рецензентs { get; set; }
 
     public virtual DbSet<РольПользователя> РольПользователяs { get; set; }
+
+    public virtual DbSet<СеансПользователя> СеансПользователяs { get; set; }
 
     public virtual DbSet<СтатусРаботы> СтатусРаботыs { get; set; }
 
@@ -87,12 +97,17 @@ public partial class ArchiveFqpContext : DbContext
 
         modelBuilder.Entity<АккаунтПользователя>(entity =>
         {
-            entity
-                .HasNoKey()
-                .ToTable("аккаунт_пользователя");
+            entity.HasKey(e => e.IdАккаунта).HasName("аккаунт_пользователя_pkey");
+
+            entity.ToTable("аккаунт_пользователя");
+
+            entity.HasIndex(e => e.Логин, "idx_account_login");
+
+            entity.HasIndex(e => e.IdПользователя, "idx_account_user");
 
             entity.HasIndex(e => e.IdПользователя, "аккаунт_пользова_id_пользователя_key").IsUnique();
 
+            entity.Property(e => e.IdАккаунта).HasColumnName("id_аккаунта");
             entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
             entity.Property(e => e.Логин)
                 .HasMaxLength(60)
@@ -102,7 +117,7 @@ public partial class ArchiveFqpContext : DbContext
                 .HasColumnName("пароль");
             entity.Property(e => e.Роли).HasColumnName("роли");
 
-            entity.HasOne(d => d.IdПользователяNavigation).WithOne()
+            entity.HasOne(d => d.IdПользователяNavigation).WithOne(p => p.АккаунтПользователя)
                 .HasForeignKey<АккаунтПользователя>(d => d.IdПользователя)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("аккаунт_пользов_id_пользователя_fkey");
@@ -114,6 +129,8 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("атрибут");
 
+            entity.HasIndex(e => e.Название, "idx_attribute_name");
+
             entity.HasIndex(e => e.Название, "атрибут_название_key").IsUnique();
 
             entity.Property(e => e.IdАтрибута).HasColumnName("id_атрибута");
@@ -124,86 +141,186 @@ public partial class ArchiveFqpContext : DbContext
 
         modelBuilder.Entity<АтрибутИнститута>(entity =>
         {
-            entity
-                .HasNoKey()
-                .ToTable("атрибут_института");
+            entity.HasKey(e => e.IdСтруктуры).HasName("атрибут_института_pkey");
+
+            entity.ToTable("атрибут_института");
+
+            entity.HasIndex(e => e.IdИнститута, "idx_attr_inst");
+
+            entity.HasIndex(e => e.IdАтрибута, "idx_attr_inst_attr");
+
+            entity.HasIndex(e => new { e.IdАтрибута, e.IdСтатусаРаботы, e.IdТипаРаботы }, "idx_attr_inst_composite");
+
+            entity.HasIndex(e => e.IdСтатусаРаботы, "idx_attr_inst_status");
+
+            entity.HasIndex(e => e.IdТипаРаботы, "idx_attr_inst_type");
 
             entity.HasIndex(e => new { e.IdИнститута, e.IdАтрибута, e.IdСтатусаРаботы, e.IdТипаРаботы }, "атрибут_института_атрибут_key").IsUnique();
 
-            entity.Property(e => e.IdАтрибута).HasColumnName("id_атрибута");
-            entity.Property(e => e.IdИнститута).HasColumnName("id_института");
-            entity.Property(e => e.IdСтатусаРаботы).HasColumnName("id_статуса_работы");
             entity.Property(e => e.IdСтруктуры)
                 .HasDefaultValueSql("nextval('\"атрибут_учреждения_id_структуры_seq\"'::regclass)")
                 .HasColumnName("id_структуры");
+            entity.Property(e => e.IdАтрибута).HasColumnName("id_атрибута");
+            entity.Property(e => e.IdИнститута).HasColumnName("id_института");
+            entity.Property(e => e.IdСтатусаРаботы).HasColumnName("id_статуса_работы");
             entity.Property(e => e.IdТипаРаботы).HasColumnName("id_типа_работы");
 
-            entity.HasOne(d => d.IdИнститутаNavigation).WithMany()
+            entity.HasOne(d => d.IdАтрибутаNavigation).WithMany(p => p.АтрибутИнститутаs)
+                .HasForeignKey(d => d.IdАтрибута)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("атрибут_института_id_атрибута_fkey");
+
+            entity.HasOne(d => d.IdИнститутаNavigation).WithMany(p => p.АтрибутИнститутаs)
                 .HasForeignKey(d => d.IdИнститута)
                 .HasConstraintName("атрибут_института_id_института_fkey");
+
+            entity.HasOne(d => d.IdСтатусаРаботыNavigation).WithMany(p => p.АтрибутИнститутаs)
+                .HasForeignKey(d => d.IdСтатусаРаботы)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("атрибут_институ_id_статуса_работ_fkey");
+
+            entity.HasOne(d => d.IdТипаРаботыNavigation).WithMany(p => p.АтрибутИнститутаs)
+                .HasForeignKey(d => d.IdТипаРаботы)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("атрибут_института_id_типа_работы_fkey");
         });
 
         modelBuilder.Entity<АтрибутКафедры>(entity =>
         {
-            entity
-                .HasNoKey()
-                .ToTable("атрибут_кафедры");
+            entity.HasKey(e => e.IdСтруктуры).HasName("атрибут_кафедры_pkey");
+
+            entity.ToTable("атрибут_кафедры");
+
+            entity.HasIndex(e => e.IdКафедры, "idx_attr_dep");
+
+            entity.HasIndex(e => e.IdАтрибута, "idx_attr_dep_attr");
+
+            entity.HasIndex(e => new { e.IdАтрибута, e.IdСтатусаРаботы, e.IdТипаРаботы }, "idx_attr_dep_composite");
+
+            entity.HasIndex(e => e.IdСтатусаРаботы, "idx_attr_dep_status");
+
+            entity.HasIndex(e => e.IdТипаРаботы, "idx_attr_dep_type");
 
             entity.HasIndex(e => new { e.IdКафедры, e.IdАтрибута, e.IdСтатусаРаботы, e.IdТипаРаботы }, "атрибут_кафедры_атрибут_key").IsUnique();
 
-            entity.Property(e => e.IdАтрибута).HasColumnName("id_атрибута");
-            entity.Property(e => e.IdКафедры).HasColumnName("id_кафедры");
-            entity.Property(e => e.IdСтатусаРаботы).HasColumnName("id_статуса_работы");
             entity.Property(e => e.IdСтруктуры)
                 .HasDefaultValueSql("nextval('\"атрибут_учреждения_id_структуры_seq\"'::regclass)")
                 .HasColumnName("id_структуры");
+            entity.Property(e => e.IdАтрибута).HasColumnName("id_атрибута");
+            entity.Property(e => e.IdКафедры).HasColumnName("id_кафедры");
+            entity.Property(e => e.IdСтатусаРаботы).HasColumnName("id_статуса_работы");
             entity.Property(e => e.IdТипаРаботы).HasColumnName("id_типа_работы");
 
-            entity.HasOne(d => d.IdКафедрыNavigation).WithMany()
+            entity.HasOne(d => d.IdАтрибутаNavigation).WithMany(p => p.АтрибутКафедрыs)
+                .HasForeignKey(d => d.IdАтрибута)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("атрибут_кафедры_id_атрибута_fkey");
+
+            entity.HasOne(d => d.IdКафедрыNavigation).WithMany(p => p.АтрибутКафедрыs)
                 .HasForeignKey(d => d.IdКафедры)
                 .HasConstraintName("атрибут_кафедры_id_кафедры_fkey");
+
+            entity.HasOne(d => d.IdСтатусаРаботыNavigation).WithMany(p => p.АтрибутКафедрыs)
+                .HasForeignKey(d => d.IdСтатусаРаботы)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("атрибут_кафедры_id_статуса_работ_fkey");
+
+            entity.HasOne(d => d.IdТипаРаботыNavigation).WithMany(p => p.АтрибутКафедрыs)
+                .HasForeignKey(d => d.IdТипаРаботы)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("атрибут_кафедры_id_типа_работы_fkey");
         });
 
         modelBuilder.Entity<АтрибутНаправления>(entity =>
         {
-            entity
-                .HasNoKey()
-                .ToTable("атрибут_направления");
+            entity.HasKey(e => e.IdСтруктуры).HasName("атрибут_направления_pkey");
+
+            entity.ToTable("атрибут_направления");
+
+            entity.HasIndex(e => e.IdНаправления, "idx_attr_dir");
+
+            entity.HasIndex(e => e.IdАтрибута, "idx_attr_dir_attr");
+
+            entity.HasIndex(e => new { e.IdАтрибута, e.IdСтатусаРаботы, e.IdТипаРаботы }, "idx_attr_dir_composite");
+
+            entity.HasIndex(e => e.IdСтатусаРаботы, "idx_attr_dir_status");
+
+            entity.HasIndex(e => e.IdТипаРаботы, "idx_attr_dir_type");
 
             entity.HasIndex(e => new { e.IdНаправления, e.IdАтрибута, e.IdСтатусаРаботы, e.IdТипаРаботы }, "атрибут_направления_атрибут_key").IsUnique();
 
-            entity.Property(e => e.IdАтрибута).HasColumnName("id_атрибута");
-            entity.Property(e => e.IdНаправления).HasColumnName("id_направления");
-            entity.Property(e => e.IdСтатусаРаботы).HasColumnName("id_статуса_работы");
             entity.Property(e => e.IdСтруктуры)
                 .HasDefaultValueSql("nextval('\"атрибут_учреждения_id_структуры_seq\"'::regclass)")
                 .HasColumnName("id_структуры");
+            entity.Property(e => e.IdАтрибута).HasColumnName("id_атрибута");
+            entity.Property(e => e.IdНаправления).HasColumnName("id_направления");
+            entity.Property(e => e.IdСтатусаРаботы).HasColumnName("id_статуса_работы");
             entity.Property(e => e.IdТипаРаботы).HasColumnName("id_типа_работы");
 
-            entity.HasOne(d => d.IdНаправленияNavigation).WithMany()
+            entity.HasOne(d => d.IdАтрибутаNavigation).WithMany(p => p.АтрибутНаправленияs)
+                .HasForeignKey(d => d.IdАтрибута)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("атрибут_направлени_id_атрибута_fkey");
+
+            entity.HasOne(d => d.IdНаправленияNavigation).WithMany(p => p.АтрибутНаправленияs)
                 .HasForeignKey(d => d.IdНаправления)
                 .HasConstraintName("атрибут_направле_id_направления_fkey");
+
+            entity.HasOne(d => d.IdСтатусаРаботыNavigation).WithMany(p => p.АтрибутНаправленияs)
+                .HasForeignKey(d => d.IdСтатусаРаботы)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("атрибут_направл_id_статуса_работ_fkey");
+
+            entity.HasOne(d => d.IdТипаРаботыNavigation).WithMany(p => p.АтрибутНаправленияs)
+                .HasForeignKey(d => d.IdТипаРаботы)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("атрибут_направлен_id_типа_работы_fkey");
         });
 
         modelBuilder.Entity<АтрибутПрофиля>(entity =>
         {
-            entity
-                .HasNoKey()
-                .ToTable("атрибут_профиля");
+            entity.HasKey(e => e.IdСтруктуры).HasName("атрибут_профиля_pkey");
+
+            entity.ToTable("атрибут_профиля");
+
+            entity.HasIndex(e => e.IdПрофиля, "idx_attr_prof");
+
+            entity.HasIndex(e => e.IdАтрибута, "idx_attr_prof_attr");
+
+            entity.HasIndex(e => new { e.IdАтрибута, e.IdСтатусаРаботы, e.IdТипаРаботы }, "idx_attr_prof_composite");
+
+            entity.HasIndex(e => e.IdСтатусаРаботы, "idx_attr_prof_status");
+
+            entity.HasIndex(e => e.IdТипаРаботы, "idx_attr_prof_type");
 
             entity.HasIndex(e => new { e.IdПрофиля, e.IdАтрибута, e.IdСтатусаРаботы, e.IdТипаРаботы }, "атрибут_профиля_атрибут_key").IsUnique();
 
-            entity.Property(e => e.IdАтрибута).HasColumnName("id_атрибута");
-            entity.Property(e => e.IdПрофиля).HasColumnName("id_профиля");
-            entity.Property(e => e.IdСтатусаРаботы).HasColumnName("id_статуса_работы");
             entity.Property(e => e.IdСтруктуры)
                 .HasDefaultValueSql("nextval('\"атрибут_учреждения_id_структуры_seq\"'::regclass)")
                 .HasColumnName("id_структуры");
+            entity.Property(e => e.IdАтрибута).HasColumnName("id_атрибута");
+            entity.Property(e => e.IdПрофиля).HasColumnName("id_профиля");
+            entity.Property(e => e.IdСтатусаРаботы).HasColumnName("id_статуса_работы");
             entity.Property(e => e.IdТипаРаботы).HasColumnName("id_типа_работы");
 
-            entity.HasOne(d => d.IdПрофиляNavigation).WithMany()
+            entity.HasOne(d => d.IdАтрибутаNavigation).WithMany(p => p.АтрибутПрофиляs)
+                .HasForeignKey(d => d.IdАтрибута)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("атрибут_профиля_id_атрибута_fkey");
+
+            entity.HasOne(d => d.IdПрофиляNavigation).WithMany(p => p.АтрибутПрофиляs)
                 .HasForeignKey(d => d.IdПрофиля)
                 .HasConstraintName("атрибут_профиля_id_профиля_fkey");
+
+            entity.HasOne(d => d.IdСтатусаРаботыNavigation).WithMany(p => p.АтрибутПрофиляs)
+                .HasForeignKey(d => d.IdСтатусаРаботы)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("атрибут_профиля_id_статуса_работ_fkey");
+
+            entity.HasOne(d => d.IdТипаРаботыNavigation).WithMany(p => p.АтрибутПрофиляs)
+                .HasForeignKey(d => d.IdТипаРаботы)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("атрибут_профиля_id_типа_работы_fkey");
         });
 
         modelBuilder.Entity<АтрибутУчреждения>(entity =>
@@ -211,6 +328,14 @@ public partial class ArchiveFqpContext : DbContext
             entity.HasKey(e => e.IdСтруктуры).HasName("атрибут_учреждения_pkey");
 
             entity.ToTable("атрибут_учреждения");
+
+            entity.HasIndex(e => e.IdАтрибута, "idx_attr_org_attr");
+
+            entity.HasIndex(e => new { e.IdАтрибута, e.IdСтатусаРаботы, e.IdТипаРаботы }, "idx_attr_org_composite");
+
+            entity.HasIndex(e => e.IdСтатусаРаботы, "idx_attr_org_status");
+
+            entity.HasIndex(e => e.IdТипаРаботы, "idx_attr_org_type");
 
             entity.HasIndex(e => new { e.IdАтрибута, e.IdСтатусаРаботы, e.IdТипаРаботы }, "атрибут_учреждения_атрибут_key").IsUnique();
 
@@ -240,6 +365,20 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("данные_по_атриб");
 
+            entity.HasIndex(e => new { e.IdРаботы, e.IdСтруктуры }, "idx_attr_data_composite");
+
+            entity.HasIndex(e => new { e.IdСтруктуры, e.Данные }, "idx_attr_data_distinct");
+
+            entity.HasIndex(e => new { e.IdРаботы, e.IdСтруктуры, e.Данные }, "idx_attr_data_real_values").HasFilter("(\"данные\" <> ALL (ARRAY['Ожидание поиска...'::text, 'Н/Д'::text]))");
+
+            entity.HasIndex(e => e.IdСтруктуры, "idx_attr_data_structure");
+
+            entity.HasIndex(e => e.Данные, "idx_attr_data_values_trgm")
+                .HasMethod("gin")
+                .HasOperators(new[] { "gin_trgm_ops" });
+
+            entity.HasIndex(e => e.IdРаботы, "idx_attr_data_work");
+
             entity.HasIndex(e => new { e.IdРаботы, e.IdСтруктуры }, "данные_по_атриб_атрибут_key").IsUnique();
 
             entity.Property(e => e.IdДанных).HasColumnName("id_данных");
@@ -259,6 +398,8 @@ public partial class ArchiveFqpContext : DbContext
             entity.HasKey(e => e.IdДолжности).HasName("должность_pkey");
 
             entity.ToTable("должность");
+
+            entity.HasIndex(e => e.Название, "idx_position_name");
 
             entity.HasIndex(e => e.Название, "должность_название_key").IsUnique();
 
@@ -315,6 +456,22 @@ public partial class ArchiveFqpContext : DbContext
             entity.HasKey(e => e.IdЗаявления).HasName("заявление_атрибута_pkey");
 
             entity.ToTable("заявление_атрибута");
+
+            entity.HasIndex(e => e.IdАтрибута, "idx_issuance_attr");
+
+            entity.HasIndex(e => e.IdКафедры, "idx_issuance_attr_dep");
+
+            entity.HasIndex(e => e.IdНаправления, "idx_issuance_attr_dir");
+
+            entity.HasIndex(e => e.IdИнститута, "idx_issuance_attr_inst");
+
+            entity.HasIndex(e => e.IdПрофиля, "idx_issuance_attr_prof");
+
+            entity.HasIndex(e => e.ДатаПоступления, "idx_issuance_attr_request_date").IsDescending();
+
+            entity.HasIndex(e => e.IdСтатуса, "idx_issuance_attr_status");
+
+            entity.HasIndex(e => e.IdПользователя, "idx_issuance_attr_user");
 
             entity.Property(e => e.IdЗаявления).HasColumnName("id_заявления");
             entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
@@ -387,6 +544,14 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("заявление_работы");
 
+            entity.HasIndex(e => e.IdРаботы, "idx_issuance_work");
+
+            entity.HasIndex(e => e.ДатаПоступления, "idx_issuance_work_request_date").IsDescending();
+
+            entity.HasIndex(e => e.IdСтатуса, "idx_issuance_work_status");
+
+            entity.HasIndex(e => e.IdПользователя, "idx_issuance_work_user");
+
             entity.Property(e => e.IdЗаявления).HasColumnName("id_заявления");
             entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
             entity.Property(e => e.IdСтатуса).HasColumnName("id_статуса");
@@ -433,6 +598,8 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("институт");
 
+            entity.HasIndex(e => e.Название, "idx_institute_name");
+
             entity.HasIndex(e => e.Название, "институт_название_key").IsUnique();
 
             entity.Property(e => e.IdИнститута).HasColumnName("id_института");
@@ -446,6 +613,12 @@ public partial class ArchiveFqpContext : DbContext
             entity.HasKey(e => e.IdКафедры).HasName("кафедра_pkey");
 
             entity.ToTable("кафедра");
+
+            entity.HasIndex(e => e.IdИнститута, "idx_department_institute");
+
+            entity.HasIndex(e => e.Название, "idx_department_name");
+
+            entity.HasIndex(e => e.IdУгсн, "idx_department_ugsn");
 
             entity.HasIndex(e => new { e.Название, e.IdУгсн }, "кафедра_кафедра_key").IsUnique();
 
@@ -471,6 +644,14 @@ public partial class ArchiveFqpContext : DbContext
             entity.HasKey(e => e.Id).HasName("консультант_pkey");
 
             entity.ToTable("консультант");
+
+            entity.HasIndex(e => new { e.IdРаботы, e.IdПреподавателя }, "idx_consultant_composite");
+
+            entity.HasIndex(e => e.IdДолжности, "idx_consultant_position");
+
+            entity.HasIndex(e => e.IdПреподавателя, "idx_consultant_teacher");
+
+            entity.HasIndex(e => e.IdРаботы, "idx_consultant_work");
 
             entity.HasIndex(e => new { e.IdРаботы, e.IdПреподавателя }, "консультант_работа_препод_key").IsUnique();
 
@@ -501,6 +682,10 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("направление");
 
+            entity.HasIndex(e => e.IdКафедры, "idx_direction_department");
+
+            entity.HasIndex(e => e.Название, "idx_direction_name");
+
             entity.HasIndex(e => new { e.Название, e.IdКафедры }, "направление_направление_key").IsUnique();
 
             entity.Property(e => e.IdНаправления).HasColumnName("id_направления");
@@ -515,11 +700,88 @@ public partial class ArchiveFqpContext : DbContext
                 .HasConstraintName("направление_id_кафедры_fkey");
         });
 
+        modelBuilder.Entity<НастройкиИнститута>(entity =>
+        {
+            entity.HasKey(e => e.IdНастройки).HasName("настройки_института_pkey");
+
+            entity.ToTable("настройки_института");
+
+            entity.HasIndex(e => e.IdИнститута, "idx_settings_inst_inst");
+
+            entity.Property(e => e.IdНастройки).HasColumnName("id_настройки");
+            entity.Property(e => e.IdИнститута).HasColumnName("id_института");
+            entity.Property(e => e.Настройки)
+                .HasColumnType("json")
+                .HasColumnName("настройки");
+
+            entity.HasOne(d => d.IdИнститутаNavigation).WithMany(p => p.НастройкиИнститутаs)
+                .HasForeignKey(d => d.IdИнститута)
+                .HasConstraintName("настройки_институт_id_института_fkey");
+        });
+
+        modelBuilder.Entity<НастройкиКафедры>(entity =>
+        {
+            entity.HasKey(e => e.IdНастройки).HasName("настройки_кафедры_pkey");
+
+            entity.ToTable("настройки_кафедры");
+
+            entity.HasIndex(e => e.IdКафедры, "idx_settings_dep_dep");
+
+            entity.Property(e => e.IdНастройки).HasColumnName("id_настройки");
+            entity.Property(e => e.IdКафедры).HasColumnName("id_кафедры");
+            entity.Property(e => e.Настройки)
+                .HasColumnType("json")
+                .HasColumnName("настройки");
+
+            entity.HasOne(d => d.IdКафедрыNavigation).WithMany(p => p.НастройкиКафедрыs)
+                .HasForeignKey(d => d.IdКафедры)
+                .HasConstraintName("настройки_кафедры_id_кафедры_fkey");
+        });
+
+        modelBuilder.Entity<НастройкиПользователя>(entity =>
+        {
+            entity.HasKey(e => e.IdНастройки).HasName("настройки_пользователя_pkey");
+
+            entity.ToTable("настройки_пользователя");
+
+            entity.HasIndex(e => e.IdПользователя, "idx_settings_user_user");
+
+            entity.Property(e => e.IdНастройки).HasColumnName("id_настройки");
+            entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
+            entity.Property(e => e.Настройки)
+                .HasColumnType("json")
+                .HasColumnName("настройки");
+
+            entity.HasOne(d => d.IdПользователяNavigation).WithMany(p => p.НастройкиПользователяs)
+                .HasForeignKey(d => d.IdПользователя)
+                .HasConstraintName("настройки_польз_id_пользователя_fkey");
+        });
+
+        modelBuilder.Entity<НастройкиУчреждения>(entity =>
+        {
+            entity.HasKey(e => e.IdНастройки).HasName("настройки_учреждения_pkey");
+
+            entity.ToTable("настройки_учреждения");
+
+            entity.Property(e => e.IdНастройки).HasColumnName("id_настройки");
+            entity.Property(e => e.Настройки)
+                .HasColumnType("json")
+                .HasColumnName("настройки");
+        });
+
         modelBuilder.Entity<ОценкаПреподавателя>(entity =>
         {
             entity.HasKey(e => e.IdОценки).HasName("оценка_преподавателя_pkey");
 
             entity.ToTable("оценка_преподавателя");
+
+            entity.HasIndex(e => new { e.IdРаботы, e.IdПреподавателя }, "idx_evaluation_composite");
+
+            entity.HasIndex(e => e.Оценка, "idx_evaluation_score");
+
+            entity.HasIndex(e => e.IdПреподавателя, "idx_evaluation_teacher");
+
+            entity.HasIndex(e => e.IdРаботы, "idx_evaluation_work");
 
             entity.Property(e => e.IdОценки).HasColumnName("id_оценки");
             entity.Property(e => e.IdПреподавателя).HasColumnName("id_преподавателя");
@@ -544,6 +806,12 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("пользователь");
 
+            entity.HasIndex(e => e.Email, "idx_user_email");
+
+            entity.HasIndex(e => new { e.Фамилия, e.Имя, e.Отчество }, "idx_user_fullname");
+
+            entity.HasIndex(e => e.Фамилия, "idx_user_lastname");
+
             entity.HasIndex(e => e.Email, "пользователь_email_key").IsUnique();
 
             entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
@@ -566,6 +834,14 @@ public partial class ArchiveFqpContext : DbContext
             entity.HasKey(e => e.IdПреподавателя).HasName("преподаватель_pkey");
 
             entity.ToTable("преподаватель");
+
+            entity.HasIndex(e => e.IdКафедры, "idx_teacher_department");
+
+            entity.HasIndex(e => e.IdИнститута, "idx_teacher_institute");
+
+            entity.HasIndex(e => e.IdДолжности, "idx_teacher_position");
+
+            entity.HasIndex(e => e.IdПользователя, "idx_teacher_user");
 
             entity.Property(e => e.IdПреподавателя).HasColumnName("id_преподавателя");
             entity.Property(e => e.IdДолжности).HasColumnName("id_должности");
@@ -600,6 +876,10 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("профиль");
 
+            entity.HasIndex(e => e.IdНаправления, "idx_profile_direction");
+
+            entity.HasIndex(e => e.Название, "idx_profile_name");
+
             entity.HasIndex(e => new { e.Название, e.IdНаправления }, "профиль_профиль_key").IsUnique();
 
             entity.Property(e => e.IdПрофиля).HasColumnName("id_профиля");
@@ -619,6 +899,40 @@ public partial class ArchiveFqpContext : DbContext
             entity.HasKey(e => e.IdРаботы).HasName("работа_pkey");
 
             entity.ToTable("работа");
+
+            entity.HasIndex(e => e.IdДоступаРаботы, "idx_work_access");
+
+            entity.HasIndex(e => e.ДатаДобавления, "idx_work_added_date").IsDescending();
+
+            entity.HasIndex(e => e.Аннотация, "idx_work_annotation_trgm")
+                .HasMethod("gin")
+                .HasOperators(new[] { "gin_trgm_ops" });
+
+            entity.HasIndex(e => new { e.ДатаДобавления, e.IdСтатусаРаботы }, "idx_work_date_status").IsDescending(true, false);
+
+            entity.HasIndex(e => e.ДатаИзменения, "idx_work_modified_date").IsDescending();
+
+            entity.HasIndex(e => e.КоличСтраниц, "idx_work_pages");
+
+            entity.HasIndex(e => e.IdДолжности, "idx_work_position");
+
+            entity.HasIndex(e => e.IdСтатусаРаботы, "idx_work_status");
+
+            entity.HasIndex(e => new { e.IdСтатусаРаботы, e.IdТипаРаботы }, "idx_work_status_type");
+
+            entity.HasIndex(e => e.IdСтудента, "idx_work_student");
+
+            entity.HasIndex(e => new { e.IdСтудента, e.IdСтатусаРаботы }, "idx_work_student_status");
+
+            entity.HasIndex(e => e.IdПреподавателя, "idx_work_teacher");
+
+            entity.HasIndex(e => new { e.IdПреподавателя, e.IdСтатусаРаботы }, "idx_work_teacher_status");
+
+            entity.HasIndex(e => e.Тема, "idx_work_theme_trgm")
+                .HasMethod("gin")
+                .HasOperators(new[] { "gin_trgm_ops" });
+
+            entity.HasIndex(e => e.IdТипаРаботы, "idx_work_type");
 
             entity.HasIndex(e => e.Эцп, "работа_ЭЦП_key").IsUnique();
 
@@ -691,7 +1005,17 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("рецензент");
 
-            entity.Property(e => e.Id).HasColumnName("id");
+            entity.HasIndex(e => new { e.IdРаботы, e.IdПреподавателя }, "idx_reviewer_composite");
+
+            entity.HasIndex(e => e.IdДолжности, "idx_reviewer_position");
+
+            entity.HasIndex(e => e.IdПреподавателя, "idx_reviewer_teacher");
+
+            entity.HasIndex(e => e.IdРаботы, "idx_reviewer_work");
+
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("nextval('\"консультант_id_seq\"'::regclass)")
+                .HasColumnName("id");
             entity.Property(e => e.IdДолжности).HasColumnName("id_должности");
             entity.Property(e => e.IdПреподавателя).HasColumnName("id_преподавателя");
             entity.Property(e => e.IdРаботы).HasColumnName("id_работы");
@@ -726,6 +1050,38 @@ public partial class ArchiveFqpContext : DbContext
                 .HasColumnName("название");
         });
 
+        modelBuilder.Entity<СеансПользователя>(entity =>
+        {
+            entity.HasKey(e => e.IdСеанса).HasName("сеанс_пользователя_pkey");
+
+            entity.ToTable("сеанс_пользователя");
+
+            entity.HasIndex(e => e.IdПользователя, "idx_session_user_user");
+
+            entity.Property(e => e.IdСеанса).HasColumnName("id_сеанса");
+            entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
+            entity.Property(e => e.Ip)
+                .HasColumnType("character varying")
+                .HasColumnName("ip");
+            entity.Property(e => e.Браузер)
+                .HasColumnType("character varying")
+                .HasColumnName("браузер");
+            entity.Property(e => e.Вход)
+                .HasDefaultValueSql("now()")
+                .HasColumnName("вход");
+            entity.Property(e => e.Ос)
+                .HasColumnType("character varying")
+                .HasColumnName("ос");
+            entity.Property(e => e.ЧасовойПояс)
+                .HasColumnType("character varying")
+                .HasColumnName("часовой_пояс");
+
+            entity.HasOne(d => d.IdПользователяNavigation).WithMany(p => p.СеансПользователяs)
+                .HasForeignKey(d => d.IdПользователя)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("сеанс_пользоват_id_пользователя_fkey");
+        });
+
         modelBuilder.Entity<СтатусРаботы>(entity =>
         {
             entity.HasKey(e => e.IdСтатусаРаботы).HasName("статус_работы_pkey");
@@ -758,6 +1114,20 @@ public partial class ArchiveFqpContext : DbContext
             entity.HasKey(e => e.IdСтудента).HasName("студент_pkey");
 
             entity.ToTable("студент");
+
+            entity.HasIndex(e => new { e.IdИнститута, e.IdНаправления, e.ГодОкончания }, "idx_student_composite");
+
+            entity.HasIndex(e => e.IdНаправления, "idx_student_direction");
+
+            entity.HasIndex(e => new { e.IdФормыОбучения, e.IdУровняОбразования }, "idx_student_education");
+
+            entity.HasIndex(e => e.ГодОкончания, "idx_student_graduation");
+
+            entity.HasIndex(e => e.IdИнститута, "idx_student_institute");
+
+            entity.HasIndex(e => e.IdПрофиля, "idx_student_profile");
+
+            entity.HasIndex(e => e.IdПользователя, "idx_student_user");
 
             entity.HasIndex(e => new { e.IdПользователя, e.IdИнститута, e.IdНаправления, e.IdПрофиля, e.IdФормыОбучения, e.IdУровняОбразования, e.ГодОкончания }, "студент_студент_key").IsUnique();
 
@@ -820,6 +1190,10 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("угсн", tb => tb.HasComment("угсн"));
 
+            entity.HasIndex(e => e.Название, "idx_ugsn_name");
+
+            entity.HasIndex(e => e.IdУгснСтандарта, "idx_ugsn_standart_id");
+
             entity.HasIndex(e => e.Название, "угсн_название_key").IsUnique();
 
             entity.Property(e => e.IdУгсн).HasColumnName("id_угсн");
@@ -840,6 +1214,8 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("угсн_стандарт", tb => tb.HasComment("Стандарт угсн"));
 
+            entity.HasIndex(e => e.Название, "idx_ugsn_standart_name");
+
             entity.HasIndex(e => e.Название, "угсн_стандарт_название_key").IsUnique();
 
             entity.Property(e => e.IdУгснСтандарта).HasColumnName("id_угсн_стандарта");
@@ -854,6 +1230,8 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("уровень_образования");
 
+            entity.HasIndex(e => e.Название, "idx_edu_level_name");
+
             entity.HasIndex(e => e.Название, "уровень_образования_название_key").IsUnique();
 
             entity.Property(e => e.IdУровняОбразования).HasColumnName("id_уровня_образования");
@@ -867,6 +1245,8 @@ public partial class ArchiveFqpContext : DbContext
             entity.HasKey(e => e.IdФормыОбучения).HasName("форма_обучения_pkey");
 
             entity.ToTable("форма_обучения");
+
+            entity.HasIndex(e => e.Название, "idx_edu_form_name");
 
             entity.HasIndex(e => e.Название, "форма_обучения_название_key").IsUnique();
 

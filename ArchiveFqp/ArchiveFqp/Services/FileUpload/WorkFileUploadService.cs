@@ -1,5 +1,8 @@
-﻿using ArchiveFqp.Models;
-using ArchiveFqp.Services.Hash;
+﻿using ArchiveFqp.Interfaces.FileUpload;
+using ArchiveFqp.Interfaces.Hash;
+using ArchiveFqp.Models;
+using ArchiveFqp.Models.FileUpload;
+using ArchiveFqp.Models.Hash;
 using Microsoft.AspNetCore.Components.Forms;
 
 namespace ArchiveFqp.Services.FileUpload

@@ -8,8 +8,9 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
         public int MinDayWatchWorks { get; set; } = 3;
         public int MaxDayWatchWorks { get; set; } = 14;
         public bool SendNotifications { get; set; }
-        public bool SendNotificationsOnEmail { get; set; } 
+        public bool SendNotificationsOnEmail { get; set; }
 
+        public int ApplicationTimeCheckMinutes { get; set; } = 1;
         public string ApplicationsInProcessStatus { get; set; } = "На рассмотрении";
         public string ApplicationsRejectStatus { get; set; } = "Отклонено";
         public string ApplicationsAcceptStatus { get; set; } = "Принято";
@@ -39,6 +40,6 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
         /// </summary>
         public List<string> FqpWorksWithCR = ["МД"];
 
-        public List<SettingsInstitute> SettingsInstitutes { get; set; } = new ();
+
     }
 }

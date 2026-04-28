@@ -1,6 +1,10 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using ArchiveFqp.Components.Pages.Auth
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">ArchiveFqp</a>
+        <a class="navbar-brand" href="">
+            <span class="bi-mortarboard" style="font-size: 2rem; color: whitesmoke; margin-right:1rem"></span>Реестр ВКР АГТУ
+        </a>
     </div>
 </div>
 
@@ -53,12 +57,6 @@
         <div class="nav-item px-3">
             <NavLink class="nav-link lh-1" href="works/attributes/review" Match="NavLinkMatch.All">
                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Проверка заявлений
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link lh-1" href="user/profile" Match="NavLinkMatch.All">
-                <span class="bi bi-person" aria-hidden="true"></span> Профиль
             </NavLink>
         </div>
     </nav>

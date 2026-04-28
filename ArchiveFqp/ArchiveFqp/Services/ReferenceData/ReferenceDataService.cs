@@ -1,8 +1,10 @@
 ﻿using ArchiveFqp.Factories.DisplayDto.User;
+using ArchiveFqp.Interfaces.DatabaseNotification;
+using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Attribute;
 using ArchiveFqp.Models.DTO.User;
-using ArchiveFqp.Services.DatabaseNotification;
+using ArchiveFqp.Models.ReferenceData;
 using ArchiveFqp.Services.Work;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;

@@ -1,11 +1,11 @@
 ﻿using ArchiveFqp.Factories.DisplayDto.Student;
 using ArchiveFqp.Factories.DisplayDto.Teacher;
 using ArchiveFqp.Factories.DisplayDto.Work;
+using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Student;
 using ArchiveFqp.Models.DTO.Work;
 using ArchiveFqp.Models.DTO.WorkApplication;
-using ArchiveFqp.Services.ReferenceData;
 using Microsoft.EntityFrameworkCore;
 
 namespace ArchiveFqp.Factories.DisplayDto.WorkApplication

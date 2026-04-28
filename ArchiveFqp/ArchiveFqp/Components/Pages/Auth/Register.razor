@@ -1,0 +1,167 @@
+﻿@page "/register"
+@using ArchiveFqp.Models.Auth
+@using ArchiveFqp.Services
+@using ArchiveFqp.Interfaces.Auth
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Регистрация</PageTitle>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h4 class="card-title text-center mb-4">
+                        <i class="bi-mortarboard" style="font-size: 3rem; color: blue;"></i>
+                        <br />Регистрация
+                        <br /><span class="text-muted fs-6">Создайте аккаунт для доступа к системе</span>
+                    </h4>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success">@successMessage</div>
+                    }
+
+                    <EditForm Model="@registerModel" OnValidSubmit="@HandleRegister" FormName="registerForm">
+                        <DataAnnotationsValidator />
+                        <div class="mx-4">
+                            <div class="row mb-3">
+                                <label for="surname" class="form-label mb-0 fw-bold">Фамилия <span class="text-danger">*</span></label>
+                                <InputText @bind-Value="registerModel.Surname" class="form-control" id="surname" />
+                                <ValidationMessage For="() => registerModel.Surname" />
+                            </div>
+
+                            <div class="row mb-3">
+                                <label for="name" class="form-label mb-0 fw-bold">Имя <span class="text-danger">*</span></label>
+                                <InputText @bind-Value="registerModel.Name" class="form-control" id="name" />
+                                <ValidationMessage For="() => registerModel.Name" />
+                            </div>
+                            <div class="row mb-3">
+                                <label for="patronymic" class="form-label mb-0 fw-bold">Отчество</label>
+                                <InputText @bind-Value="registerModel.Patronymic" class="form-control" id="patronymic" />
+                            </div>
+                            <div class="row mb-3">
+                                <label for="email" class="form-label mb-0 fw-bold">Email</label>
+                                <InputText @bind-Value="registerModel.Email" type="email" class="form-control" id="email" />
+                                <ValidationMessage For="() => registerModel.Email" />
+                            </div>
+                            <div class="row mb-3">
+                                <label for="reg-login" class="form-label mb-0 fw-bold">Логин <span class="text-danger">*</span></label>
+                                <InputText @bind-Value="registerModel.Login" class="form-control" id="reg-login" />
+                                <ValidationMessage For="() => registerModel.Login" />
+                            </div>
+                            <div class="row mb-3">
+                                <label for="reg-password" class="form-label mb-0 fw-bold">Пароль <span class="text-danger">*</span></label>
+                                <div class="input-group" style="padding:0; border-right-color:transparent">
+                                    <InputText @bind-Value="registerModel.Password" type="password" class="form-control" style="border-right-color:transparent" id="reg-password" />
+                                    <div class="input-group-text" style="border-left-color:transparent; background-color:transparent;">
+                                        <input id="eye" class="form-check-input checkbox-password" style="border-color:transparent" type="checkbox" onclick="ChangeVisibilityPassword('reg-password')">
+                                        <label for="eye"></label>
+                                    </div>
+                                </div>
+                                <ValidationMessage For="() => registerModel.Password" />
+                            </div>
+                            <div class="row mb-3">
+                                <label for="reg-confirm-password" class="form-label mb-0 fw-bold">Повторите пароль <span class="text-danger">*</span></label>
+                                <div class="input-group" style="padding:0; border-right-color:transparent">
+                                    <InputText @bind-Value="registerModel.ConfirmPassword" type="password" class="form-control" style="border-right-color:transparent" id="reg-confirm-password" />
+                                    <div class="input-group-text" style="border-left-color:transparent; background-color:transparent;">
+                                        <input id="eye-confirm" class="form-check-input checkbox-password" style="border-color:transparent" type="checkbox" onclick="ChangeVisibilityPassword('reg-confirm-password')">
+                                        <label for="eye-confirm"></label>
+                                    </div>
+                                </div>
+                                <ValidationMessage For="() => registerModel.ConfirmPassword" />
+                            </div>
+                            <div class="row mb-3">
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                Зарегистрироваться
+                            </button>
+                            <div class="mt-3 text-center">
+                                <p>Уже есть аккаунт? <a href="/login">Войти</a></p>
+                            </div>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function ChangeVisibilityPassword(name) {
+      var x = document.getElementById(name);
+      if (x.type === "password") {
+        x.type = "text";
+      } else {
+        x.type = "password";
+      }
+    }
+    
+</script>
+
+@code {
+    [SupplyParameterFromForm]
+    private RegisterModel registerModel { get; set; } = null!;
+    private string? errorMessage;
+    private string? successMessage;
+    private bool isLoading;
+
+    protected override void OnInitialized()
+    {
+        registerModel ??= new RegisterModel();
+    }
+
+    private async Task HandleRegister()
+    {
+        errorMessage = null;
+        successMessage = null;
+        isLoading = true;
+
+        try
+        {
+            var result = await AuthService.RegisterAsync(registerModel);
+
+            if (result.Success)
+            {
+                successMessage = result.Message;
+                // Автоматически входим после регистрации
+                var loginResult = await AuthService.LoginAsync(new LoginModel
+                {
+                    Login = registerModel.Login,
+                    Password = registerModel.Password
+                });
+                
+                if (loginResult.Success)
+                {
+                    // await AuthStateProvider.SetTokenAsync(loginResult.Token!);
+                    await Task.Delay(1000);
+                    Navigation.NavigateTo("/");
+                }
+            }
+            else
+            {
+                errorMessage = result.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка при регистрации: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

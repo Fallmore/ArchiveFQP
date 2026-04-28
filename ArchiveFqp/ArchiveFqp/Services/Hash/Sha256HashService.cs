@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Components.Forms;
+﻿using ArchiveFqp.Interfaces.Hash;
+using ArchiveFqp.Models.Hash;
+using Microsoft.AspNetCore.Components.Forms;
 using System.Security.Cryptography;
 
 namespace ArchiveFqp.Services.Hash

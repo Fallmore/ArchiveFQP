@@ -1,17 +1,17 @@
 ﻿@using ArchiveFqp.Components.Components
 @using ArchiveFqp.Factories.DisplayDto.Structure
+@using ArchiveFqp.Interfaces.Applications
+@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Interfaces.User
+@using ArchiveFqp.Interfaces.Work
 @using ArchiveFqp.Models.DTO.Structure
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.User
 @using ArchiveFqp.Models.DTO.WorkApplication
+@using ArchiveFqp.Models.ReferenceData
 @using ArchiveFqp.Models.Settings.SettingsArchive
-@using ArchiveFqp.Services.Applications
-@using ArchiveFqp.Services.ReferenceData
-@using ArchiveFqp.Services.User
-@using ArchiveFqp.Services.Work
 @using Microsoft.EntityFrameworkCore
 @inject SettingsArchive Settings
-@inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject IWorkService WorkService
 @inject IUserService UserService
 @inject IApplicationsService ApplicationsService
@@ -24,14 +24,14 @@
 {
     if (errorMessage != null && successMessage == null)
     {
-        <div class="alert alert-danger">@(errorMarkUp)</div>
+        <div class="alert alert-danger">@errorMessage</div>
     }
     if (successMessage != null)
     {
         <div class="alert alert-success">@successMessage</div>
     }
 
-    <EditForm Model="@attributeApplication" OnValidSubmit="@HandleValidSubmit" FormName="attributeApplicationAdd">
+    <EditForm EditContext="@editContext" OnValidSubmit="@HandleValidSubmit" FormName="attributeApplicationAdd">
         <DataAnnotationsValidator />
         <ValidationSummary class="alert alert-danger" />
 
@@ -41,7 +41,10 @@
             {
                 <div class="row-md-6 mb-1">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" @bind="attributeApplication.Новый" id="flexCheckDefault" />
+                        <InputCheckbox class="form-check-input"
+                                       @bind-Value="attributeApplication.Новый"
+                                       @bind-Value:after="ToggleNew"
+                                       id="flexCheckDefault" />
                         <label class="form-check-label" for="flexCheckDefault">
                             Новый атрибут
                         </label>
@@ -385,9 +388,9 @@
     private List<StructureDto> structureDirections = [];
     private List<StructureDto> structureProfiles = [];
 
+    EditContext? editContext;
+    ValidationMessageStore? messageStore;
     private string? errorMessage;
-    private MarkupString errorMarkUp => new MarkupString(errorMessage!);
-
     private string? successMessage;
 
     protected override async Task OnInitializedAsync()
@@ -403,6 +406,10 @@
         isAnswered = currentStatusId != applicationStatuses
             .First(w => w.Название == Settings.ApplicationsInProcessStatus)
                 .IdСтатуса;
+
+        editContext = new(attributeApplication);
+        messageStore = new(editContext);
+        editContext.OnValidationStateChanged += HandleValidationRequested;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -456,6 +463,12 @@
         return info;
     }
 
+    private void ToggleNew()
+    {
+        attributeApplication.IdАтрибута = null;
+        attributeApplication.Название = "";
+    }
+
     private async Task OpenModal(string modal)
     {
         await JS.InvokeVoidAsync("openModal", modal);
@@ -486,72 +499,75 @@
 
     private async Task HandleValidSubmit()
     {
+        errorMessage = successMessage = null;
         if (!IsReviewMode)
         {
-            if (!ValidateAdd()) return;
-            await AddWorkApplication();
+            await AddAttributeApplication();
         }
         else
         {
-            if (!ValidateAnswer()) return;
             await AddAnswer();
         }
     }
 
-    private bool ValidateAdd()
+    void HandleValidationRequested(object? sender, ValidationStateChangedEventArgs args)
     {
-        bool isOk = true;
-        errorMessage = "";
-        if (attributeApplication.Новый)
-        {
-            if (string.IsNullOrWhiteSpace(attributeApplication.Название))
+        successMessage = null;
+        messageStore?.Clear();
+
+#pragma warning disable CS8603 // Возможно, возврат ссылки, допускающей значение NULL.
+        if (!IsReviewMode)
+            if (attributeApplication.Новый)
             {
-                errorMessage = "Введите название атрибута";
-                isOk = false;
+                if (string.IsNullOrWhiteSpace(attributeApplication.Название))
+                {
+                    messageStore?.Add(() => attributeApplication.Название, "Введите название атрибута");
+                }
+                else if (attributeApplication.Название.Length < 3)
+                {
+                    messageStore?.Add(() => attributeApplication.Название, "Минимальная длина названия 3 символа");
+                }
+                if (attributeApplication.Примеры == null || attributeApplication.Примеры.Count() == 0)
+                {
+                    messageStore?.Add(() => attributeApplication.Примеры, "Введите примеры");
+                }
             }
-            if (attributeApplication.Примеры == null || attributeApplication.Примеры.Count() == 0)
+            else
             {
-                errorMessage += (isOk ? "" : "\n<br/>") + "Введите примеры";
-                isOk = false;
+                if (attributeApplication.IdАтрибута == null)
+                {
+                    messageStore?.Add(() => attributeApplication.IdАтрибута, "Выберите атрибут");
+                }
             }
-        }
         else
         {
-            if (attributeApplication.IdАтрибута == null)
+            int inReviewStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
+            int rejectStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsRejectStatus).IdСтатуса;
+            errorMessage = null;
+            if (attributeApplication.IdСтатуса == inReviewStatusId)
             {
-                errorMessage = "Выберите атрибут";
-                isOk = false;
+                messageStore?.Add(() => attributeApplication.IdСтатуса, "Выберите вердикт");
+            }
+            // Если происходит отказ, то необходимо объяснение отказа
+            if (string.IsNullOrWhiteSpace(attributeApplication.Ответ)
+                && attributeApplication.IdСтатуса == rejectStatusId)
+            {
+                messageStore?.Add(() => attributeApplication.Ответ, "Введите объяснение отказа");
             }
         }
-
-        return isOk;
+#pragma warning restore CS8603
     }
 
-    private async Task AddWorkApplication()
+    private async Task AddAttributeApplication()
     {
         try
         {
-            using var context = DbFactory.CreateDbContext();
+            attributeApplication.IdПользователя = 2; // TODO: Получать из контекста авторизации
+            attributeApplication.IdСтатуса = (await ApplicationsService.GetApplicationsStatusesAsync())
+                    .First(ws => ws.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
 
-            ЗаявлениеАтрибута newApp = new()
-            {
-                IdАтрибута = attributeApplication.IdАтрибута,
-                Описание = attributeApplication.Описание!,
-                ДатаПоступления = DateTime.Now,
-                IdИнститута = attributeApplication.IdИнститута,
-                IdКафедры = attributeApplication.IdКафедры,
-                IdНаправления = attributeApplication.IdНаправления,
-                IdПрофиля = attributeApplication.IdПрофиля,
-                Название = attributeApplication.Название,
-                Новый = attributeApplication.Новый,
-                Примеры = attributeApplication.Новый ? attributeApplication.Примеры : null,
-                IdПользователя = 2, // TODO: Получать из контекста авторизации
-                IdСтатуса = (await ApplicationsService.GetApplicationsStatusesAsync())
-                    .First(ws => ws.Название == Settings.ApplicationsInProcessStatus).IdСтатуса
-            };
+            await ApplicationsService.AddAttributeApplication(attributeApplication);
 
-            context.ЗаявлениеАтрибутаs.Add(newApp);
-            await context.SaveChangesAsync();
             successMessage = "Заявление успешно отправлено!";
             attributeApplication = new();
             StateHasChanged();
@@ -562,47 +578,19 @@
         }
     }
 
-    private bool ValidateAnswer()
-    {
-        bool isOk = true;
-        int inReviewStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
-        int rejectStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsRejectStatus).IdСтатуса;
-        errorMessage = "";
-        if (attributeApplication.IdСтатуса == inReviewStatusId)
-        {
-            errorMessage = "Выберите вердикт!";
-            isOk = false;
-        }
-        // Если происходит отказ, то необходимо объяснение ответа
-        if (string.IsNullOrWhiteSpace(attributeApplication.Ответ)
-            && attributeApplication.IdСтатуса == rejectStatusId)
-        {
-            errorMessage += (isOk ? "" : "\n") + "Напишите объяснение ответа!";
-            isOk = false;
-        }
-
-        return isOk;
-    }
-
     private async Task AddAnswer()
     {
         try
         {
-            using var context = DbFactory.CreateDbContext();
-
-            ЗаявлениеАтрибута? app = context.ЗаявлениеАтрибутаs.Find(attributeApplication.IdЗаявления);
-            if (app == null)
+            if (!(await ApplicationsService.AddAnswerAttributeApplication(attributeApplication)))
             {
                 errorMessage = "Заявление не найдено, либо удалено";
-                return;
+            }
+            else
+            {
+                successMessage = "Ответ успешно отправлен!";
             }
 
-            app.Ответ = attributeApplication.Ответ;
-            app.ДатаОтвета = DateTime.Now;
-            app.IdСтатуса = attributeApplication.IdСтатуса;
-
-            await context.SaveChangesAsync();
-            successMessage = "Ответ успешно отправлен!";
             isAnswered = true;
             StateHasChanged();
         }
@@ -616,5 +604,8 @@
     {
         if (!string.IsNullOrWhiteSpace(successMessage))
             AttributeApplication?.IdСтатуса = currentStatusId;
+
+        if (editContext != null)
+            editContext.OnValidationStateChanged -= HandleValidationRequested;
     }
 }

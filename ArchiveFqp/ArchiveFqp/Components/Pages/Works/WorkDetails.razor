@@ -2,8 +2,7 @@
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.Work
 @using ArchiveFqp.Models.Search
-@using ArchiveFqp.Services.Work
-@using ArchiveFqp.Services.ReferenceData
+@using ArchiveFqp.Interfaces.Work
 @inject IWorkService WorkService
 
 <PageTitle>АГТУ - @(work?.Тема ?? "Детали работы")</PageTitle>

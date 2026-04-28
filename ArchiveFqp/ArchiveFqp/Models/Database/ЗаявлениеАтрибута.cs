@@ -10,13 +10,12 @@ public partial class ЗаявлениеАтрибута
 
     public int? IdАтрибута { get; set; }
 
-    [MinLength(3, ErrorMessage = "Минимальная длина названия 3 символа")]
     public string Название { get; set; } = null!;
 
     public bool Новый { get; set; } = false;
 
     [Required(ErrorMessage = "Введите описание")]
-    [MinLength(3, ErrorMessage = "Минимальная длина названия 3 символа")]
+    [MinLength(3, ErrorMessage = "Минимальная длина описания 3 символа")]
     public string? Описание { get; set; }
     
     public string[]? Примеры { get; set; }

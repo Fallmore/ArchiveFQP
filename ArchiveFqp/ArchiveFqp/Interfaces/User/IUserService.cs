@@ -62,5 +62,16 @@ namespace ArchiveFqp.Interfaces.User
 
         Task<bool> UpdateUser(Пользователь user);
 
+        Task<Пользователь> AddUser(Пользователь user);
+
+        Task<Студент> AddStudent(Студент student);
+
+        Task<Преподаватель> AddTeacher(Преподаватель teacher);
+
+        Task RemoveUser(Пользователь user);
+
+        Task RemoveStudent(Студент student);
+
+        Task RemoveTeacher(Преподаватель teacher);
     }
 }

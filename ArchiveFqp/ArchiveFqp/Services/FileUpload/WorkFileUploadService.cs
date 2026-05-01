@@ -1,8 +1,8 @@
 ﻿using ArchiveFqp.Interfaces.FileUpload;
 using ArchiveFqp.Interfaces.Hash;
-using ArchiveFqp.Models;
 using ArchiveFqp.Models.FileUpload;
 using ArchiveFqp.Models.Hash;
+using ArchiveFqp.Models.Settings.SettingsArchive;
 using Microsoft.AspNetCore.Components.Forms;
 
 namespace ArchiveFqp.Services.FileUpload
@@ -14,13 +14,7 @@ namespace ArchiveFqp.Services.FileUpload
     public class WorkFileUploadService : BaseFileUploadService
     {
         private readonly IHashService _hashService;
-        private readonly long _maxFileSize = 100 * 1024 * 1024; // 100 MB
-        private readonly string[] _allowedWordExtensions = [".doc", ".docx"];
-        private readonly string[] _allowedPdfExtensions = [".pdf"];
-        private readonly string[] _allowedPresentationExtensions = [".ppt", ".pptx"];
-        private readonly string[] _allowedSourceCodeExtensions = [".zip", ".rar", ".7z"];
-        private readonly string[] _allowedDbExtensions = [".sql", ".bak", ".backup", ".dump", ".txt"];
-        private readonly string[] _allowedPasswordExtensions = [".txt"];
+        private SettingsArchive _settings;
 
         public override event EventHandler<FileUploadProgressEventArgs>? ProgressChanged;
 
@@ -29,25 +23,24 @@ namespace ArchiveFqp.Services.FileUpload
             ProgressChanged?.Invoke(this, e);
         }
 
-        public WorkFileUploadService(IWebHostEnvironment environment, IHashService hashService, ILogger<WorkFileUploadService> logger)
+        public WorkFileUploadService(IWebHostEnvironment environment, ILogger<WorkFileUploadService> logger,
+            IHashService hashService, SettingsArchive settings)
             : base(environment, logger)
         {
             _hashService = hashService;
+            _settings = settings;
+            _settings.SettingsChanged += SettingsChanged;
+
+            if (string.IsNullOrEmpty(_settings.FilesRootPath))
+            {
+                _settings.FilesRootPath = Path.Combine(environment.ContentRootPath, _settings.FolderDataName, _settings.FolderWorksName);
+                _settings.SaveSettings();
+            }
         }
 
-        public string[] GetAllowedExtensions(FileType fileType)
+        private void SettingsChanged(object? sender, SettingsArchive e)
         {
-            return fileType switch
-            {
-                FileType.ExplanatoryNoteWord => _allowedWordExtensions,
-                FileType.ExplanatoryNotePdf => _allowedPdfExtensions,
-                FileType.Presentation => _allowedPresentationExtensions,
-                FileType.SourceCode => _allowedSourceCodeExtensions,
-                FileType.DatabaseBackup => _allowedDbExtensions,
-                FileType.PasswordFile => _allowedPasswordExtensions,
-                FileType.Other => [],
-                _ => []
-            };
+            _settings = e;
         }
 
         public override async Task<FileUploadResult> UploadFileAsync(IFileUploadContext context, CancellationToken cancellationToken = default)
@@ -104,7 +97,7 @@ namespace ArchiveFqp.Services.FileUpload
                         fullFolderPath,
                         relativeFolderPath,
                         FileType.ExplanatoryNoteWord,
-                        "Пояснительная_записка_Word",
+                        _settings.FileExplanatoryNoteWord,
                         cancellationToken));
                 }
 
@@ -117,7 +110,7 @@ namespace ArchiveFqp.Services.FileUpload
                         fullFolderPath,
                         relativeFolderPath,
                         FileType.ExplanatoryNotePdf,
-                        "Пояснительная_записка_PDF",
+                        _settings.FileExplanatoryNotePDF,
                         cancellationToken));
                 }
 
@@ -130,7 +123,7 @@ namespace ArchiveFqp.Services.FileUpload
                         fullFolderPath,
                         relativeFolderPath,
                         FileType.Presentation,
-                        "Презентация",
+                        _settings.FilePresentation,
                         cancellationToken));
                 }
 
@@ -143,7 +136,7 @@ namespace ArchiveFqp.Services.FileUpload
                         fullFolderPath,
                         relativeFolderPath,
                         FileType.SourceCode,
-                        "Исходный_код",
+                        _settings.FileSourceCode,
                         cancellationToken));
                 }
 
@@ -156,7 +149,7 @@ namespace ArchiveFqp.Services.FileUpload
                         fullFolderPath,
                         relativeFolderPath,
                         FileType.DatabaseBackup,
-                        "База_данных",
+                        _settings.FileDb,
                         cancellationToken));
                 }
 
@@ -169,7 +162,7 @@ namespace ArchiveFqp.Services.FileUpload
                         fullFolderPath,
                         relativeFolderPath,
                         FileType.PasswordFile,
-                        "Пароли",
+                        _settings.FilePassword,
                         cancellationToken));
                 }
 
@@ -215,7 +208,7 @@ namespace ArchiveFqp.Services.FileUpload
             IBrowserFile file, string fullFolderPath, string relativeFolderPath,
             FileType fileType, string filePrefix, CancellationToken cancellationToken)
         {
-            FileUploadResult result = new ()
+            FileUploadResult result = new()
             {
                 OriginalFileName = file.Name,
                 FileType = fileType,
@@ -241,7 +234,7 @@ namespace ArchiveFqp.Services.FileUpload
                 filePath = Path.Combine(fullFolderPath, storedFileName);
 
                 // Сохранение файла
-                using Stream stream = file.OpenReadStream(_maxFileSize, cancellationToken);
+                using Stream stream = file.OpenReadStream(_settings.MaxFileSize, cancellationToken);
                 using FileStream fileStream = new(filePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, 4096, true);
 
                 byte[] buffer = new byte[1024 * 10];
@@ -295,9 +288,9 @@ namespace ArchiveFqp.Services.FileUpload
             errorMessage = null;
 
             // Проверка размера
-            if (file.Size > _maxFileSize)
+            if (file.Size > _settings.MaxFileSize)
             {
-                errorMessage = $"Файл слишком большой. Максимальный размер: {_maxFileSize / 1024 / 1024} MB";
+                errorMessage = $"Файл слишком большой. Максимальный размер: {_settings.MaxFileSize / 1024 / 1024} MB";
                 return false;
             }
 
@@ -308,28 +301,28 @@ namespace ArchiveFqp.Services.FileUpload
             switch (fileType)
             {
                 case FileType.ExplanatoryNoteWord:
-                    isOk = _allowedWordExtensions.Contains(extension);
-                    errorMessage = $"Для пояснительной записки в Word разрешены только {string.Join(", ", _allowedWordExtensions)} файлы";
+                    isOk = _settings.AllowedWordExtensions.Contains(extension);
+                    errorMessage = $"Для пояснительной записки в Word разрешены только {string.Join(", ", _settings.AllowedWordExtensions)} файлы";
                     break;
                 case FileType.ExplanatoryNotePdf:
-                    isOk = _allowedPdfExtensions.Contains(extension);
-                    errorMessage = $"Для пояснительной записки в PDF разрешены только {string.Join(", ", _allowedPdfExtensions)} файлы";
+                    isOk = _settings.AllowedPdfExtensions.Contains(extension);
+                    errorMessage = $"Для пояснительной записки в PDF разрешены только {string.Join(", ", _settings.AllowedPdfExtensions)} файлы";
                     break;
                 case FileType.Presentation:
-                    isOk = _allowedPresentationExtensions.Contains(extension);
-                    errorMessage = $"Для презентации разрешены только {string.Join(", ", _allowedPresentationExtensions)} файлы";
+                    isOk = _settings.AllowedPresentationExtensions.Contains(extension);
+                    errorMessage = $"Для презентации разрешены только {string.Join(", ", _settings.AllowedPresentationExtensions)} файлы";
                     break;
                 case FileType.SourceCode:
-                    isOk = _allowedSourceCodeExtensions.Contains(extension);
-                    errorMessage = $"Для бэкапа БД разрешены только {string.Join(", ", _allowedSourceCodeExtensions)} файлы";
+                    isOk = _settings.AllowedSourceCodeExtensions.Contains(extension);
+                    errorMessage = $"Для бэкапа БД разрешены только {string.Join(", ", _settings.AllowedSourceCodeExtensions)} файлы";
                     break;
                 case FileType.DatabaseBackup:
-                    isOk = _allowedDbExtensions.Contains(extension);
-                    errorMessage = $"Для бэкапа БД разрешены только {string.Join(", ", _allowedDbExtensions)} файлы";
+                    isOk = _settings.AllowedDbExtensions.Contains(extension);
+                    errorMessage = $"Для бэкапа БД разрешены только {string.Join(", ", _settings.AllowedDbExtensions)} файлы";
                     break;
                 case FileType.PasswordFile:
-                    isOk = _allowedPasswordExtensions.Contains(extension);
-                    errorMessage = $"Для файла с паролями разрешены только {string.Join(", ", _allowedPasswordExtensions)} файлы";
+                    isOk = _settings.AllowedPasswordExtensions.Contains(extension);
+                    errorMessage = $"Для файла с паролями разрешены только {string.Join(", ", _settings.AllowedPasswordExtensions)} файлы";
                     break;
                 case FileType.Other:
                     break;
@@ -344,7 +337,7 @@ namespace ArchiveFqp.Services.FileUpload
 
             try
             {
-                string fullFolderPath = Path.Combine(_baseUploadPath, relativeFolderPath);
+                string fullFolderPath = Path.Combine(_settings.FilesRootPath, relativeFolderPath);
 
                 if (!Directory.Exists(fullFolderPath))
                 {

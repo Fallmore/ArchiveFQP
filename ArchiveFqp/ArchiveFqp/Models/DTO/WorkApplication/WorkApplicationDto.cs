@@ -1,4 +1,4 @@
-﻿using ArchiveFqp.Models.DTO.Attribute;
+﻿using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Student;
 using ArchiveFqp.Models.DTO.Teacher;
 using ArchiveFqp.Models.DTO.Work;
@@ -39,6 +39,23 @@ namespace ArchiveFqp.Models.DTO.WorkApplication
 
         public DateTime? ДатаВозврПоФакту { get; set; }
 
+        public ЗаявлениеРаботы ToWorkApplication()
+        {
+            return new()
+            {
+                IdЗаявления = IdЗаявления,
+                IdПользователя = IdПользователя,
+                IdРаботы = IdРаботы ?? -1,
+                IdСтатуса = IdСтатуса,
+                ДатаВозврПоЗаявл = ДатаВозврПоЗаявл ?? new(),
+                ДатаВозврПоФакту = ДатаВозврПоФакту,
+                ДатаОтвета = ДатаОтвета,
+                ДатаПоступления = ДатаПоступления,
+                Ответ = Ответ,
+                Цель = Цель ?? ""
+            };
+        }
+
         /// <summary>
         /// <inheritdoc/>
         /// </summary>
@@ -67,7 +84,7 @@ namespace ArchiveFqp.Models.DTO.WorkApplication
             return IdЗаявления.GetHashCode() + IdРаботы.GetHashCode() +
                 IdСтатуса.GetHashCode() + IdПользователя.GetHashCode() +
                 ДатаВозврПоЗаявл.GetHashCode() + ДатаВозврПоФакту.GetHashCode() +
-                (Ответ?.GetHashCode() ?? 0) + (ДатаОтвета?.GetHashCode() ?? 0) + 
+                (Ответ?.GetHashCode() ?? 0) + (ДатаОтвета?.GetHashCode() ?? 0) +
                 (Цель?.GetHashCode() ?? 0) + ДатаПоступления.GetHashCode();
         }
     }

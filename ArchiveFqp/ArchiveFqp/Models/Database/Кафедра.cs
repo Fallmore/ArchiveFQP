@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace ArchiveFqp.Models.Database;
+﻿namespace ArchiveFqp.Models.Database;
 
 public partial class Кафедра
 {
@@ -11,11 +8,9 @@ public partial class Кафедра
 
     public int IdИнститута { get; set; }
 
-    public int? IdУгсн { get; set; }
-
     public virtual Институт IdИнститутаNavigation { get; set; } = null!;
 
-    public virtual Угсн? IdУгснNavigation { get; set; }
+    public virtual ICollection<Студент> Студентs { get; set; } = new List<Студент>();
 
     public virtual ICollection<АтрибутКафедры> АтрибутКафедрыs { get; set; } = new List<АтрибутКафедры>();
 

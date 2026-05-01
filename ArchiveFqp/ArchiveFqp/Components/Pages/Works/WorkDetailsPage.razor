@@ -1,7 +1,7 @@
-﻿@page "/works/{WorkId:int}"
+﻿@page "/works/{IdWork:int}"
 
-<WorkDetails WorkId="WorkId" ShowBackButton="true" @key="WorkId" />
+<WorkDetails IdWork="IdWork" ShowBackButton="true" @key="IdWork" />
 
 @code {
-    [Parameter] public int? WorkId { get; set; }
+    [Parameter] public int? IdWork { get; set; }
 }

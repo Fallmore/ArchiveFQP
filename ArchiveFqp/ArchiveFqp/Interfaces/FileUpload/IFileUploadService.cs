@@ -54,7 +54,7 @@ namespace ArchiveFqp.Interfaces.FileUpload
         /// <param name="cancellationToken"></param>
         /// <returns>Результаты загрузки файлов с хэшем</returns>
         Task<FileUploadWithHashResult> UploadFilesWithHashAsync(IFileUploadContext context, CancellationToken cancellationToken = default);
-       
+
         /// <summary>
         /// Проверка хэша загруженных файлов с заданным хэшем
         /// </summary>

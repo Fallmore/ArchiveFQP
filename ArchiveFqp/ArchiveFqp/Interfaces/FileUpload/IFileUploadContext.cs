@@ -11,7 +11,7 @@ namespace ArchiveFqp.Interfaces.FileUpload
         string Department { get; }
         string UgsnStandart { get; }
         string Direction { get; }
-        string Profile { get; }
+        string? Profile { get; }
         string WorkType { get; }
         int Year { get; }
         string StudentName { get; }

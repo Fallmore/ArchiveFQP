@@ -5,7 +5,7 @@
 {
     <BrowserDetect @bind-BrowserInfo="@Info" />
 
-    @if (Info is not null && RendererInfo.IsInteractive)
+    @* @if (Info is not null && RendererInfo.IsInteractive)
     {
         <p>TimeZone: @Info.TimeZone</p>
         <p>Browser: @Info.BrowserName @Info.BrowserVersion</p>
@@ -13,7 +13,7 @@
         <p>Device: @(Info.IsMobile == true ? "Mobile" : Info.IsTablet == true ? "Tablet" : "Desktop")</p>
         <p>Screen: @Info.ScreenResolution</p>
         <p>GPU: @Info.GPURenderer</p>
-    }
+    } *@
 }
 
 @code {

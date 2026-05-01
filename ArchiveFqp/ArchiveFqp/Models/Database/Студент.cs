@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace ArchiveFqp.Models.Database;
+﻿namespace ArchiveFqp.Models.Database;
 
 public partial class Студент
 {
@@ -10,6 +7,8 @@ public partial class Студент
     public int IdПользователя { get; set; }
 
     public int IdИнститута { get; set; }
+
+    public int IdКафедры { get; set; }
 
     public int IdНаправления { get; set; }
 
@@ -22,6 +21,8 @@ public partial class Студент
     public int ГодОкончания { get; set; }
 
     public virtual Институт IdИнститутаNavigation { get; set; } = null!;
+
+    public virtual Кафедра IdКафедрыNavigation { get; set; } = null!;
 
     public virtual Направление IdНаправленияNavigation { get; set; } = null!;
 

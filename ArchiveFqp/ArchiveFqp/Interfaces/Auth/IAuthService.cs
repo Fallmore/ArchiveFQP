@@ -1,5 +1,4 @@
 ﻿using ArchiveFqp.Models.Auth;
-using System.Security.Claims;
 
 namespace ArchiveFqp.Interfaces.Auth
 {

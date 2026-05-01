@@ -1,6 +1,4 @@
-﻿using ArchiveFqp.Models.Database;
-
-namespace ArchiveFqp.Models.DTO
+﻿namespace ArchiveFqp.Models.DTO
 {
     public interface IUserDisplayDto
     {

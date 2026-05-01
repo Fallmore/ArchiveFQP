@@ -81,11 +81,14 @@
     private async Task HandleLogin()
     {
         errorMessage = null;
-        var result = await AuthService.LoginAsync(loginModel);
-        
+        AuthResult result = await AuthService.LoginAsync(loginModel);
         if (result.Success)
         {
-            Navigation.NavigateTo("/", forceLoad: true);
+            var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri).Split('=');
+            if (returnUrl.Length < 2)
+            {
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
         }
         else
         {

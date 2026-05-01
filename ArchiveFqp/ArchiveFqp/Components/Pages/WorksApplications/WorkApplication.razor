@@ -46,7 +46,7 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body pt-0">
-                                    <WorkDetails WorkId="workApplictaionDto.IdРаботы" ShowBackButton="false" @key="workApplictaionDto.IdРаботы" />
+                                    <WorkDetails IdWork="workApplictaionDto.IdРаботы" ShowBackButton="false" @key="workApplictaionDto.IdРаботы" />
                                 </div>
                             </div>
                         </div>
@@ -60,7 +60,7 @@
                 }
             </div>
 
-            @if (IsEditMode)
+            @if (IsWritingMode)
             {
                 <div class="row-md-6 mb-1">
                     <!-- Цель -->
@@ -121,24 +121,7 @@
                     </div>
                 }
 
-                // Если статус не "В обработке"
-                @if (isAnswered)
-                {
-                    <div class="row-md-6">
-                        <!-- Дата ответа -->
-                        <label class="form-label mb-0 mx-1 fw-bold">Дата ответа</label>
-                        <br />
-                        <span class="mx-1">@(workApplictaionDto.ДатаОтвета)</span>
-                    </div>
-
-                    <div class="row-md-6">
-                        <!-- Ответ -->
-                        <label class="form-label mb-0 mx-1 fw-bold">Ответ</label>
-                        <br />
-                        <span class="mx-1">@(workApplictaionDto.Ответ)</span>
-                    </div>
-                }
-                else if (IsReviewMode)
+                if (IsReviewMode)
                 {
                     <div class="row-md-6 mb-1">
                         <!-- Заявитель -->
@@ -167,7 +150,55 @@
                             </div>
                         }
                     </div>
+                }
 
+                // Если статус не "В обработке"
+                @if (isAnswered)
+                {
+                    <div class="row-md-6">
+                        <!-- Дата ответа -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Дата ответа</label>
+                        <br />
+                        <span class="mx-1">@(workApplictaionDto.ДатаОтвета)</span>
+                    </div>
+
+                    <div class="row-md-6">
+                        <!-- Ответ -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Ответ</label>
+                        <br />
+                        <span class="mx-1">@(workApplictaionDto.Ответ)</span>
+                    </div>
+
+                    if (currentStatus.Название == Settings.ApplicationsActiveStatus && !IsReviewMode)
+                    {
+                        string idModal = "workWatchModal" + workApplictaionDto.IdЗаявления;
+                        string idModalLabel = "workWatchModalLabel" + workApplictaionDto.IdЗаявления;
+
+                        <button type="button" class="btn btn-primary" @onclick="@(async () => { await OpenModal(idModal); isClickedWatch = true; })">
+                            Посмотреть ПЗ
+                        </button>
+
+                        <div class="modal fade" id="@idModal" tabindex="-1" aria-labelledby="@idModalLabel" aria-hidden="true"
+                             data-bs-backdrop="static" data-bs-keyboard="false">
+                            <div class="modal-dialog modal-xl">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="@idModalLabel">Пояснительная записка @(workApplictaionDto.Работа.Тема)</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body pt-0">
+                                        @if (isClickedWatch)
+                                        {
+                                            <WorkRead IdWork="workApplictaionDto.IdРаботы" ApplicationWork="workApplictaionDto.ToWorkApplication()" @key="workApplictaionDto.IdЗаявления" />
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
                     <div class="row-md-6 mb-1">
                         <!-- Ответ -->
                         <label class="form-label mb-0 mx-1 fw-bold">Ответ <span class="text-danger">*</span></label>
@@ -216,14 +247,15 @@
 </script>
 
 @code {
-    [Parameter] public int? WorkId { get; set; }
-    [Parameter] public bool IsEditMode { get; set; } = true;
+    [Parameter] public int? IdWork { get; set; }
+    [Parameter] public bool IsWritingMode { get; set; } = true;
     [Parameter] public bool IsReviewMode { get; set; } = false;
     [Parameter] public WorkApplicationDto? WorkApplictaionDto { get; set; }
     private WorkApplicationDto workApplictaionDto = new();
     private List<СтатусЗаявления> applicationStatuses = [];
-    private int currentStatusId;
+    private СтатусЗаявления currentStatus = null!;
     private bool isAnswered = false;
+    private bool isClickedWatch = false;
 
     EditContext? editContext;
     ValidationMessageStore? messageStore;
@@ -235,15 +267,17 @@
         if (WorkApplictaionDto != null) workApplictaionDto = WorkApplictaionDto;
         else
         {
-            workApplictaionDto.IdРаботы = WorkId;
-            if (WorkId.HasValue)
-                workApplictaionDto.Работа = await WorkService.GetWorkDisplayAsync(WorkId.Value);
+            workApplictaionDto.IdРаботы = IdWork;
+            if (IdWork.HasValue)
+                workApplictaionDto.Работа = await WorkService.GetWorkDisplayAsync(IdWork.Value);
         }
-        applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
-        currentStatusId = workApplictaionDto.IdСтатуса;
-        isAnswered = currentStatusId != applicationStatuses
-            .First(w => w.Название == Settings.ApplicationsInProcessStatus)
-                .IdСтатуса;
+
+        if (!IsWritingMode)
+        {
+            applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
+            currentStatus = applicationStatuses.First(w => w.IdСтатуса == workApplictaionDto.IdСтатуса);
+            isAnswered = currentStatus.Название != Settings.ApplicationsInProcessStatus;
+        }
 
         editContext = new(workApplictaionDto);
         messageStore = new(editContext);
@@ -255,14 +289,15 @@
         if (WorkApplictaionDto != null) workApplictaionDto = WorkApplictaionDto;
         else
         {
-            workApplictaionDto.IdРаботы = WorkId;
-            if (WorkId.HasValue)
-                workApplictaionDto.Работа = await WorkService.GetWorkDisplayAsync(WorkId.Value);
+            workApplictaionDto.IdРаботы = IdWork;
+            if (IdWork.HasValue)
+                workApplictaionDto.Работа = await WorkService.GetWorkDisplayAsync(IdWork.Value);
         }
-        currentStatusId = workApplictaionDto.IdСтатуса;
-        isAnswered = currentStatusId != applicationStatuses
-            .First(w => w.Название == Settings.ApplicationsInProcessStatus)
-                .IdСтатуса;
+        if (!IsWritingMode)
+        {
+            currentStatus = applicationStatuses.First(w => w.IdСтатуса == workApplictaionDto.IdСтатуса);
+            isAnswered = currentStatus.Название != Settings.ApplicationsInProcessStatus;
+        }
     }
 
     private async Task OpenModal(string modal)
@@ -319,7 +354,7 @@
             await ApplicationsService.AddWorkApplication(workApplictaionDto);
 
             successMessage = "Заявление успешно отправлено!";
-            workApplictaionDto.IdРаботы = WorkId = null;
+            workApplictaionDto.IdРаботы = IdWork = null;
             StateHasChanged();
         }
         catch (Exception ex)
@@ -353,7 +388,7 @@
     public void Dispose()
     {
         if (!string.IsNullOrWhiteSpace(successMessage))
-            WorkApplictaionDto?.IdСтатуса = currentStatusId;
+            WorkApplictaionDto?.IdСтатуса = currentStatus.IdСтатуса;
 
         if (editContext != null)
             editContext.OnValidationStateChanged -= HandleValidationRequested;

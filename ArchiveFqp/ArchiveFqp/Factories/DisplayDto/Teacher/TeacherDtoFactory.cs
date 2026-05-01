@@ -1,10 +1,9 @@
-﻿using ArchiveFqp.Factories.DisplayDto;
-using ArchiveFqp.Factories.DisplayDto.Structure;
+﻿using ArchiveFqp.Factories.DisplayDto.Structure;
 using ArchiveFqp.Factories.DisplayDto.User;
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Teacher;
-using Microsoft.EntityFrameworkCore;
+using ArchiveFqp.Models.ReferenceData;
 
 namespace ArchiveFqp.Factories.DisplayDto.Teacher
 {
@@ -15,8 +14,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
         private readonly UserDtoFactory _userDisplayFactory;
         private readonly StructureDtoFactory _structureDisplayFactory;
 
-        private List<Преподаватель> _teachers = [];
-        private List<Должность> _posts = [];
+        private ReferenceDataSnapshot _snapshot = null!;
 
         private Task _init;
 
@@ -31,7 +29,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
 
         private async Task InitializeLists()
         {
-            _posts = await _refDataService.GetAsync<Должность>();
+            _snapshot = await _refDataService.GetAllAsync();
         }
 
         public async Task<TeacherDisplayDto> CreateDisplayDtoAsync(Преподаватель teacher)
@@ -41,15 +39,14 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
             {
                 Пользователь = await _userDisplayFactory.CreateDisplayDtoAsync(teacher.IdПользователя) ?? new(),
                 Структура = await _structureDisplayFactory.CreateDisplayDtoAsync<Кафедра>(teacher.IdКафедры) ?? new(),
-                Должность = _posts.FirstOrDefault(o => o.IdДолжности == teacher.IdДолжности)?.Название ?? ""
+                Должность = _snapshot.Posts.FirstOrDefault(o => o.IdДолжности == teacher.IdДолжности)?.Название ?? ""
             };
         }
 
         public async Task<TeacherDisplayDto?> CreateDisplayDtoAsync(int id)
         {
             _init.Wait();
-            if (_teachers.Count == 0) _teachers = await _refDataService.GetAsync<Преподаватель>();
-            Преподаватель? teacher = _teachers.FirstOrDefault(o => o.IdПреподавателя == id);
+            Преподаватель? teacher = _snapshot.Teachers.FirstOrDefault(o => o.IdПреподавателя == id);
             if (teacher == null) return null;
 
             return await CreateDisplayDtoAsync(teacher);
@@ -64,8 +61,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
         public async Task<TeacherDisplayDto> CreateDisplayDtoAsync(int id, int idPost)
         {
             _init.Wait();
-            if (_teachers.Count == 0) _teachers = await _refDataService.GetAsync<Преподаватель>();
-            Преподаватель? teacher = _teachers.FirstOrDefault(o => o.IdПреподавателя == id);
+            Преподаватель? teacher = _snapshot.Teachers.FirstOrDefault(o => o.IdПреподавателя == id);
             if (teacher == null) return new();
 
             teacher.IdДолжности = idPost;

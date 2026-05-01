@@ -1,11 +1,9 @@
 ﻿using ArchiveFqp.Factories.DisplayDto.Work;
-using ArchiveFqp.Factories.DisplayDto.WorkApplication;
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Interfaces.Work;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Attribute;
 using ArchiveFqp.Models.DTO.Work;
-using ArchiveFqp.Models.DTO.WorkApplication;
 using ArchiveFqp.Models.Search;
 using ArchiveFqp.Models.Settings.SettingsArchive;
 using Microsoft.EntityFrameworkCore;
@@ -21,7 +19,7 @@ namespace ArchiveFqp.Services.Work
     {
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
         private readonly IReferenceDataService _refDataService;
-        private readonly SettingsArchive _settings;
+        private SettingsArchive _settings;
 
         // Настройка сериалайзера для кириллицы
         private readonly JsonSerializerOptions _options = new()
@@ -30,12 +28,18 @@ namespace ArchiveFqp.Services.Work
             WriteIndented = true
         };
 
-        public WorkService(IDbContextFactory<ArchiveFqpContext> dbFactory, 
+        public WorkService(IDbContextFactory<ArchiveFqpContext> dbFactory,
             IReferenceDataService referenceDataService, SettingsArchive settings)
         {
             _dbFactory = dbFactory;
             _refDataService = referenceDataService;
             _settings = settings;
+            _settings.SettingsChanged += SettingsChanged;
+        }
+
+        private void SettingsChanged(object? sender, SettingsArchive e)
+        {
+            _settings = e;
         }
 
         public async Task<PaginatedResult<Работа>> FindWorksAsync(WorkSearchModel searchModel)
@@ -60,20 +64,20 @@ namespace ArchiveFqp.Services.Work
 				{8}, {9}, {10}, {11}, {12}, {13}, {14}, {15}, {16}, {17}::timestamp, {18}::timestamp,
 				{19}::timestamp, {20}::timestamp, {21}::json)",
                     searchModel.SearchText ?? "",
-                    searchModel.InstituteId,
-                    searchModel.DepartmentId,
-                    searchModel.DirectionId,
-                    searchModel.ProfileId,
-                    searchModel.WorkId,
-                    searchModel.StudentId == 0 ? -1 : searchModel.StudentId,
-                    searchModel.TeacherId == 0 ? -1 : searchModel.TeacherId,
-                    searchModel.PostId,
-                    searchModel.ConsultantsId.Count == 0 ? [-1] : searchModel.ConsultantsId,
-                    searchModel.ReviewersId.Count == 0 ? [-1] : searchModel.ReviewersId,
+                    searchModel.IdInstitute ?? -1,
+                    searchModel.IdDepartment ?? -1,
+                    searchModel.IdDirection ?? -1,
+                    searchModel.IdProfile ?? -1,
+                    searchModel.IdWork,
+                    searchModel.IdStudent == 0 ? -1 : searchModel.IdStudent,
+                    searchModel.IdTeacher == 0 ? -1 : searchModel.IdTeacher,
+                    searchModel.IdPost,
+                    searchModel.IdConsultants.Count == 0 ? [-1] : searchModel.IdConsultants,
+                    searchModel.IdReviewers.Count == 0 ? [-1] : searchModel.IdReviewers,
                     searchModel.MinPages ?? -1,
                     searchModel.MaxPages ?? -1,
-                    searchModel.WorkTypeId,
-                    searchModel.WorkStatusId,
+                    searchModel.IdWorkType,
+                    searchModel.IdWorkStatus,
                     searchModel.MinYearDefense ?? -1,
                     searchModel.MaxYearDefense ?? -1,
                     searchModel.MinDateAdded,
@@ -100,8 +104,7 @@ namespace ArchiveFqp.Services.Work
             return new PaginatedResult<Работа>
             {
                 Items = works,
-                TotalCount = works.Count(),
-                Page = searchModel.Page,
+                CurrentPage = searchModel.Page,
                 PageSize = searchModel.PageSize
             };
         }
@@ -224,6 +227,12 @@ namespace ArchiveFqp.Services.Work
             return result;
         }
 
+        public async Task<List<WorkDisplayDto>> GetWorkDisplayAsync(List<Работа> works)
+        {
+            WorkDtoFactory factory = new(_dbFactory, _refDataService);
+            return await factory.CreateDisplayDtoListAsync(works);
+        }
+
         public async Task<WorkDisplayDto> GetWorkDisplayAsync(Работа work, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null)
         {
             consultants ??= await GetConsultantsAsync(work);
@@ -332,6 +341,16 @@ namespace ArchiveFqp.Services.Work
             if (directions != null)
             {
                 work.IdНаправления = directions.IdНаправления;
+
+                Угсн? ugsn = _refDataService.GetAsync<Угсн>().Result
+                    .FirstOrDefault(d => d.IdУгсн == (_refDataService.GetAsync<Направление>().Result
+                        .FirstOrDefault(d => d.IdНаправления == work.IdНаправления)?.IdУгсн ?? -1));
+                if (ugsn != null)
+                {
+                    work.IdУгсн = ugsn.IdУгсн;
+                    work.IdУгснСтандарта = ugsn.IdУгснСтандарта;
+                }
+
                 idDepartment = _refDataService.GetAsync<Кафедра>().Result
                     .FirstOrDefault(d => d.IdКафедры == (_refDataService.GetAsync<Направление>().Result
                         .FirstOrDefault(d => d.IdНаправления == work.IdНаправления)
@@ -366,14 +385,7 @@ namespace ArchiveFqp.Services.Work
             if (department != null)
             {
                 work.IdКафедры = idDepartment;
-                Угсн? ugsn = _refDataService.GetAsync<Угсн>().Result
-                    .FirstOrDefault(d => d.IdУгсн == (_refDataService.GetAsync<Кафедра>().Result
-                        .FirstOrDefault(d => d.IdКафедры == work.IdКафедры)?.IdУгсн ?? -1));
-                if (ugsn != null)
-                {
-                    work.IdУгсн = ugsn.IdУгсн;
-                    work.IdУгснСтандарта = ugsn.IdУгснСтандарта;
-                }
+
                 work.IdИнститута = _refDataService.GetAsync<Институт>().Result
                     .FirstOrDefault(d => d.IdИнститута == (_refDataService.GetAsync<Кафедра>().Result
                         .FirstOrDefault(d => d.IdКафедры == work.IdКафедры)
@@ -420,7 +432,7 @@ namespace ArchiveFqp.Services.Work
             using ArchiveFqpContext context = _dbFactory.CreateDbContext();
             Работа? work = context.Работаs.Find(idWork);
             if (work == null) return false;
-            
+
             work.IdСтатусаРаботы = idStatus;
             await context.SaveChangesAsync();
             return true;

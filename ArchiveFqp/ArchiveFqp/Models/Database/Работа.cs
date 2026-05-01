@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace ArchiveFqp.Models.Database;
+﻿namespace ArchiveFqp.Models.Database;
 
 public partial class Работа
 {
@@ -44,6 +41,8 @@ public partial class Работа
     public virtual Студент IdСтудентаNavigation { get; set; } = null!;
 
     public virtual ТипРаботы IdТипаРаботыNavigation { get; set; } = null!;
+
+    public virtual ICollection<ДанныеПоАтриб> ДанныеПоАтрибs { get; set; } = new List<ДанныеПоАтриб>();
 
     public virtual ICollection<ЗаявлениеРаботы> ЗаявлениеРаботыs { get; set; } = new List<ЗаявлениеРаботы>();
 

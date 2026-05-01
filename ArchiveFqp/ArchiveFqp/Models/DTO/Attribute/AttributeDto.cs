@@ -43,8 +43,13 @@ namespace ArchiveFqp.Models.DTO.Attribute
         /// <returns></returns>
         public ДанныеПоАтриб ToAttributeValue()
         {
-            return new() { IdДанных = IdДанных, IdРаботы = IdРаботы, 
-                IdСтруктуры = IdСтруктуры, Данные = Данные};
+            return new()
+            {
+                IdДанных = IdДанных,
+                IdРаботы = IdРаботы,
+                IdСтруктуры = IdСтруктуры,
+                Данные = Данные
+            };
         }
 
         /// <summary>

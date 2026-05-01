@@ -1,4 +1,6 @@
 ﻿@using ArchiveFqp.Components.Pages.Auth
+@using ArchiveFqp.Models.Settings.SettingsArchive
+@inject SettingsArchive Settings
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -10,17 +12,11 @@
 
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()" style="height:auto">
     <nav class="nav flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
             </NavLink>
         </div>
 
@@ -30,35 +26,46 @@
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="works/add" Match="NavLinkMatch.All">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Добавить работу
-            </NavLink>
-        </div>
+        @{
+            string roles = $"{Settings.RoleAdminName}, {Settings.RoleDepartmentHeadName}, "
+                            + $"{Settings.RoleDepartmentResponsibleName}, {Settings.RoleInstituteResponsibleName}, ";
+        }
+        <AuthorizeView Roles="@roles">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="works/add" Match="NavLinkMatch.All">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Добавить работу
+                </NavLink>
+            </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link lh-1" href="works/applications/send" Match="NavLinkMatch.All">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Заявления на просмотр работ
-            </NavLink>
-        </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link lh-1" href="works/applications/review" Match="NavLinkMatch.All">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Проверка заявлений работ
+                </NavLink>
+            </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link lh-1" href="works/applications/review" Match="NavLinkMatch.All">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Проверка заявлений
-            </NavLink>
-        </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link lh-1" href="works/attributes/review" Match="NavLinkMatch.All">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Проверка заявлений атрибутов
+                </NavLink>
+            </div>
+        </AuthorizeView>
+        
+        <AuthorizeView Roles="@($"{Settings.RoleTeacherName}")">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link lh-1" href="works/attributes/send" Match="NavLinkMatch.All">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Заявления на добавление атрибутов
+                </NavLink>
+            </div>
+        </AuthorizeView>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link lh-1" href="works/attributes/send" Match="NavLinkMatch.All">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Заявления на добавление атрибутов
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link lh-1" href="works/attributes/review" Match="NavLinkMatch.All">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Проверка заявлений
-            </NavLink>
-        </div>
+        <AuthorizeView Roles="@($"{Settings.RoleTeacherName}, {Settings.RoleStudentName}")">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link lh-1" href="works/applications/send" Match="NavLinkMatch.All">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Заявления на просмотр работ
+                </NavLink>
+            </div>
+        </AuthorizeView>
+        
     </nav>
 </div>
 

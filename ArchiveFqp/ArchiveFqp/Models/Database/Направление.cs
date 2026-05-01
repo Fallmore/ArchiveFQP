@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace ArchiveFqp.Models.Database;
+﻿namespace ArchiveFqp.Models.Database;
 
 public partial class Направление
 {
@@ -10,6 +7,10 @@ public partial class Направление
     public string Название { get; set; } = null!;
 
     public int IdКафедры { get; set; }
+
+    public int IdУгсн { get; set; }
+
+    public virtual Угсн? IdУгснNavigation { get; set; }
 
     public virtual Кафедра IdКафедрыNavigation { get; set; } = null!;
 

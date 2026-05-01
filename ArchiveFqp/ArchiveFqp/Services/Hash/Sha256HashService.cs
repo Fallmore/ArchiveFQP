@@ -133,12 +133,12 @@ namespace ArchiveFqp.Services.Hash
 
         public async Task<FileHashesInfo> GetFileHashesInfoAsync(IEnumerable<IBrowserFile> files, CancellationToken cancellationToken = default)
         {
-            FileHashesInfo info = new ()
+            FileHashesInfo info = new()
             {
                 CalculatedAt = DateTime.UtcNow
             };
 
-            List<string> fileHashes = new ();
+            List<string> fileHashes = new();
             long totalSize = 0;
 
             foreach (IBrowserFile file in files)

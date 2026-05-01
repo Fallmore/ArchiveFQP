@@ -1,5 +1,3 @@
-using ArchiveFqp.Authentication;
-using ArchiveFqp.Client.Pages;
 using ArchiveFqp.Components;
 using ArchiveFqp.Interfaces.Applications;
 using ArchiveFqp.Interfaces.Auth;
@@ -9,6 +7,7 @@ using ArchiveFqp.Interfaces.Hash;
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Interfaces.User;
 using ArchiveFqp.Interfaces.Work;
+using ArchiveFqp.Models.Auth;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.Settings.SettingsArchive;
 using ArchiveFqp.Services.Applications;
@@ -17,18 +16,14 @@ using ArchiveFqp.Services.DatabaseNotification;
 using ArchiveFqp.Services.ExpirationCheck;
 using ArchiveFqp.Services.FileUpload;
 using ArchiveFqp.Services.Hash;
+using ArchiveFqp.Services.PdfRender;
 using ArchiveFqp.Services.ReferenceData;
 using ArchiveFqp.Services.User;
 using ArchiveFqp.Services.Work;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,6 +31,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
+
+builder.Services.AddControllers();
 
 builder.Services.AddSingleton<SettingsArchive>();
 builder.Services.AddMemoryCache();
@@ -50,6 +47,8 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IApplicationsService, ApplicationsService>();
 //builder.Services.AddTransient<StateContainer>();
 //builder.ServicesdScoped<StateContainer>();
+builder.Services.AddScoped<IPdfRenderService, PdfSciaRenderService>();
+
 
 // Подключение к БД
 string conString = builder.Configuration.GetConnectionString("ArchiveFqpContext") ??
@@ -58,13 +57,17 @@ string conString = builder.Configuration.GetConnectionString("ArchiveFqpContext"
 builder.Services.AddDbContextFactory<ArchiveFqpContext>(options =>
     options.UseNpgsql(conString));
 
+builder.Services.Configure<AuthMessageSenderOptions>(builder.Configuration);
+
 #region Настройка аутентификации
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
         options.LoginPath = "/login";
         options.LogoutPath = "/logout";
-        options.Cookie.MaxAge = TimeSpan.FromMinutes(30);
+        options.AccessDeniedPath = "/access-denied";
+        options.ReturnUrlParameter = "returnUrl";
+        options.Cookie.MaxAge = TimeSpan.FromMinutes(60);
         options.SlidingExpiration = true;
     });
 
@@ -124,12 +127,14 @@ else
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+app.UseRouting();
 
 app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
+app.MapControllers();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddInteractiveWebAssemblyRenderMode()

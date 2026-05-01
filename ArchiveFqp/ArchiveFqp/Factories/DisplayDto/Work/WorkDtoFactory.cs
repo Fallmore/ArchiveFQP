@@ -1,10 +1,9 @@
-﻿using ArchiveFqp.Factories.DisplayDto;
-using ArchiveFqp.Factories.DisplayDto.Student;
+﻿using ArchiveFqp.Factories.DisplayDto.Student;
 using ArchiveFqp.Factories.DisplayDto.Teacher;
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
-using ArchiveFqp.Models.DTO;
 using ArchiveFqp.Models.DTO.Work;
+using ArchiveFqp.Models.ReferenceData;
 using Microsoft.EntityFrameworkCore;
 
 namespace ArchiveFqp.Factories.DisplayDto.Work
@@ -17,9 +16,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
         private readonly StudentDtoFactory _studentDtoFactory;
         private readonly TeacherDtoFactory _teacherDtoFactory;
 
-        private List<ТипРаботы> _workType = [];
-        private List<СтатусРаботы> _workStatus = [];
-        private List<ДоступРаботы> _workAccess = [];
+        private ReferenceDataSnapshot _snapshot = null!;
 
         private Task _init;
 
@@ -29,14 +26,14 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
         {
             _dbFactory = dbFactory;
             _refDataService = refDataService;
-            _studentDtoFactory = new (refDataService);
+            _studentDtoFactory = new(refDataService);
             _teacherDtoFactory = new(refDataService);
 
             _init = Task.Run(InitializeLists);
         }
 
-        public WorkDtoFactory(IDbContextFactory<ArchiveFqpContext> dbFactory, 
-            IReferenceDataService refDataService, StudentDtoFactory studentDtoFactory, 
+        public WorkDtoFactory(IDbContextFactory<ArchiveFqpContext> dbFactory,
+            IReferenceDataService refDataService, StudentDtoFactory studentDtoFactory,
             TeacherDtoFactory teacherDtoFactory)
         {
             _dbFactory = dbFactory;
@@ -49,9 +46,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
 
         private async Task InitializeLists()
         {
-            _workType = await _refDataService.GetAsync<ТипРаботы>();
-            _workStatus = await _refDataService.GetAsync<СтатусРаботы>();
-            _workAccess = await _refDataService.GetAsync<ДоступРаботы>();
+            _snapshot = await _refDataService.GetAllAsync();
         }
 
         public async Task<WorkDisplayDto> CreateDisplayDtoAsync(Работа work)
@@ -63,9 +58,9 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
                 Тема = work.Тема,
                 Студент = await _studentDtoFactory.CreateDisplayDtoAsync(work.IdСтудента) ?? new(),
                 Руководитель = await _teacherDtoFactory.CreateDisplayDtoAsync(work.IdПреподавателя, work.IdДолжности),
-                ТипРаботы = _workType.FirstOrDefault(o => o.IdТипаРаботы == work.IdТипаРаботы)?.Название ?? "",
-                СтатусРаботы = _workStatus.FirstOrDefault(o => o.IdСтатусаРаботы == work.IdСтатусаРаботы)?.Название ?? "",
-                ДоступРаботы = _workAccess.FirstOrDefault(o => o.IdДоступаРаботы == work.IdДоступаРаботы)?.Название ?? "",
+                ТипРаботы = _snapshot.WorkTypes.FirstOrDefault(o => o.IdТипаРаботы == work.IdТипаРаботы)?.Название ?? "",
+                СтатусРаботы = _snapshot.WorkStatuses.FirstOrDefault(o => o.IdСтатусаРаботы == work.IdСтатусаРаботы)?.Название ?? "",
+                ДоступРаботы = _snapshot.WorkAccess.FirstOrDefault(o => o.IdДоступаРаботы == work.IdДоступаРаботы)?.Название ?? "",
                 Аннотация = work.Аннотация,
                 КоличСтраниц = work.КоличСтраниц ?? 0,
                 ДатаДобавления = work.ДатаДобавления,
@@ -85,9 +80,9 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
                 Руководитель = await _teacherDtoFactory.CreateDisplayDtoAsync(work.IdПреподавателя, work.IdДолжности),
                 Консультанты = await _teacherDtoFactory.CreateDisplayDtoListAsync(consultants),
                 Рецензенты = await _teacherDtoFactory.CreateDisplayDtoListAsync(reviewers),
-                ТипРаботы = _workType.First(o => o.IdТипаРаботы == work.IdТипаРаботы).Название,
-                СтатусРаботы = _workStatus.First(o => o.IdСтатусаРаботы == work.IdСтатусаРаботы).Название,
-                ДоступРаботы = _workAccess.First(o => o.IdДоступаРаботы == work.IdДоступаРаботы).Название,
+                ТипРаботы = _snapshot.WorkTypes.FirstOrDefault(o => o.IdТипаРаботы == work.IdТипаРаботы)?.Название ?? "",
+                СтатусРаботы = _snapshot.WorkStatuses.FirstOrDefault(o => o.IdСтатусаРаботы == work.IdСтатусаРаботы)?.Название ?? "",
+                ДоступРаботы = _snapshot.WorkAccess.FirstOrDefault(o => o.IdДоступаРаботы == work.IdДоступаРаботы)?.Название ?? "",
                 Аннотация = work.Аннотация,
                 КоличСтраниц = work.КоличСтраниц ?? 0,
                 ДатаДобавления = work.ДатаДобавления,

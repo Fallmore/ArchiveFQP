@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace ArchiveFqp.Models.Database;
+﻿namespace ArchiveFqp.Models.Database;
 
 public partial class ДанныеПоАтриб
 {

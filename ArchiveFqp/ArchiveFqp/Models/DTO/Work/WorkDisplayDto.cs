@@ -6,7 +6,7 @@ namespace ArchiveFqp.Models.DTO.Work
     /// <summary>
     /// Объект работы <see cref="Работа"/> для отображения информации
     /// </summary>
-    public class WorkDisplayDto: IDisplayDto
+    public class WorkDisplayDto : IDisplayDto
     {
         public int IdРаботы { get; set; }
         public string Тема { get; set; } = "";
@@ -19,6 +19,7 @@ namespace ArchiveFqp.Models.DTO.Work
         public string ТипРаботы { get; set; } = "";
         public string СтатусРаботы { get; set; } = "";
         public string ДоступРаботы { get; set; } = "";
+        public string Угсн { get; set; } = "";
 
         public string? Аннотация { get; set; }
         public int КоличСтраниц { get; set; }

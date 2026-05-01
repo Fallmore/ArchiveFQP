@@ -17,7 +17,7 @@ public partial class ЗаявлениеАтрибута
     [Required(ErrorMessage = "Введите описание")]
     [MinLength(3, ErrorMessage = "Минимальная длина описания 3 символа")]
     public string? Описание { get; set; }
-    
+
     public string[]? Примеры { get; set; }
 
     public int? IdИнститута { get; set; }
@@ -40,7 +40,6 @@ public partial class ЗаявлениеАтрибута
 
     public virtual Атрибут IdАтрибутаNavigation { get; set; } = null!;
 
-    // TODO: докончить ссылки, когда будет инет
     public virtual Институт? IdИнститутаNavigation { get; set; }
 
     public virtual Кафедра? IdКафедрыNavigation { get; set; }

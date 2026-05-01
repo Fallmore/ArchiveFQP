@@ -1,7 +1,6 @@
 ﻿using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Attribute;
 using ArchiveFqp.Models.DTO.Work;
-using ArchiveFqp.Models.DTO.WorkApplication;
 using ArchiveFqp.Models.Search;
 
 namespace ArchiveFqp.Interfaces.Work
@@ -10,8 +9,8 @@ namespace ArchiveFqp.Interfaces.Work
     /// Обеспечивает механизм взаимодействия с работами
     /// </summary>
     public interface IWorkService
-	{
-                /// <summary>
+    {
+        /// <summary>
         /// Поиск работ
         /// </summary>
         /// <param name="searchModel">Параметры поиска</param>
@@ -43,54 +42,54 @@ namespace ArchiveFqp.Interfaces.Work
         /// <returns></returns>
         Task<List<СтатусРаботы>> GetWorkStatusesAsync();
 
-		/// <summary>
-		/// Получение студентов, имеющие работы
-		/// </summary>
-		/// <returns></returns>
-		Task<List<Студент>> GetStudentsAsync();
+        /// <summary>
+        /// Получение студентов, имеющие работы
+        /// </summary>
+        /// <returns></returns>
+        Task<List<Студент>> GetStudentsAsync();
 
-		/// <summary>
-		/// Получение преподавателей, руководящиих ВКР
-		/// </summary>
-		/// <returns></returns>
-		Task<List<Преподаватель>> GetTeachersAsync();
+        /// <summary>
+        /// Получение преподавателей, руководящиих ВКР
+        /// </summary>
+        /// <returns></returns>
+        Task<List<Преподаватель>> GetTeachersAsync();
 
-		/// <summary>
-		/// Получение справочника консультантов
-		/// </summary>
-		/// <returns></returns>
-		Task<List<Консультант>> GetConsultantsAsync();
+        /// <summary>
+        /// Получение справочника консультантов
+        /// </summary>
+        /// <returns></returns>
+        Task<List<Консультант>> GetConsultantsAsync();
 
-		/// <summary>
-		/// Получение справочника рецензентов
-		/// </summary>
-		/// <returns></returns>
-		Task<List<Рецензент>> GetReviewersAsync();
+        /// <summary>
+        /// Получение справочника рецензентов
+        /// </summary>
+        /// <returns></returns>
+        Task<List<Рецензент>> GetReviewersAsync();
 
-		/// <summary>
-		/// Получение консультантов работы
-		/// </summary>
-		/// <returns></returns>
-		Task<List<Консультант>> GetConsultantsAsync(Работа work);
+        /// <summary>
+        /// Получение консультантов работы
+        /// </summary>
+        /// <returns></returns>
+        Task<List<Консультант>> GetConsultantsAsync(Работа work);
 
-		/// <summary>
-		/// Получение рецензентов работы
-		/// </summary>
-		/// <returns></returns>
-		Task<List<Рецензент>> GetReviewersAsync(Работа work);
+        /// <summary>
+        /// Получение рецензентов работы
+        /// </summary>
+        /// <returns></returns>
+        Task<List<Рецензент>> GetReviewersAsync(Работа work);
 
-		/// <summary>
-		/// Получение справочника атрибутов
-		/// </summary>
-		/// <returns></returns>
-		Task<List<Атрибут>> GetAllAttributesAsync();
+        /// <summary>
+        /// Получение справочника атрибутов
+        /// </summary>
+        /// <returns></returns>
+        Task<List<Атрибут>> GetAllAttributesAsync();
 
-		/// <summary>
-		/// Получение всех значений каждого атрибута
-		/// </summary>
-		/// <param name="attrs">Список атрибутов</param>
-		/// <returns>Словарь idАтрибута-значение</returns>
-		Task<List<AttributeValuesDto>> GetAttributeValuesAsync(List<Атрибут>? attrs = null, List<string>? abandonedValues = null);
+        /// <summary>
+        /// Получение всех значений каждого атрибута
+        /// </summary>
+        /// <param name="attrs">Список атрибутов</param>
+        /// <returns>Словарь idАтрибута-значение</returns>
+        Task<List<AttributeValuesDto>> GetAttributeValuesAsync(List<Атрибут>? attrs = null, List<string>? abandonedValues = null);
 
         /// <summary>
         /// Получение атрибутов и их значений у работы
@@ -124,6 +123,9 @@ namespace ArchiveFqp.Interfaces.Work
         /// <param name="reviewers"></param>
         /// <returns></returns>
         Task<WorkDisplayDto> GetWorkDisplayAsync(int idWork, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null);
+
+        Task<List<WorkDisplayDto>> GetWorkDisplayAsync(List<Работа> works);
+
 
         /// <summary>
         /// В зависимости от типа работы возвращает год

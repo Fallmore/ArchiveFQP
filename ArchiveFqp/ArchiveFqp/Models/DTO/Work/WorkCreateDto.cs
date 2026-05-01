@@ -1,8 +1,6 @@
-﻿using ArchiveFqp.Models.Database;
-using ArchiveFqp.Models.DTO.Attribute;
+﻿using ArchiveFqp.Models.DTO.Attribute;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
 
 namespace ArchiveFqp.Models.DTO.Work
 {
@@ -13,8 +11,14 @@ namespace ArchiveFqp.Models.DTO.Work
         [Required(ErrorMessage = "Тема обязательна")]
         public string Тема { get; set; } = "";
 
-        [Required(ErrorMessage = "Выберите студента")]
         public int? IdСтудента { get; set; }
+
+        #region Новый пользователь
+        public bool IsNewUser { get; set; } = false;
+        public string Surname { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Patronymic { get; set; } = "";
+        #endregion
 
         [Required(ErrorMessage = "Выберите руководителя")]
         public int? IdПреподавателя { get; set; }
@@ -45,6 +49,7 @@ namespace ArchiveFqp.Models.DTO.Work
         [Required(ErrorMessage = "Выберите кафедру")]
         public int? IdКафедры { get; set; }
 
+        [Required(ErrorMessage = "Выберите год выпуска")]
         public int? ГодВыпуска { get; set; }
 
         public string? Аннотация { get; set; }
@@ -73,11 +78,11 @@ namespace ArchiveFqp.Models.DTO.Work
                 attributes = value;
                 return;
             }
-            
+
             attributes.RemoveAll(f => !value.Contains(f));
             attributes = attributes.Union(value).ToList();
         }
 
-        
+
     }
 }

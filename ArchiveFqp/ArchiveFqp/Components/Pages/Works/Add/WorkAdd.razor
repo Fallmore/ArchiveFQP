@@ -1,8 +1,10 @@
 ﻿@page "/works/add"
 @using ArchiveFqp.Models.DTO.Work
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject ProtectedLocalStorage ProtectedSessionStore
 @rendermode @(new InteractiveServerRenderMode(prerender: true))
+@attribute [Authorize(Roles = "Завкафедрой,Ответственный кафедры,Ответственный института,Администратор")]
 
 <PageTitle>АГТУ - Добавление работы</PageTitle>
 

@@ -3,9 +3,9 @@ using ArchiveFqp.Factories.DisplayDto.Teacher;
 using ArchiveFqp.Factories.DisplayDto.Work;
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
-using ArchiveFqp.Models.DTO.Student;
 using ArchiveFqp.Models.DTO.Work;
 using ArchiveFqp.Models.DTO.WorkApplication;
+using ArchiveFqp.Models.ReferenceData;
 using Microsoft.EntityFrameworkCore;
 
 namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
@@ -19,10 +19,8 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
         private readonly TeacherDtoFactory _teacherDtoFactory;
 
         private List<Пользователь> _users = [];
-        private List<Студент> _students = [];
-        private List<Преподаватель> _teachers = [];
         private List<ЗаявлениеРаботы> _workApplications = [];
-        private List<СтатусЗаявления> _workApplicationStatus = [];
+        private ReferenceDataSnapshot _snapshot = null!;
 
         private Task _init;
 
@@ -42,9 +40,7 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
         private async Task InitializeLists()
         {
             _users = await _refDataService.GetAsync<Пользователь>();
-            _students = await _refDataService.GetAsync<Студент>();
-            _teachers = await _refDataService.GetAsync<Преподаватель>();
-            _workApplicationStatus = await _refDataService.GetAsync<СтатусЗаявления>();
+            _snapshot = await _refDataService.GetAllAsync();
         }
 
         public async Task<WorkApplicationDto> CreateDisplayDtoAsync(ЗаявлениеРаботы wApps)
@@ -62,8 +58,8 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
         public async Task<WorkApplicationDto> CreateDisplayDtoAsync(ЗаявлениеРаботы wApps, WorkDisplayDto work)
         {
             _init.Wait();
-            Студент? student = _students.FirstOrDefault(o => o.IdПользователя == wApps.IdПользователя);
-            Преподаватель? teacher = _teachers.FirstOrDefault(o => o.IdПользователя == wApps.IdПользователя);
+            Студент? student = _snapshot.Students.FirstOrDefault(o => o.IdПользователя == wApps.IdПользователя);
+            Преподаватель? teacher = _snapshot.Teachers.FirstOrDefault(o => o.IdПользователя == wApps.IdПользователя);
             return new()
             {
                 IdЗаявления = wApps.IdЗаявления,
@@ -74,7 +70,7 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
                 ПользовательПреподаватель = teacher != null ? await _teacherDtoFactory.CreateDisplayDtoAsync(teacher) : null,
                 Цель = wApps.Цель,
                 IdСтатуса = wApps.IdСтатуса,
-                Статус = _workApplicationStatus.FirstOrDefault(o => o.IdСтатуса == wApps.IdСтатуса)?.Название ?? "",
+                Статус = _snapshot.ApplicationStatuses.FirstOrDefault(o => o.IdСтатуса == wApps.IdСтатуса)?.Название ?? "",
                 ДатаПоступления = wApps.ДатаПоступления,
                 ДатаВозврПоЗаявл = wApps.ДатаВозврПоЗаявл,
                 Ответ = wApps.Ответ,

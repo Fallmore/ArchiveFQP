@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 
 namespace ArchiveFqp.Models.Database;
 
@@ -388,7 +386,7 @@ public partial class ArchiveFqpContext : DbContext
                 .HasDefaultValueSql("'Ожидание поиска...'::text")
                 .HasColumnName("данные");
 
-            entity.HasOne(d => d.IdРаботыNavigation).WithMany()
+            entity.HasOne(d => d.IdРаботыNavigation).WithMany(p => p.ДанныеПоАтрибs)
                 .HasForeignKey(d => d.IdРаботы)
                 .HasConstraintName("данные_по_атриб_id_работы_fkey");
         });
@@ -618,13 +616,10 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.HasIndex(e => e.Название, "idx_department_name");
 
-            entity.HasIndex(e => e.IdУгсн, "idx_department_ugsn");
-
-            entity.HasIndex(e => new { e.Название, e.IdУгсн }, "кафедра_кафедра_key").IsUnique();
+            entity.HasIndex(e => new { e.Название, e.IdИнститута }, "кафедра_кафедра_key").IsUnique();
 
             entity.Property(e => e.IdКафедры).HasColumnName("id_кафедры");
             entity.Property(e => e.IdИнститута).HasColumnName("id_института");
-            entity.Property(e => e.IdУгсн).HasColumnName("id_угсн");
             entity.Property(e => e.Название)
                 .HasColumnType("character varying")
                 .HasColumnName("название");
@@ -633,10 +628,6 @@ public partial class ArchiveFqpContext : DbContext
                 .HasForeignKey(d => d.IdИнститута)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("кафедра_id_института_fkey");
-
-            entity.HasOne(d => d.IdУгснNavigation).WithMany(p => p.Кафедраs)
-                .HasForeignKey(d => d.IdУгсн)
-                .HasConstraintName("кафедра_id_угсн_fkey");
         });
 
         modelBuilder.Entity<Консультант>(entity =>
@@ -672,7 +663,7 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.HasOne(d => d.IdРаботыNavigation).WithMany(p => p.Консультантs)
                 .HasForeignKey(d => d.IdРаботы)
-                .OnDelete(DeleteBehavior.Restrict)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("консультант_id_работы_fkey");
         });
 
@@ -684,11 +675,14 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.HasIndex(e => e.IdКафедры, "idx_direction_department");
 
+            entity.HasIndex(e => e.IdУгсн, "idx_direction_ugsn");
+
             entity.HasIndex(e => e.Название, "idx_direction_name");
 
-            entity.HasIndex(e => new { e.Название, e.IdКафедры }, "направление_направление_key").IsUnique();
+            entity.HasIndex(e => new { e.Название, e.IdКафедры, e.IdУгсн }, "направление_направление_key").IsUnique();
 
             entity.Property(e => e.IdНаправления).HasColumnName("id_направления");
+            entity.Property(e => e.IdУгсн).HasColumnName("id_угсн");
             entity.Property(e => e.IdКафедры).HasColumnName("id_кафедры");
             entity.Property(e => e.Название)
                 .HasColumnType("character varying")
@@ -698,6 +692,10 @@ public partial class ArchiveFqpContext : DbContext
                 .HasForeignKey(d => d.IdКафедры)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("направление_id_кафедры_fkey");
+
+            entity.HasOne(d => d.IdУгснNavigation).WithMany(p => p.Направлениеs)
+                .HasForeignKey(d => d.IdУгсн)
+                .HasConstraintName("направление_id_угсн_fkey");
         });
 
         modelBuilder.Entity<НастройкиИнститута>(entity =>
@@ -796,7 +794,7 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.HasOne(d => d.IdРаботыNavigation).WithMany(p => p.ОценкаПреподавателяs)
                 .HasForeignKey(d => d.IdРаботы)
-                .OnDelete(DeleteBehavior.Restrict)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("оценка_преподавателя_id_работы_fkey");
         });
 
@@ -1032,7 +1030,7 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.HasOne(d => d.IdРаботыNavigation).WithMany(p => p.Рецензентs)
                 .HasForeignKey(d => d.IdРаботы)
-                .OnDelete(DeleteBehavior.Restrict)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("рецензент_id_работы_fkey");
         });
 
@@ -1117,7 +1115,9 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.HasIndex(e => new { e.IdИнститута, e.IdНаправления, e.ГодОкончания }, "idx_student_composite");
 
-            entity.HasIndex(e => e.IdНаправления, "idx_student_direction");
+            entity.HasIndex(e => e.IdКафедры, "idx_student_direction");
+
+            entity.HasIndex(e => e.IdНаправления, "idx_student_department");
 
             entity.HasIndex(e => new { e.IdФормыОбучения, e.IdУровняОбразования }, "idx_student_education");
 
@@ -1133,6 +1133,7 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.Property(e => e.IdСтудента).HasColumnName("id_студента");
             entity.Property(e => e.IdИнститута).HasColumnName("id_института");
+            entity.Property(e => e.IdКафедры).HasColumnName("id_кафедры");
             entity.Property(e => e.IdНаправления).HasColumnName("id_направления");
             entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
             entity.Property(e => e.IdПрофиля).HasColumnName("id_профиля");
@@ -1144,6 +1145,11 @@ public partial class ArchiveFqpContext : DbContext
                 .HasForeignKey(d => d.IdИнститута)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("студент_id_института_fkey");
+
+            entity.HasOne(d => d.IdКафедрыNavigation).WithMany(p => p.Студентs)
+                .HasForeignKey(d => d.IdКафедры)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("студент_id_кафедры_fkey");
 
             entity.HasOne(d => d.IdНаправленияNavigation).WithMany(p => p.Студентs)
                 .HasForeignKey(d => d.IdНаправления)

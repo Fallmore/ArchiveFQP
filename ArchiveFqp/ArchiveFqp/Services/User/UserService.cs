@@ -1,5 +1,4 @@
-﻿using ArchiveFqp.Factories.DisplayDto;
-using ArchiveFqp.Factories.DisplayDto.Student;
+﻿using ArchiveFqp.Factories.DisplayDto.Student;
 using ArchiveFqp.Factories.DisplayDto.Teacher;
 using ArchiveFqp.Factories.DisplayDto.User;
 using ArchiveFqp.Interfaces.ReferenceData;
@@ -8,9 +7,7 @@ using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Student;
 using ArchiveFqp.Models.DTO.Teacher;
 using ArchiveFqp.Models.DTO.User;
-using ArchiveFqp.Services.Work;
 using Microsoft.EntityFrameworkCore;
-using System.Net.NetworkInformation;
 
 namespace ArchiveFqp.Services.User
 {
@@ -23,7 +20,7 @@ namespace ArchiveFqp.Services.User
         private StudentDtoFactory _factoryStudent;
 
         public UserService(IDbContextFactory<ArchiveFqpContext> dbFactory,
-            IReferenceDataService refDataService, UserDtoFactory? factoryUser = null, 
+            IReferenceDataService refDataService, UserDtoFactory? factoryUser = null,
             TeacherDtoFactory? factoryTeacher = null, StudentDtoFactory? factoryStudent = null
             )
         {
@@ -90,6 +87,60 @@ namespace ArchiveFqp.Services.User
             foundUser = user;
             await context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<Пользователь> AddUser(Пользователь user)
+        {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
+            context.Пользовательs.Add(user);
+            await context.SaveChangesAsync();
+
+            return user;
+        }
+
+        public async Task<Студент> AddStudent(Студент student)
+        {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
+            context.Студентs.Add(student);
+            await context.SaveChangesAsync();
+
+            return student;
+        }
+
+        public async Task<Преподаватель> AddTeacher(Преподаватель teacher)
+        {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
+            context.Преподавательs.Add(teacher);
+            await context.SaveChangesAsync();
+
+            return teacher;
+        }
+
+        public async Task RemoveUser(Пользователь user)
+        {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
+            context.Пользовательs.Remove(user);
+            await context.SaveChangesAsync();
+        }
+
+        public async Task RemoveStudent(Студент student)
+        {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
+            context.Студентs.Remove(student);
+            await context.SaveChangesAsync();
+        }
+
+        public async Task RemoveTeacher(Преподаватель teacher)
+        {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
+            context.Преподавательs.Remove(teacher);
+            await context.SaveChangesAsync();
         }
     }
 }

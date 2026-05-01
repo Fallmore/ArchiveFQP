@@ -37,7 +37,7 @@ namespace ArchiveFqp.Interfaces.Hash
         /// Проверяет соответствие файла хэшу
         /// </summary>
         Task<bool> VerifyFileHashAsync(Stream fileStream, string expectedHash, CancellationToken cancellationToken = default);
-        
+
         /// <summary>
         /// Проверяет соответствие файла хэшу
         /// </summary>

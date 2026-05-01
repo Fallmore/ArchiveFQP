@@ -12,7 +12,7 @@ namespace ArchiveFqp.Models.FileUpload
         public string Department { get; set; } = string.Empty;
         public string UgsnStandart { get; set; } = string.Empty;
         public string Direction { get; set; } = string.Empty;
-        public string Profile { get; set; } = string.Empty;
+        public string? Profile { get; set; } = string.Empty;
         public string WorkType { get; set; } = string.Empty;
         public int Year { get; set; }
         public string StudentName { get; set; } = string.Empty;

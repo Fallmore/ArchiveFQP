@@ -1,8 +1,6 @@
 ﻿using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
-using ArchiveFqp.Models.DTO.Teacher;
 using ArchiveFqp.Models.DTO.User;
-using Microsoft.EntityFrameworkCore;
 
 namespace ArchiveFqp.Factories.DisplayDto.User
 {

@@ -30,9 +30,9 @@ namespace ArchiveFqp.Services.FileUpload
         public abstract bool ValidateFile(IBrowserFile file, FileType fileType, out string? errorMessage);
 
         public abstract Task<FileUploadWithHashResult> UploadFileWithHashAsync(IFileUploadContext context, CancellationToken cancellationToken = default);
-        
+
         public abstract Task<FileUploadWithHashResult> UploadFilesWithHashAsync(IFileUploadContext context, CancellationToken cancellationToken = default);
-        
+
         public abstract Task<HashVerificationResult> VerifyUploadedFilesAsync(string sourceHash, string relativeFolderPath, CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -44,22 +44,23 @@ namespace ArchiveFqp.Services.FileUpload
             string Sanitize(string input) => string.Join("_", input.Split(Path.GetInvalidFileNameChars()));
             string Abbreviate(string input, bool withAnd = false)
                 => string.Join(string.Empty, input.Split([' ', '-'], StringSplitOptions.RemoveEmptyEntries)
-                                // Убираем частицы и, в, во, или если withAnd, то пропускаем и
+                                // Убираем частицы и, в, во, или если withAnd, то допускаем и
                                 .Where(s => (withAnd && s == "и") || s.Length > 2)
                                 // Оставляем код направления, если это направление, а в остальных случаях пишем аббревиатуры
-                                .Select(s => (s.Length == 8 && s.Contains('.')) ? s + " " : s[..1])).ToUpper(); 
+                                .Select(s => (s.Length == 8 && s.Contains('.')) ? s + " " : s[..1])).ToUpper();
 
-            var pathParts = new[]
-            {
+
+            string[] pathParts =
+            [
                 Abbreviate(Sanitize(context.Institute), true),
                 Abbreviate(Sanitize(context.Department)),
                 Sanitize(context.UgsnStandart),
                 Abbreviate(Sanitize(context.Direction)),
-                Abbreviate(Sanitize(context.Profile)),
+                context.Profile != null ? Abbreviate(Sanitize(context.Profile)) : "Без профиля",
                 Sanitize(context.WorkType),
                 context.Year.ToString(),
                 Sanitize(context.StudentName),
-            };
+            ];
 
             return Path.Combine(pathParts);
         }
@@ -73,7 +74,7 @@ namespace ArchiveFqp.Services.FileUpload
             if (!Directory.Exists(fullPath))
             {
                 Directory.CreateDirectory(fullPath);
-                    _logger.LogDebug("Создана папка: {Directory}", fullPath);
+                _logger.LogDebug("Создана папка: {Directory}", fullPath);
             }
             return fullPath;
         }

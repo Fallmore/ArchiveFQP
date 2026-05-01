@@ -1,7 +1,9 @@
 ﻿@page "/works/attributes/review"
+@using Microsoft.AspNetCore.Authorization
 @rendermode @(new InteractiveServerRenderMode())
+@attribute [Authorize(Roles = $"Завкафедрой,Ответственный кафедры,Ответственный института,Администратор")]
 
-<PageTitle>АГТУ - Заявления на просмотр работы</PageTitle>
+<PageTitle>АГТУ - Проверка заявлений на добавление атрибута</PageTitle>
 
 @if (RendererInfo.IsInteractive)
 {

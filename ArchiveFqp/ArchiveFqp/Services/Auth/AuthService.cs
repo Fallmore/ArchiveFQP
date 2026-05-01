@@ -37,7 +37,7 @@ namespace ArchiveFqp.Services.Auth
         //    }
         //}
 
-        public AuthService(ArchiveFqpContext context, IReferenceDataService refDataService, 
+        public AuthService(ArchiveFqpContext context, IReferenceDataService refDataService,
             IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
@@ -60,8 +60,8 @@ namespace ArchiveFqp.Services.Auth
             // Создаем пользователя
             Пользователь user = new()
             {
-                Фамилия = model.Surname,
-                Имя = model.Name,
+                Фамилия = model.Surname!,
+                Имя = model.Name!,
                 Отчество = model.Patronymic,
                 Email = model.Email
             };
@@ -123,16 +123,16 @@ namespace ArchiveFqp.Services.Auth
             }
 
             ClaimsIdentity identity = new(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-            ClaimsPrincipal principal = new (identity);
+            ClaimsPrincipal principal = new(identity);
 
             await _httpContextAccessor.HttpContext!.SignInAsync(principal);
-                //CookieAuthenticationDefaults.AuthenticationScheme,
-                //CurrentUser,
-                //new AuthenticationProperties
-                //{
-                //    IsPersistent = true,
-                //    ExpiresUtc = DateTime.UtcNow.AddHours(8)
-                //});
+            //CookieAuthenticationDefaults.AuthenticationScheme,
+            //CurrentUser,
+            //new AuthenticationProperties
+            //{
+            //    IsPersistent = true,
+            //    ExpiresUtc = DateTime.UtcNow.AddHours(8)
+            //});
 
             //string token = GenerateJwtToken(userSession);
 
@@ -211,6 +211,6 @@ namespace ArchiveFqp.Services.Auth
             return tokenHandler.WriteToken(token);
         }
 
-        
+
     }
 }

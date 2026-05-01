@@ -7,7 +7,7 @@ namespace ArchiveFqp.Models.DTO.Teacher
     /// <summary>
     /// Объект преподавателя <see cref="Преподаватель"/> для отображения информации
     /// </summary>
-    public class TeacherDisplayDto: IDisplayDto
+    public class TeacherDisplayDto : IDisplayDto
     {
         public UserDisplayDto Пользователь { get; set; } = new();
 

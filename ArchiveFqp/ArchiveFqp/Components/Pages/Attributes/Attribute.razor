@@ -1,10 +1,8 @@
 ﻿@using ArchiveFqp.Components.Components
-@using ArchiveFqp.Factories.DisplayDto.Structure
 @using ArchiveFqp.Interfaces.Applications
 @using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Interfaces.Work
-@using ArchiveFqp.Models.DTO.Structure
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.User
 @using ArchiveFqp.Models.DTO.WorkApplication
@@ -37,7 +35,7 @@
 
         <!-- Основная информация -->
         <div class="col">
-            @if (IsEditMode)
+            @if (IsWritingMode)
             {
                 <div class="row-md-6 mb-1">
                     <div class="form-check">
@@ -103,12 +101,13 @@
                 }
 
                 <!-- Структуры -->
-                <h5 class="mt-4 mb-0"><strong>На какие структуру(ы) добавить атрибут</strong></h5>
+                <h5 class="mt-4 mb-0"><strong>На какую структуру добавить атрибут</strong></h5>
                 <p class="fs-6 mt-0 mb-1 text-muted">Отсутствие выбранной структуры будет подразумевать за собой весь университет</p>
                 <div class="row-md-6 mb-1">
                     <!-- Институт -->
                     <label class="form-label mb-0 mx-1 fw-bold">Институт</label>
-                    <InputSelect class="form-select" @bind-Value="attributeApplication.IdИнститута">
+                    <InputSelect class="form-select" @bind-Value="attributeApplication.IdИнститута"
+                                 disabled="@(attributeApplication.IdПрофиля.HasValue || attributeApplication.IdКафедры.HasValue || attributeApplication.IdНаправления.HasValue)">
                         <option value="">Выберите институт</option>
                         @foreach (Институт i in snapshot.Institutes.OrderBy(x => x.Название))
                         {
@@ -120,52 +119,31 @@
                 <div class="row-md-6 mb-1">
                     <!-- Кафедра -->
                     <label class="form-label mb-0 mx-1 fw-bold">Кафедра</label>
-                    <InputSelect class="form-select"
-                                 @bind-Value="attributeApplication.IdКафедры"
-                                 data-bs-toggle="tooltip" title="@(attributeApplication.IdКафедры.HasValue? GetStructureInfo<Кафедра>(attributeApplication.IdКафедры.Value) : "Выберите кафедру")">
-                        <option value="">Выберите кафедру</option>
-                        @foreach (Кафедра i in snapshot.Departments.OrderBy(x => x.Название))
-                        {
-                            <option value="@i.IdКафедры" data-bs-toggle="tooltip"
-                                    title="@(GetStructureInfo<Кафедра>(i.IdКафедры))">
-                                @i.Название
-                            </option>
-                        }
-                    </InputSelect>
+                    <InputSelectSctructure TItem="Кафедра"
+                                           Items="snapshot.Departments.OrderBy(x => x.Название)"
+                                           @bind-Value="attributeApplication.IdКафедры"
+                                           Snapshot="snapshot"
+                                           Disabled="@(attributeApplication.IdПрофиля.HasValue || attributeApplication.IdИнститута.HasValue || attributeApplication.IdНаправления.HasValue)" />
                 </div>
 
                 <div class="row-md-6 mb-1">
                     <!-- Направление -->
                     <label class="form-label mb-0 mx-1 fw-bold">Направление</label>
-                    <InputSelect class="form-select"
-                                 @bind-Value="attributeApplication.IdНаправления"
-                                 data-bs-toggle="tooltip" title="@(attributeApplication.IdНаправления.HasValue? GetStructureInfo<Направление>(attributeApplication.IdНаправления.Value) : "Выберите направление")">
-                        <option value="">Выберите направление</option>
-                        @foreach (Направление i in snapshot.Directions.OrderBy(x => x.Название))
-                        {
-                            <option value="@i.IdНаправления" data-bs-toggle="tooltip"
-                                    title="@(GetStructureInfo<Направление>(i.IdНаправления))">
-                                @i.Название
-                            </option>
-                        }
-                    </InputSelect>
+                    <InputSelectSctructure TItem="Направление"
+                                           Items="snapshot.Directions.OrderBy(x => x.Название)"
+                                           @bind-Value="attributeApplication.IdНаправления"
+                                           Snapshot="snapshot"
+                                           Disabled="@(attributeApplication.IdПрофиля.HasValue || attributeApplication.IdИнститута.HasValue || attributeApplication.IdКафедры.HasValue)" />
                 </div>
 
                 <div class="row-md-6 mb-1">
                     <!-- Профиль -->
                     <label class="form-label mb-0 mx-1 fw-bold">Профиль</label>
-                    <InputSelect class="form-select"
-                                 @bind-Value="attributeApplication.IdПрофиля"
-                                 data-bs-toggle="tooltip" title="@(attributeApplication.IdПрофиля.HasValue? GetStructureInfo<Профиль>(attributeApplication.IdПрофиля.Value) : "Выберите кафедру")">
-                        <option value="">Выберите профиль</option>
-                        @foreach (Профиль i in snapshot.Profiles.OrderBy(x => x.Название))
-                        {
-                            <option value="@i.IdПрофиля" data-bs-toggle="tooltip"
-                                    title="@(GetStructureInfo<Профиль>(i.IdПрофиля))">
-                                @i.Название
-                            </option>
-                        }
-                    </InputSelect>
+                    <InputSelectSctructure TItem="Профиль"
+                                           Items="snapshot.Profiles.OrderBy(x => x.Название)"
+                                           @bind-Value="attributeApplication.IdПрофиля"
+                                           Snapshot="snapshot"
+                                           Disabled="@(attributeApplication.IdКафедры.HasValue || attributeApplication.IdИнститута.HasValue || attributeApplication.IdНаправления.HasValue)" />
                 </div>
 
                 <div class="row-md-6">
@@ -274,6 +252,37 @@
                     </div>
                 }
 
+                @if (IsReviewMode)
+                {
+                    <div class="row-md-6 mb-1">
+                        <!-- Заявитель -->
+                        @{
+                            string idModal = "userInfoModal" + attributeApplication.IdПользователя;
+                            string idModalLabel = "userInfoModalLabel" + attributeApplication.IdПользователя;
+                        }
+
+                        <button type="button" class="btn btn-primary" @onclick="@(() => OpenModal(idModal))">
+                            Заявитель
+                        </button>
+                    
+                        <div class="modal fade" id="@idModal" tabindex="-1" aria-labelledby="@idModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-xl">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="@idModalLabel">Информация о выбранной работе</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body pt-0">
+                                        <UserInfo Teacher="teacherDisplay"
+                                                  User="userDisplay"
+                                                  @key="attributeApplication.IdПользователя" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
                 // Если статус не "На рассмотрении"
                 @if (isAnswered)
                 {
@@ -290,37 +299,11 @@
                         <br />
                         <span class="mx-1">@(attributeApplication.Ответ)</span>
                     </div>
+
+                    
                 }
                 else if (IsReviewMode)
                 {
-                    <div class="row-md-6 mb-1">
-                        <!-- Заявитель -->
-                        @{
-                            string idModal = "userInfoModal" + attributeApplication.IdПользователя;
-                            string idModalLabel = "userInfoModalLabel" + attributeApplication.IdПользователя;
-
-                            <button type="button" class="btn btn-primary" @onclick="@(() => OpenModal(idModal))">
-                                Заявитель
-                            </button>
-                    
-                            <div class="modal fade" id="@idModal" tabindex="-1" aria-labelledby="@idModalLabel" aria-hidden="true">
-                                <div class="modal-dialog modal-xl">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title" id="@idModalLabel">Информация о выбранной работе</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <div class="modal-body pt-0">
-                                            <UserInfo Teacher="teacherDisplay"
-                                                      User="userDisplay"
-                                                      @key="attributeApplication.IdПользователя" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    </div>
-
                     <div class="row-md-6 mb-1">
                         <!-- Ответ -->
                         <label class="form-label mb-0 mx-1 fw-bold">Ответ <span class="text-danger">*</span></label>
@@ -369,7 +352,7 @@
 
 @code {
     [Parameter] public int? WorkId { get; set; }
-    [Parameter] public bool IsEditMode { get; set; } = true;
+    [Parameter] public bool IsWritingMode { get; set; } = true;
     [Parameter] public bool IsReviewMode { get; set; } = false;
     [Parameter] public ЗаявлениеАтрибута? AttributeApplication { get; set; }
     private ЗаявлениеАтрибута attributeApplication = new();
@@ -382,11 +365,9 @@
     private bool isAnswered = false;
 
     private ReferenceDataSnapshot snapshot = new();
-
-    private StructureDtoFactory structureFactory = null!;
-    private List<StructureDto> structureDepartments = [];
-    private List<StructureDto> structureDirections = [];
-    private List<StructureDto> structureProfiles = [];
+    InputSelectSctructure<Кафедра>? issDep;
+    InputSelectSctructure<Направление>? issDir;
+    InputSelectSctructure<Профиль>? issProf;
 
     EditContext? editContext;
     ValidationMessageStore? messageStore;
@@ -397,9 +378,7 @@
     {
         if (AttributeApplication != null) attributeApplication = AttributeApplication;
 
-        structureFactory = new(RefDataService);
         snapshot = await RefDataService.GetAllAsync();
-        await GetStructures();
         attributes = await WorkService.GetAllAttributesAsync();
         applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
         currentStatusId = attributeApplication.IdСтатуса;
@@ -412,6 +391,24 @@
         editContext.OnValidationStateChanged += HandleValidationRequested;
     }
 
+
+    private string GetStructureInfo<T>(int id) where T : class
+    {
+        switch (typeof(T).Name)
+        {
+            case nameof(Кафедра):
+                issDep ??= new(RefDataService, snapshot);
+                return issDep.GetStructureInfo<T>(id);
+            case nameof(Направление):
+                issDir ??= new(RefDataService, snapshot);
+                return issDir.GetStructureInfo<T>(id);
+            case nameof(Профиль):
+                issProf ??= new(RefDataService, snapshot);
+                return issProf.GetStructureInfo<T>(id);
+        }
+        return "";
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         if (AttributeApplication != null) attributeApplication = AttributeApplication;
@@ -420,47 +417,6 @@
         isAnswered = currentStatusId != applicationStatuses
             .First(w => w.Название == Settings.ApplicationsInProcessStatus)
                 .IdСтатуса;
-    }
-
-    private async Task GetStructures()
-    {
-        structureDepartments = await structureFactory.CreateDisplayDtoListAsync(snapshot.Departments);
-        structureDirections = await structureFactory.CreateDisplayDtoListAsync(snapshot.Directions);
-        structureProfiles = await structureFactory.CreateDisplayDtoListAsync(snapshot.Profiles);
-    }
-
-    private string GetStructureInfo<T>(int id) where T : class
-    {
-        StructureDto? str;
-        string info = "";
-        switch (typeof(T).Name)
-        {
-            case nameof(Кафедра):
-                str = structureDepartments.First(x => x.Кафедра.IdКафедры == id);
-                info = $"УГСН: {str.Угсн.Название}\n" +
-                        $"Стандарт УГСН: {str.УгснСтандарт.Название}\n" +
-                        $"Институт: {str.Институт.Название}\n";
-                break;
-            case nameof(Направление):
-                str = structureDirections.First(x => x.Направление.IdНаправления == id);
-                info = $"Кафедра: {str.Кафедра.Название}\n" +
-                        $"УГСН: {str.Угсн.Название}\n" +
-                        $"Стандарт УГСН: {str.УгснСтандарт.Название}\n" +
-                        $"Институт: {str.Институт.Название}";
-                break;
-            case nameof(Профиль):
-                str = structureProfiles.First(x => id == (x.Профиль?.IdПрофиля ?? -1));
-                info = $"Направление: {str.Направление.Название}\n" +
-                        $"Кафедра: {str.Кафедра.Название}\n" +
-                        $"УГСН: {str.Угсн.Название}\n" +
-                        $"Стандарт УГСН: {str.УгснСтандарт.Название}\n" +
-                        $"Институт: {str.Институт.Название}";
-                break;
-            default:
-                break;
-        }
-
-        return info;
     }
 
     private void ToggleNew()
@@ -510,7 +466,7 @@
         }
     }
 
-    void HandleValidationRequested(object? sender, ValidationStateChangedEventArgs args)
+    private void HandleValidationRequested(object? sender, ValidationStateChangedEventArgs args)
     {
         successMessage = null;
         messageStore?.Clear();

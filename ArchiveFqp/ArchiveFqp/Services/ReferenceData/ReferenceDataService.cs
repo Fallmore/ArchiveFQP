@@ -5,9 +5,7 @@ using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Attribute;
 using ArchiveFqp.Models.DTO.User;
 using ArchiveFqp.Models.ReferenceData;
-using ArchiveFqp.Services.Work;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
 using System.Globalization;
@@ -41,13 +39,13 @@ namespace ArchiveFqp.Services.ReferenceData
         /// <summary>
         /// Таблицы, входящие в общий кэш. <br/> Названия таблиц имеют стиль snake_case
         /// </summary>
-        public List<string> TablesInSnapshot = GetTablesName(ReferenceDataSnapshot.GetStaticTableNames());
+        public List<string> TablesInSnapshot = GetTablesName(ReferenceDataSnapshot.GetTablesName());
 
         /// <summary>
         /// Таблицы, не входящие в общий кэш. <br/> Названия таблиц имеют стиль snake_case
         /// </summary>
         public List<string> TablesSeparated { get; set; } = ["пользователь", "заявление_работы",
-            "статус_заявления", "работа", "роль_пользователя", "аккаунт_пользователя", "заявление_атрибута"];
+            "работа", "роль_пользователя", "аккаунт_пользователя", "заявление_атрибута"];
 
         /// <summary>
         /// Таблицы, от которых наследуются другие таблицы
@@ -311,6 +309,7 @@ namespace ArchiveFqp.Services.ReferenceData
                     Profiles = await context.Профильs.ToListAsync(),
                     RoleUsers = await context.РольПользователяs.ToListAsync(),
                     WorkStatuses = await context.СтатусРаботыs.ToListAsync(),
+                    ApplicationStatuses = await context.СтатусЗаявленияs.ToListAsync(),
                     Students = await context.Студентs.ToListAsync(),
                     WorkTypes = await context.ТипРаботыs.ToListAsync(),
                     Ugsns = await context.Угснs.ToListAsync(),

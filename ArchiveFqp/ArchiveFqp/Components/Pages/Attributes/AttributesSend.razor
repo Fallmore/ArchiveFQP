@@ -1,5 +1,7 @@
 ﻿@page "/works/attributes/send"
+@using Microsoft.AspNetCore.Authorization
 @rendermode @(new InteractiveServerRenderMode())
+@attribute [Authorize(Roles = "Преподаватель")]
 
 <PageTitle>АГТУ - Заявления на добавление атрибута</PageTitle>
 

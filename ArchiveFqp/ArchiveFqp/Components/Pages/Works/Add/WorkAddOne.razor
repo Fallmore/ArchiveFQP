@@ -111,8 +111,8 @@
                 "document.querySelector('[data-bs-target=\"#collapseWorkData\"]').click()");
             }
         }
-        StateHasChanged();
-        await WorkDTOChanged.InvokeAsync(WorkDto);
+        StateHasChanged(); await WorkDTOChanged.InvokeAsync(WorkDto);
+        // await InvokeAsync(async () => { StateHasChanged(); await WorkDTOChanged.InvokeAsync(WorkDto); });
     }
 
     private async Task OnAttributesChanged()

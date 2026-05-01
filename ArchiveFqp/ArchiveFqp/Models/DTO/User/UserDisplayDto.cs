@@ -6,7 +6,7 @@ namespace ArchiveFqp.Models.DTO.User
     /// Объект пользователя <see cref="Database.Пользователь"/> и его аккаунта 
     /// <see cref="АккаунтПользователя"/> для отображения информации
     /// </summary>
-    public class UserDisplayDto: IUserDisplayDto, IDisplayDto
+    public class UserDisplayDto : IUserDisplayDto, IDisplayDto
     {
         public Пользователь Пользователь { get; set; } = new();
 

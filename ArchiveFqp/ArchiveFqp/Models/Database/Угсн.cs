@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace ArchiveFqp.Models.Database;
+﻿namespace ArchiveFqp.Models.Database;
 
 /// <summary>
 /// угсн
@@ -16,5 +13,5 @@ public partial class Угсн
 
     public virtual УгснСтандарт IdУгснСтандартаNavigation { get; set; } = null!;
 
-    public virtual ICollection<Кафедра> Кафедраs { get; set; } = new List<Кафедра>();
+    public virtual ICollection<Направление> Направлениеs { get; set; } = new List<Направление>();
 }

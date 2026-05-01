@@ -1,5 +1,4 @@
 ﻿using ArchiveFqp.Models.Database;
-using Microsoft.EntityFrameworkCore;
 
 namespace ArchiveFqp.Models.ReferenceData
 {
@@ -25,6 +24,7 @@ namespace ArchiveFqp.Models.ReferenceData
         public List<Рецензент> Reviewers { get; set; } = [];
         public List<РольПользователя> RoleUsers { get; set; } = [];
         public List<СтатусРаботы> WorkStatuses { get; set; } = [];
+        public List<СтатусЗаявления> ApplicationStatuses { get; set; } = [];
         public List<Студент> Students { get; set; } = [];
         public List<ТипРаботы> WorkTypes { get; set; } = [];
         public List<Угсн> Ugsns { get; set; } = [];
@@ -34,12 +34,7 @@ namespace ArchiveFqp.Models.ReferenceData
 
         public DateTime LastUpdated { get; set; }
 
-        public bool IsExpired()
-        {
-            return (DateTime.Now - LastUpdated).TotalMinutes > 30; // Обновляем каждые 30 минут
-        }
-
-        public static List<string> GetStaticTableNames()
+        public static List<string> GetTablesName()
         {
             return typeof(ReferenceDataSnapshot)
                 .GetProperties()
@@ -50,7 +45,7 @@ namespace ArchiveFqp.Models.ReferenceData
         }
 
         // Не забудьте обновлять этот метод при добавлении новых таблиц в ReferenceDataSnapshot,
-        // а также в ReferenceDataService.cs:RefreshReferenceDataSnapshot()
+        // а также в ReferenceDataService.cs:RefreshReferenceDataSnapshot() !!!!!!!!!!!!!!!!!
         public List<T> GetTable<T>() where T : class
         {
             return typeof(T).Name switch
@@ -72,6 +67,7 @@ namespace ArchiveFqp.Models.ReferenceData
                 nameof(Рецензент) => (Reviewers as List<T>)!,
                 nameof(РольПользователя) => (RoleUsers as List<T>)!,
                 nameof(СтатусРаботы) => (WorkStatuses as List<T>)!,
+                nameof(СтатусЗаявления) => (ApplicationStatuses as List<T>)!,
                 nameof(Студент) => (Students as List<T>)!,
                 nameof(ТипРаботы) => (WorkTypes as List<T>)!,
                 nameof(Угсн) => (Ugsns as List<T>)!,
@@ -83,7 +79,7 @@ namespace ArchiveFqp.Models.ReferenceData
         }
 
         // Не забудьте обновлять этот метод при добавлении новых таблиц в ReferenceDataSnapshot
-        // а также в ReferenceDataService.cs:RefreshReferenceDataSnapshot()
+        // а также в ReferenceDataService.cs:RefreshReferenceDataSnapshot() !!!!!!!!!!!!!!!!!
         public void SetTable<T>(List<T> table) where T : class
         {
             switch (typeof(T).Name)
@@ -105,6 +101,7 @@ namespace ArchiveFqp.Models.ReferenceData
                 case nameof(Рецензент): Reviewers = (table as List<Рецензент>)!; break;
                 case nameof(РольПользователя): RoleUsers = (table as List<РольПользователя>)!; break;
                 case nameof(СтатусРаботы): WorkStatuses = (table as List<СтатусРаботы>)!; break;
+                case nameof(СтатусЗаявления): ApplicationStatuses = (table as List<СтатусЗаявления>)!; break;
                 case nameof(Студент): Students = (table as List<Студент>)!; break;
                 case nameof(ТипРаботы): WorkTypes = (table as List<ТипРаботы>)!; break;
                 case nameof(Угсн): Ugsns = (table as List<Угсн>)!; break;
@@ -112,7 +109,8 @@ namespace ArchiveFqp.Models.ReferenceData
                 case nameof(УровеньОбразования): EducationLevels = (table as List<УровеньОбразования>)!; break;
                 case nameof(ФормаОбучения): EducationForms = (table as List<ФормаОбучения>)!; break;
                 default: throw new ArgumentException($"Unknown type: {typeof(T).Name}");
-            };
+            }
+            ;
         }
     }
 }

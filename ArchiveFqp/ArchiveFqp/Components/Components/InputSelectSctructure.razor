@@ -1,0 +1,145 @@
+﻿@using ArchiveFqp.Factories.DisplayDto.Structure
+@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Models.DTO.Structure
+@using ArchiveFqp.Models.ReferenceData
+@inject IReferenceDataService RefDataService;
+@typeparam TItem where TItem : class
+
+@if (isInitialized)
+{
+    <InputSelect class="form-select"
+                 ValueExpression="() => Value"
+                 Value="Value"
+                 ValueChanged="ValueChanged"
+                 data-bs-toggle="tooltip" title="@(Value.HasValue? GetStructureInfo<TItem>(Value.Value) : DefaultTooltip)"
+                 disabled="@Disabled">
+        <option value="">@DefaultTooltip</option>
+
+        @switch (typeof(TItem).Name)
+        {
+            case nameof(Кафедра):
+                foreach (Кафедра i in (Items as IEnumerable<Кафедра>)!)
+                {
+                    <option value="@i.IdКафедры" data-bs-toggle="tooltip"
+                            title="@(GetStructureInfo<TItem>(i.IdКафедры))">
+                        @i.Название
+                    </option>
+                }
+                break;
+            case nameof(Направление):
+                foreach (Направление i in (Items as IEnumerable<Направление>)!)
+                {
+                    <option value="@i.IdНаправления" data-bs-toggle="tooltip"
+                            title="@(GetStructureInfo<TItem>(i.IdНаправления))">
+                        @i.Название
+                    </option>
+                }
+                break;
+            case nameof(Профиль):
+                foreach (Профиль i in (Items as IEnumerable<Профиль>)!)
+                {
+                    <option value="@i.IdПрофиля" data-bs-toggle="tooltip"
+                            title="@(GetStructureInfo<TItem>(i.IdПрофиля))">
+                        @i.Название
+                    </option>
+                }
+                break;
+            default:
+                throw new ArgumentException("Класс должен быть 1 из 3: Институт, Кафедра, Профиль");
+        }
+    </InputSelect>
+}
+
+@code {
+    [Parameter] public int? Value { get; set; }
+    [Parameter] public EventCallback<int?> ValueChanged { get; set; }
+
+    [Parameter] public IEnumerable<TItem>? Items { get; set; }
+    [Parameter] public ReferenceDataSnapshot? Snapshot { get; set; }
+
+    [Parameter] public string? DefaultTooltip { get; set; }
+    [Parameter] public bool Disabled { get; set; } = false;
+
+    private StructureDtoFactory structureFactory = null!;
+    private List<StructureDto> structures = [];
+
+    private bool isInitialized = false;
+
+    public InputSelectSctructure(IReferenceDataService refDataService, ReferenceDataSnapshot? snapshot = null)
+    {
+        Snapshot ??= snapshot;
+        Task.Run(() => Init(refDataService));
+        while (!isInitialized) Task.Delay(100);
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!isInitialized)
+        {
+            Task.Run(() => Init(RefDataService));
+            while (!isInitialized) Task.Delay(100);
+        }
+        StateHasChanged();
+    }
+
+    private async Task Init(IReferenceDataService refDataService)
+    {
+        structureFactory ??= new(refDataService);
+        Snapshot ??= await refDataService.GetAllAsync();
+
+        if (structures.Count == 0)
+        {
+            structures = (typeof(TItem).Name) switch
+            {
+                nameof(Кафедра) => await structureFactory.CreateDisplayDtoListAsync(Snapshot!.Departments),
+                nameof(Направление) => await structureFactory.CreateDisplayDtoListAsync(Snapshot!.Directions),
+                nameof(Профиль) => await structureFactory.CreateDisplayDtoListAsync(Snapshot!.Profiles),
+                _ => []
+            };
+            DefaultTooltip ??= (typeof(TItem).Name) switch
+            {
+                nameof(Кафедра) => "Выберите кафедру",
+                nameof(Направление) => "Выберите направление",
+                nameof(Профиль) => "Выберите профиль",
+                _ => ""
+            };
+        }
+
+        isInitialized = true;
+    }
+
+    public string GetStructureInfo<T>(int id) where T : class
+    {
+        StructureDto? str;
+        string info = "";
+
+        switch (typeof(T).Name)
+        {
+            case nameof(Кафедра):
+                str = structures.First(x => x.Кафедра.IdКафедры == id);
+                info = $"УГСН: {str.Угсн.Название}\n" +
+                        $"Стандарт УГСН: {str.УгснСтандарт.Название}\n" +
+                        $"Институт: {str.Институт.Название}\n";
+                break;
+            case nameof(Направление):
+                str = structures.First(x => x.Направление.IdНаправления == id);
+                info = $"Кафедра: {str.Кафедра.Название}\n" +
+                        $"УГСН: {str.Угсн.Название}\n" +
+                        $"Стандарт УГСН: {str.УгснСтандарт.Название}\n" +
+                        $"Институт: {str.Институт.Название}";
+                break;
+            case nameof(Профиль):
+                str = structures.First(x => id == (x.Профиль?.IdПрофиля ?? -1));
+                info = $"Направление: {str.Направление.Название}\n" +
+                        $"Кафедра: {str.Кафедра.Название}\n" +
+                        $"УГСН: {str.Угсн.Название}\n" +
+                        $"Стандарт УГСН: {str.УгснСтандарт.Название}\n" +
+                        $"Институт: {str.Институт.Название}";
+                break;
+            default:
+                throw new ArgumentException("Класс должен быть 1 из 3: Институт, Кафедра, Профиль");
+        }
+
+        return info;
+    }
+}

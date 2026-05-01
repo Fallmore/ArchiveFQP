@@ -2,7 +2,7 @@
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Structure;
-using ArchiveFqp.Models.DTO.Student;
+using ArchiveFqp.Models.ReferenceData;
 
 namespace ArchiveFqp.Factories.DisplayDto.Structure
 {
@@ -11,12 +11,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
         private readonly IReferenceDataService _refDataService;
         private readonly UserDtoFactory _userDisplayFactory;
 
-        private List<Институт> _institutes = [];
-        private List<Кафедра> _departments = [];
-        private List<Угсн> _ugsns = [];
-        private List<УгснСтандарт> _ugsnsStandarts = [];
-        private List<Направление> _directions = [];
-        private List<Профиль> _profiles = [];
+        private ReferenceDataSnapshot _snapshot = null!;
 
         private Task _init;
 
@@ -29,18 +24,13 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
 
         private async Task InitializeLists()
         {
-            _institutes = await _refDataService.GetAsync<Институт>();
-            _departments = await _refDataService.GetAsync<Кафедра>();
-            _ugsns = await _refDataService.GetAsync<Угсн>();
-            _ugsnsStandarts = await _refDataService.GetAsync<УгснСтандарт>();
-            _directions = await _refDataService.GetAsync<Направление>();
-            _profiles = await _refDataService.GetAsync<Профиль>();
+            _snapshot = await _refDataService.GetAllAsync();
         }
 
         public async Task<StructureDto?> CreateDisplayDtoAsync(int idProfile)
         {
             _init.Wait();
-            Профиль? profile = _profiles.FirstOrDefault(o => o.IdПрофиля == idProfile);
+            Профиль? profile = _snapshot.Profiles.FirstOrDefault(o => o.IdПрофиля == idProfile);
             if (profile == null) return null;
 
             return await CreateDisplayDtoAsync(profile);
@@ -61,17 +51,17 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
             switch (typeof(T).Name)
             {
                 case nameof(Профиль):
-                    Профиль? profile = _profiles.FirstOrDefault(o => o.IdПрофиля == id);
+                    Профиль? profile = _snapshot.Profiles.FirstOrDefault(o => o.IdПрофиля == id);
                     if (profile == null) return null;
 
                     return await CreateDisplayDtoAsync(profile);
                 case nameof(Направление):
-                    Направление? direction = _directions.FirstOrDefault(o => o.IdНаправления == id);
+                    Направление? direction = _snapshot.Directions.FirstOrDefault(o => o.IdНаправления == id);
                     if (direction == null) return null;
 
                     return await CreateDisplayDtoAsync(direction);
                 case nameof(Кафедра):
-                    Кафедра? department = _departments.FirstOrDefault(o => o.IdКафедры == id);
+                    Кафедра? department = _snapshot.Departments.FirstOrDefault(o => o.IdКафедры == id);
                     if (department == null) return null;
 
                     return await CreateDisplayDtoAsync(department);
@@ -80,40 +70,62 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
             }
         }
 
+        public async Task<StructureDto> CreateDisplayDtoAsync(Работа obj)
+        {
+            _init.Wait();
+            Студент? студент = (await _refDataService.GetAsync<Студент>()).FirstOrDefault(x => x.IdСтудента == obj.IdСтудента);
+            if (студент == null) return new();
+
+            return await CreateDisplayDtoAsync(студент);
+        }
+
+        public async Task<StructureDto> CreateDisplayDtoAsync(Студент obj)
+        {
+            _init.Wait();
+            Направление? направление = _snapshot.Directions.FirstOrDefault(x => x.IdНаправления == obj.IdНаправления);
+
+            if (obj.IdПрофиля != null)
+                return await CreateDisplayDtoAsync(obj.IdПрофиля.Value) ?? new();
+            else if (направление != null)
+                return await CreateDisplayDtoAsync(направление);
+
+            return new();
+        }
+
         public async Task<StructureDto> CreateDisplayDtoAsync(Профиль obj)
         {
             _init.Wait();
-            Направление направление = _directions.FirstOrDefault(x => x.IdНаправления == obj.IdНаправления) ?? new();
+            Направление? направление = _snapshot.Directions.FirstOrDefault(x => x.IdНаправления == obj.IdНаправления);
             if (направление == null) return new() { Профиль = obj };
 
-            StructureDto f = await CreateDisplayDtoAsync(направление);
-            f.Профиль = obj;
-            return f;
+            StructureDto res = await CreateDisplayDtoAsync(направление);
+            res.Профиль = obj;
+            return res;
         }
 
         public async Task<StructureDto> CreateDisplayDtoAsync(Направление obj)
         {
             _init.Wait();
-            Кафедра? кафедра = _departments.FirstOrDefault(o => o.IdКафедры == obj.IdКафедры);
+            Кафедра? кафедра = _snapshot.Departments.FirstOrDefault(o => o.IdКафедры == obj.IdКафедры);
             if (кафедра == null) return new() { Направление = obj };
+            Угсн угсн = _snapshot.Ugsns.FirstOrDefault(o => o.IdУгсн == obj.IdУгсн) ?? new();
 
-            StructureDto f = await CreateDisplayDtoAsync(кафедра);
-            f.Направление = obj;
-            return f;
+            StructureDto res = await CreateDisplayDtoAsync(кафедра);
+            res.Направление = obj;
+            res.Угсн = угсн;
+            res.УгснСтандарт = _snapshot.UgsnStandarts.FirstOrDefault(o => o.IdУгснСтандарта == угсн.IdУгснСтандарта) ?? new();
+            return res;
         }
 
         public async Task<StructureDto> CreateDisplayDtoAsync(Кафедра obj)
         {
             _init.Wait();
-            Институт институт = _institutes.FirstOrDefault(o => o.IdИнститута == obj.IdИнститута) ?? new();
-            Угсн угсн = _ugsns.FirstOrDefault(o => o.IdУгсн == obj.IdУгсн) ?? new();
+            Институт институт = _snapshot.Institutes.FirstOrDefault(o => o.IdИнститута == obj.IdИнститута) ?? new();
 
             return new()
             {
                 Институт = институт,
                 Кафедра = obj,
-                Угсн = угсн,
-                УгснСтандарт = _ugsnsStandarts.FirstOrDefault(o => o.IdУгснСтандарта == угсн.IdУгснСтандарта) ?? new()
             };
         }
 

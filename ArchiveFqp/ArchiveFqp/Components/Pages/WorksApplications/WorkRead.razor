@@ -1,0 +1,498 @@
+﻿@page "/work/{IdWork:int}"
+@using System.IO
+@using ArchiveFqp.Factories.DisplayDto.Structure
+@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Interfaces.User
+@using ArchiveFqp.Models.DTO.Structure
+@using ArchiveFqp.Models.Settings.SettingsArchive
+@using ArchiveFqp.Services.PdfRender
+@using System.Security.Claims
+@implements IDisposable
+@inject IPdfRenderService PdfRenderService
+@inject IJSRuntime JS
+@inject IReferenceDataService RefDataService
+@inject IUserService UserService
+@inject SettingsArchive Settings
+@rendermode @(new InteractiveServerRenderMode())
+
+<script type="module" src="@Assets["Components/Pages/WorksApplications/WorkRead.razor.js"]"></script>
+
+@if (RendererInfo.IsInteractive)
+{
+    <div class="pdf-viewer-container d-flex flex-column vh-100 bg-light">
+        @if (state == ViewState.Error)
+        {
+            <div class="alert alert-danger m-3 d-flex flex-column align-items-center justify-content-center" role="alert">
+                <span>⚠️ @errorMessage</span>
+                <button type="button" class="btn btn-outline-danger btn-sm" @onclick="Retry">Повторить</button>
+            </div>
+        }
+        else if (state == ViewState.Loading)
+        {
+            <div class="d-flex justify-content-center align-items-center flex-grow-1">
+                <div class="text-center">
+                    <div class="spinner-border text-primary mb-2" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <div class="text-muted">Загрузка документа...</div>
+                    @if (renderProgress > 0)
+                    {
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: @(renderProgress)%"></div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        else if (state == ViewState.Ready && _allPagesBase64 != null && _allPagesBase64.Count > 0)
+        {
+            <!-- Панель инструментов -->
+            <nav class="navbar navbar-expand-lg bg-white shadow-sm sticky-top p-2">
+                <div class="container-fluid">
+                    <!-- Группа навигации -->
+                    <div class="d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                @onclick="GoToFirstPage"
+                                disabled="@(currentPageIndex <= 0)"
+                                title="Первая страница">
+                            ⏮
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                @onclick="GoToPreviousPage"
+                                disabled="@(currentPageIndex <= 0)"
+                                title="Предыдущая страница">
+                            ◀
+                        </button>
+                    
+                        <div class="d-flex align-items-center gap-1 ms-2 me-2">
+                            <span class="text-nowrap small">Стр.</span>
+                            <input type="number"
+                                   class="form-control form-control-sm text-center"
+                                   style="width: 65px;"
+                                   @bind-value="pageInput"
+                                   @bind-value:event="oninput"
+                                   @onkeydown="HandlePageInputKeyDown"
+                                   min="1"
+                                   max="@totalPages" />
+                            <span class="text-nowrap small">из @totalPages</span>
+                        </div>
+                    
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                @onclick="GoToNextPage"
+                                disabled="@(currentPageIndex >= totalPages - 1)"
+                                title="Следующая страница">
+                            ▶
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                @onclick="GoToLastPage"
+                                disabled="@(currentPageIndex >= totalPages - 1)"
+                                title="Последняя страница">
+                            ⏭
+                        </button>
+                    </div>
+
+                    <!-- Группа зума -->
+                    <div class="d-flex align-items-start">
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                @onclick="ZoomOut"
+                                disabled="@(scale <= minScale)"
+                                title="Уменьшить">
+                            <span>-</span>
+                        </button>
+                    
+                        <div class="container" style="width:4em">
+                            <span class="text-nowrap small">@(scale)%</span>
+                        </div>
+
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                @onclick="ZoomIn"
+                                disabled="@(scale >= maxScale)"
+                                title="Увеличить">
+                            <span>+</span>
+                        </button>
+                    
+                        <button type="button" class="btn btn-outline-secondary btn-sm ms-1"
+                                @onclick="ResetZoom"
+                                title="Сбросить масштаб">
+                            ↺
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Контейнер страниц -->
+            <div class="overflow-auto d-flex flex-column align-items-center" style="padding:20px; gap:20px;">
+                @for (int i = 0; i < _allPagesBase64.Count; i++)
+                {
+                    var pageIndex = i;
+                    <div class="page-wrapper @(pageIndex == currentPageIndex ? "current-page" : "") mx-2"
+                         id="@($"page-{pageIndex}")"
+                         style="--zoom-level: @scale">
+                        <img class="page-image"
+                             src="@GetPageDataUrl(pageIndex)"
+                             alt="Страница @(pageIndex + 1)"
+                             loading="lazy"
+                             oncontextmenu="return false;"
+                             ondragstart="return false;" />
+                        <div class="page-number">@(pageIndex + 1)</div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="d-flex flex-column align-items-center" role="alert">
+                <span style="font-size: 64px;">📄</span>
+                <span>Документ не загружен</span>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? authenticationState { get; set; }
+
+    [Parameter] public int? IdWork { get; set; }
+    [Parameter] public ЗаявлениеРаботы? ApplicationWork { get; set; }
+
+    private enum ViewState { Loading, Ready, Error }
+    private ViewState state = ViewState.Loading;
+
+    private List<string>? _allPagesBase64;
+    private int currentPageIndex = 0;
+    private int pageInput = 1;
+    private int renderProgress = 0;
+    private int totalPages;
+    private int scale = 100;
+    private int minScale = 25;
+    private int maxScale = 300;
+    private int stepScale = 10;
+    private string watermarkText = "ДЛЯ ПРОСМОТРА";
+    private string? errorMessage;
+
+    private Task? ExpirationCheckTask;
+    private Task? LoadWorkTask;
+    CancellationTokenSource cancelTokenSource = new CancellationTokenSource();
+    CancellationTokenSource? cancelTokenSourceRender;
+
+    protected override async Task OnInitializedAsync()
+    {
+        state = ViewState.Loading;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            if (_allPagesBase64 == null && IdWork != null)
+            {
+                if (!(await CheckWorkExists())) return;
+                if (!(await CheckClaims())) return;
+                LoadWorkTask = LoadDocumentAsync();
+            }
+        }
+    }
+
+    // protected override async Task OnParametersSetAsync()
+    // {
+    //     if (RendererInfo.IsInteractive)
+    //     {
+    //         if (_allPagesBase64 == null && IdWork != null)
+    //         {
+    //             if (!(await CheckWorkExists())) return;
+    //             // if (!(await CheckClaims())) return;
+    //             await LoadDocumentAsync();
+    //         }
+    //     }
+    // }
+
+    private async Task<bool> CheckWorkExists()
+    {
+        errorMessage = null;
+        Работа? work = (await RefDataService.GetAsync<Работа>()).FirstOrDefault(x => x.IdРаботы == IdWork);
+        if (work == null)
+        {
+            errorMessage = "Не удалось найти работу для просмотра";
+            return false;
+        }
+        return true;
+    }
+
+    private async Task<bool> CheckClaims()
+    {
+        errorMessage = null;
+        if (authenticationState == null)
+        {
+            errorMessage = "Не подключен сервис авторизации";
+            return false;
+        }
+
+        AuthenticationState? authState = await authenticationState;
+        ClaimsPrincipal? user = authState?.User;
+
+        if (user == null)
+        {
+            errorMessage = "Вы не найдены в авторизации";
+            return false;
+        }
+
+        if (user.Identity == null || !user.Identity.IsAuthenticated)
+        {
+            errorMessage = "Вы не авторизованы";
+            return false;
+        }
+
+        int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
+
+        if (ApplicationWork != null)
+        {
+            if (ApplicationWork.IdПользователя != idUser)
+            {
+                errorMessage = "Вы не владелец заявления на просмотр данной работы";
+                return false;
+            }
+
+            СтатусЗаявления status = (await RefDataService.GetAsync<СтатусЗаявления>())
+                .First(x => x.IdСтатуса == ApplicationWork.IdСтатуса);
+
+            if (status.Название == Settings.ApplicationsActiveStatus && ApplicationWork.ДатаВозврПоЗаявл > DateTime.Now)
+            {
+                ExpirationCheckTask = Task.Run(() => CheckExpire(cancelTokenSource.Token));
+                watermarkText = $"ТОЛЬКО ПРОСМОТР ДЛЯ {user.Identity!.Name!.ToUpper()}";
+                return true;
+            }
+
+        }
+        else
+        {
+            if (user.IsInRole(Settings.RoleAdminName)) return true;
+
+            Преподаватель? teacher = (await RefDataService.GetAsync<Преподаватель>())
+                .FirstOrDefault(x => x.IdПользователя == idUser);
+
+            if (teacher == null)
+            {
+                errorMessage = "Вы не числитесь в университете";
+                return false;
+            }
+
+            Работа work = (await RefDataService.GetAsync<Работа>()).First(x => x.IdРаботы == IdWork);
+            StructureDtoFactory factory = new(RefDataService);
+            StructureDto structure = await factory.CreateDisplayDtoAsync(work);
+
+            if (user.IsInRole(Settings.RoleInstituteResponsibleName))
+            {
+                if (structure.Институт.IdИнститута != teacher.IdИнститута)
+                {
+                    errorMessage = $"Вы не числитесь в {structure.Институт.Название.Insert(structure.Институт.Название.IndexOf(' '), "е")}";
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (user.IsInRole(Settings.RoleDepartmentResponsibleName))
+            {
+                if (structure.Кафедра.IdКафедры != teacher.IdКафедры)
+                {
+                    errorMessage = $"Вы не числитесь на кафедре \"{structure.Кафедра.Название}\" {structure.Институт.Название.Insert(structure.Институт.Название.IndexOf(' '), "а")}";
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
+        errorMessage = "Вам недоступен просмотр данной работы";
+        return false;
+    }
+
+    private async Task CheckExpire(CancellationToken cancellationToken)
+    {
+        bool expired()
+        {
+            if (ApplicationWork!.ДатаВозврПоЗаявл <= DateTime.Now)
+            {
+                errorMessage = "Время просмотра истекло";
+                _allPagesBase64 = null;
+                return true;
+            }
+            return false;
+        }
+
+        while (!cancellationToken.IsCancellationRequested || !expired())
+        {
+            try
+            {
+                int minutes = (ApplicationWork!.ДатаВозврПоЗаявл - DateTime.Now).Minutes;
+                await Task.Delay(TimeSpan.FromMinutes(minutes), cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // корректный выход при остановке
+            }
+            catch (Exception)
+            {
+            }
+        }
+    }
+
+    // ======== ЗАГРУЗКА ДОКУМЕНТА ========
+
+    private async Task LoadDocumentAsync()
+    {
+        if (IdWork == null)
+        {
+            state = ViewState.Ready;
+            return;
+        }
+
+        // Отменяем предыдущую загрузку
+        cancelTokenSourceRender?.Cancel();
+        cancelTokenSourceRender = new CancellationTokenSource();
+
+        state = ViewState.Loading;
+        errorMessage = null;
+        renderProgress = 0;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Run(async () =>
+            {
+                Stream? pdfStream = await GetFileStreamByIdAsync(IdWork.Value);
+                if (pdfStream == null)
+                {
+                    errorMessage = "Не удалось загрузить файл документа.";
+                    state = ViewState.Error;
+                    return;
+                }
+
+                cancelTokenSourceRender.Token.ThrowIfCancellationRequested();
+
+                Progress<int> progress = new(percent =>
+                {
+                    renderProgress = percent;
+                    InvokeAsync(StateHasChanged);
+                });
+
+                // Рендерим через сервис с водяным знаком
+                _allPagesBase64 = await PdfRenderService.RenderPdfToBase64Async(
+                    pdfStream, cancelTokenSource.Token,
+                    watermarkText, 3.0f, progress);
+
+                cancelTokenSourceRender.Token.ThrowIfCancellationRequested();
+
+                totalPages = _allPagesBase64.Count;
+                currentPageIndex = 0;
+                renderProgress = 100;
+                pageInput = 1;
+                state = ViewState.Ready;
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // Загрузка отменена
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка при загрузке документа: {ex.Message}";
+            state = ViewState.Error;
+        }
+        finally
+        {
+            if (!cancelTokenSourceRender.Token.IsCancellationRequested)
+            {
+                cancelTokenSourceRender?.Dispose();
+                cancelTokenSourceRender = null;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task<Stream?> GetFileStreamByIdAsync(int idWork)
+    {
+        try
+        {
+            return await PdfRenderService.GetPdfStream(idWork, RefDataService, Settings);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка загрузки PDF: {ex.Message}");
+        }
+
+        return null;
+    }
+
+    // ======== НАВИГАЦИЯ ========
+
+    private async Task GoToPage(int pageIndex)
+    {
+        if (pageIndex < 0 || pageIndex >= totalPages) return;
+
+        currentPageIndex = pageIndex;
+        pageInput = pageIndex + 1;
+        await ScrollToPage(pageIndex);
+        StateHasChanged();
+    }
+
+    private async Task ScrollToPage(int pageIndex)
+    {
+        await JS.InvokeVoidAsync("pdfViewer.scrollToPage", pageIndex);
+    }
+
+    private async Task GoToFirstPage() => await GoToPage(0);
+    private async Task GoToPreviousPage() => await GoToPage(currentPageIndex - 1);
+    private async Task GoToNextPage() => await GoToPage(currentPageIndex + 1);
+    private async Task GoToLastPage() => await GoToPage(totalPages - 1);
+
+    private async Task HandlePageInputKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            if (pageInput >= 1 && pageInput <= totalPages)
+            {
+                await GoToPage(pageInput - 1);
+            }
+            else
+            {
+                pageInput = currentPageIndex + 1;
+            }
+        }
+        while (pageInput > totalPages)
+        {
+            pageInput /= 10;
+        }
+    }
+
+    // ======== МАСШТАБ ========
+
+    private void ZoomIn() => scale = Math.Min(maxScale, scale + stepScale);
+    private void ZoomOut() => scale = Math.Max(minScale, scale - stepScale);
+    private void ResetZoom() => scale = 100;
+
+    // ======== ДОПОЛНИТЕЛЬНО ========
+
+    private async Task Retry()
+    {
+        errorMessage = null;
+        await Task.Delay(500);
+        await OnParametersSetAsync();
+        StateHasChanged();
+    }
+
+    private string GetPageDataUrl(int pageIndex)
+    {
+        if (_allPagesBase64 == null || pageIndex >= _allPagesBase64.Count)
+            return string.Empty;
+        return $"data:image/png;base64,{_allPagesBase64[pageIndex]}";
+    }
+
+    public void Dispose()
+    {
+        cancelTokenSourceRender?.Cancel();
+        cancelTokenSourceRender?.Dispose();
+        cancelTokenSource.Cancel();
+        cancelTokenSource.Dispose();
+    }
+}

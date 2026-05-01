@@ -1,7 +1,9 @@
 ﻿@page "/works/applications/send"
 @using ArchiveFqp.Models.Settings.SettingsArchive
+@using Microsoft.AspNetCore.Authorization
 @inject SettingsArchive Settings
 @rendermode @(new InteractiveServerRenderMode())
+@attribute [Authorize(Roles = "Преподаватель,Студент")]
 
 <PageTitle>АГТУ - Заявления на просмотр работы</PageTitle>
 
@@ -13,7 +15,7 @@
                 <div class="card mb-2">
                     <div class="card-body">
                         <div class="card-title fw-bold">Новое заявление</div>
-                        <WorkApplication WorkId="WorkId" @key="WorkId"/>
+                        <WorkApplication IdWork="IdWork" @key="IdWork"/>
                     </div>
                 </div>
             </div>
@@ -70,5 +72,5 @@
 @code {
     [Parameter]
     [SupplyParameterFromQuery(Name = "w")]
-    public int? WorkId { get; set; }
+    public int? IdWork { get; set; }
 }

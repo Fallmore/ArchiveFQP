@@ -4,6 +4,6 @@ namespace ArchiveFqp.Models.Settings.Institute
 {
     public class SettingsInstitute
     {
-        public List<SettingsDepartment> SettingsDepartments { get; set; } = new ();
+        public List<SettingsDepartment> SettingsDepartments { get; set; } = new();
     }
 }

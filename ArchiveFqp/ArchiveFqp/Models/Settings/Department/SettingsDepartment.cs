@@ -4,6 +4,6 @@ namespace ArchiveFqp.Models.Settings.Department
 {
     public class SettingsDepartment
     {
-        public List<SettingsDirection> SettingsDirections { get; set; } = new ();
+        public List<SettingsDirection> SettingsDirections { get; set; } = new();
     }
 }

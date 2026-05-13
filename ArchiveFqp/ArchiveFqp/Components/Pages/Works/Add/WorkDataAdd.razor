@@ -5,6 +5,7 @@
 @using ArchiveFqp.Models.DTO
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.Work
+@using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.FileUpload
 @using ArchiveFqp.Models.ReferenceData
 @using ArchiveFqp.Models.Settings.SettingsArchive
@@ -742,7 +743,8 @@
                     .OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия)
                     .ToList();
 
-                if (!filteredStudents.Exists(s => s.IdСтудента == WorkDto.IdСтудента) && WorkDto.IdСтудента != null)
+                if (!filteredStudents.Exists(s => s.IdСтудента == WorkDto.IdСтудента) 
+                    && WorkDto.IdСтудента != null && !WorkDto.IsNewUser)
                 {
                     WorkDto.IdСтудента = null;
                     await OnStudentChanged(null);
@@ -833,6 +835,7 @@
         successMessage = null;
         messageStore?.Clear();
 
+#pragma warning disable CS8603 // Возможно, возврат ссылки, допускающей значение NULL.
         if (WorkDto.IsNewUser)
         {
             if (string.IsNullOrWhiteSpace(WorkDto.Name))
@@ -852,6 +855,7 @@
                 messageStore?.Add(() => WorkDto.IdСтудента, "Выберите студента");
             }
         }
+#pragma warning restore CS8603
     }
 
 
@@ -1117,6 +1121,11 @@
         }
         finally
         {
+            if (WorkDto.IsNewUser)
+            {
+                WorkDto.IsNewUser = false;
+                await OnStudentChanged(WorkDto.IdСтудента);
+            }
             isUploading = false;
             StateHasChanged();
         }
@@ -1131,11 +1140,11 @@
         });
     }
 
-    private async void OnTablesChanged(object? sender, List<string> e)
+    private async void OnTablesChanged(object? sender, TableChangeEvent e)
     {
-        if (WorkDto.IdРаботы > 0) return;
+        if (WorkDto.IdРаботы != 0) return;
 
-        if (ReferenceDataSnapshot.GetTablesName().Intersect(e).Count() != 0)
+        if (ReferenceDataSnapshot.GetTablesName().Contains(e.TableName))
         {
             await InvokeAsync(async () =>
             {
@@ -1143,9 +1152,9 @@
                 StateHasChanged();
             });
         }
-        else if (e.Contains(nameof(Пользователь)) || e.Contains(nameof(Работа)))
+        else if (e.TableName == nameof(Пользователь) || e.TableName == nameof(Работа) || e.TableName == nameof(Студент))
         {
-            if (e.Contains(nameof(Пользователь)))
+            if (e.TableName == nameof(Пользователь) || e.TableName == nameof(Студент))
             {
                 await InvokeAsync(async () =>
                 {

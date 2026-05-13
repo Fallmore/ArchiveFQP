@@ -87,7 +87,8 @@
 
     private async Task OnWorkDTOChanged()
     {
-        if (WorkDto.IdРаботы != 0)
+        // IdРаботы != 0 когда работа добавлена
+        if (WorkDto.IdРаботы != 0 && WorkDto.Attributes == null)
         {
             await Task.Delay(300);
             WorkDto.Attributes = (await WorkService.GetWorkAttributesAsync(WorkDto.IdРаботы, []))
@@ -98,7 +99,7 @@
                     return a;
                 }).ToList();
 
-            if (WorkDto.Attributes == default)
+            if (WorkDto.Attributes == null)
             {
                 WorkDto.AttributesValuesAdded = true;
                 await End();
@@ -123,8 +124,8 @@
             await End();
 
             // Закрываем аккордеон атрибутов и открываем - данных
-            await JSRuntime.InvokeVoidAsync("eval",
-            "document.querySelector('[data-bs-target=\"#collapseWorkData\"]').click()");
+            // await JSRuntime.InvokeVoidAsync("eval",
+            // "document.querySelector('[data-bs-target=\"#collapseWorkData\"]').click()");
         }
         await WorkDTOChanged.InvokeAsync(WorkDto);
     }

@@ -9,16 +9,17 @@ namespace ArchiveFqp.Models.Search
     /// </summary>
     public class WorkSearchModel : SearchModel
     {
-        public int IdWork { get; set; } = -1;
-        public int IdStudent { get; set; } = -1;
-        public int IdTeacher { get; set; } = -1;
-        public int IdPost { get; set; } = -1;
+        public int? IdWork { get; set; }
+        public int? IdStudent { get; set; }
+        public int? IdTeacher { get; set; }
+        public int? IdPost { get; set; }
         public int? IdInstitute { get; set; }
         public int? IdDepartment { get; set; }
         public int? IdDirection { get; set; }
         public int? IdProfile { get; set; }
-        public int IdWorkType { get; set; } = -1;
-        public int IdWorkStatus { get; set; } = -1;
+        public int? IdWorkType { get; set; }
+        public int? IdWorkStatus { get; set; }
+        public int? IdWorkAccess { get; set; }
         public List<int> IdConsultants { get; set; } = [-1];
         public List<int> IdReviewers { get; set; } = [-1];
         public int? MinPages { get; set; }

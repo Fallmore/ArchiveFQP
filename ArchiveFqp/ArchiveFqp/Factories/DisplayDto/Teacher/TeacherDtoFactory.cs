@@ -68,7 +68,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
             return await CreateDisplayDtoAsync(teacher);
         }
 
-        public async Task<List<TeacherDisplayDto>> CreateDisplayDtoListAsync(IEnumerable<Преподаватель> teachers)
+        public async Task<List<TeacherDisplayDto>> CreateDisplayDtoAsync(IEnumerable<Преподаватель> teachers)
         {
             IEnumerable<Task<TeacherDisplayDto>> tasks = teachers.Select(CreateDisplayDtoAsync);
             TeacherDisplayDto[] results = await Task.WhenAll(tasks);
@@ -76,14 +76,14 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
         }
 
         /// <summary>
-        /// <inheritdoc cref="CreateDisplayDtoListAsync"/> через id без актуальных должностей
+        /// <inheritdoc cref="CreateDisplayDtoAsync(IEnumerable{Преподаватель})"/> через id без актуальных должностей
         /// </summary>
         /// <param name="teachers"></param>
         /// <param name="useId"></param>
         /// <returns></returns>
-        public async Task<List<TeacherDisplayDto>> CreateDisplayDtoListAsync(IEnumerable<Преподаватель> teachers, bool useId = false)
+        public async Task<List<TeacherDisplayDto>> CreateDisplayDtoAsync(IEnumerable<Преподаватель> teachers, bool useId = false)
         {
-            if (!useId) return await CreateDisplayDtoListAsync(teachers);
+            if (!useId) return await CreateDisplayDtoAsync(teachers);
 
             IEnumerable<Task<TeacherDisplayDto>> tasks = teachers.Select(o => CreateDisplayDtoAsync(o.IdПреподавателя, o.IdДолжности));
             TeacherDisplayDto[] results = await Task.WhenAll(tasks);
@@ -91,11 +91,11 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
         }
 
         /// <summary>
-        /// <inheritdoc cref="CreateDisplayDtoListAsync"/>
+        /// <inheritdoc cref="CreateDisplayDtoAsync(IEnumerable{Преподаватель})"/>
         /// </summary>
         /// <param name="consultants"></param>
         /// <returns></returns>
-        public async Task<List<TeacherDisplayDto>> CreateDisplayDtoListAsync(IEnumerable<Консультант> consultants)
+        public async Task<List<TeacherDisplayDto>> CreateDisplayDtoAsync(IEnumerable<Консультант> consultants)
         {
             IEnumerable<Task<TeacherDisplayDto>> tasks = consultants.Select(o => CreateDisplayDtoAsync(o.IdПреподавателя, o.IdДолжности));
             TeacherDisplayDto[] results = await Task.WhenAll(tasks);
@@ -103,11 +103,11 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
         }
 
         /// <summary>
-        /// <inheritdoc cref="CreateDisplayDtoListAsync"/>
+        /// <inheritdoc cref="CreateDisplayDtoAsync(IEnumerable{Преподаватель})"/>
         /// </summary>
         /// <param name="reviewers"></param>
         /// <returns></returns>
-        public async Task<List<TeacherDisplayDto>> CreateDisplayDtoListAsync(IEnumerable<Рецензент> reviewers)
+        public async Task<List<TeacherDisplayDto>> CreateDisplayDtoAsync(IEnumerable<Рецензент> reviewers)
         {
             IEnumerable<Task<TeacherDisplayDto>> tasks = reviewers.Select(o => CreateDisplayDtoAsync(o.IdПреподавателя, o.IdДолжности));
             TeacherDisplayDto[] results = await Task.WhenAll(tasks);

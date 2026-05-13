@@ -2,6 +2,7 @@
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Structure;
+using ArchiveFqp.Models.DTO.User;
 using ArchiveFqp.Models.ReferenceData;
 
 namespace ArchiveFqp.Factories.DisplayDto.Structure
@@ -42,7 +43,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
         /// <typeparam name="T">1 из 3 классов: <see cref="Профиль"/>, 
         /// <see cref="Направление"/> или <see cref="Кафедра"/></typeparam>
         /// <param name="id"></param>
-        /// <returns>Вовзращает DTO <see cref="StructureDto"/> или <stron>null</value> в случае,
+        /// <returns>Вовзращает DTO <see cref="StructureDto"/> или <strong>null</strong> в случае,
         /// если был не найден объект типа <typeparamref name="T"/> или указанный 
         /// тип не соотвествует ни одному из указанных типов параметра T</returns>
         public async Task<StructureDto?> CreateDisplayDtoAsync<T>(int id) where T : class
@@ -70,6 +71,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
             }
         }
 
+        /// <inheritdoc cref="IDisplayDtoFactory{T, V}.CreateDisplayDtoAsync(V)"/>
         public async Task<StructureDto> CreateDisplayDtoAsync(Работа obj)
         {
             _init.Wait();
@@ -79,6 +81,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
             return await CreateDisplayDtoAsync(студент);
         }
 
+        /// <inheritdoc cref="CreateDisplayDtoAsync(Профиль)"/>
         public async Task<StructureDto> CreateDisplayDtoAsync(Студент obj)
         {
             _init.Wait();
@@ -103,6 +106,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
             return res;
         }
 
+        /// <inheritdoc cref="CreateDisplayDtoAsync(Профиль)"/>
         public async Task<StructureDto> CreateDisplayDtoAsync(Направление obj)
         {
             _init.Wait();
@@ -117,6 +121,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
             return res;
         }
 
+        /// <inheritdoc cref="CreateDisplayDtoAsync(Профиль)"/>
         public async Task<StructureDto> CreateDisplayDtoAsync(Кафедра obj)
         {
             _init.Wait();
@@ -129,21 +134,23 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
             };
         }
 
-        public async Task<List<StructureDto>> CreateDisplayDtoListAsync(IEnumerable<Профиль> obj)
+        public async Task<List<StructureDto>> CreateDisplayDtoAsync(IEnumerable<Профиль> obj)
         {
             IEnumerable<Task<StructureDto>> tasks = obj.Select(CreateDisplayDtoAsync);
             StructureDto[] results = await Task.WhenAll(tasks);
             return results.ToList();
         }
 
-        public async Task<List<StructureDto>> CreateDisplayDtoListAsync(IEnumerable<Направление> obj)
+        /// <inheritdoc cref="CreateDisplayDtoAsync(IEnumerable{Профиль})"/>
+        public async Task<List<StructureDto>> CreateDisplayDtoAsync(IEnumerable<Направление> obj)
         {
             IEnumerable<Task<StructureDto>> tasks = obj.Select(CreateDisplayDtoAsync);
             StructureDto[] results = await Task.WhenAll(tasks);
             return results.ToList();
         }
 
-        public async Task<List<StructureDto>> CreateDisplayDtoListAsync(IEnumerable<Кафедра> obj)
+        /// <inheritdoc cref="CreateDisplayDtoAsync(IEnumerable{Профиль})"/>
+        public async Task<List<StructureDto>> CreateDisplayDtoAsync(IEnumerable<Кафедра> obj)
         {
             IEnumerable<Task<StructureDto>> tasks = obj.Select(CreateDisplayDtoAsync);
             StructureDto[] results = await Task.WhenAll(tasks);

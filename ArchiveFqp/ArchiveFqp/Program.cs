@@ -18,6 +18,7 @@ using ArchiveFqp.Services.FileUpload;
 using ArchiveFqp.Services.Hash;
 using ArchiveFqp.Services.PdfRender;
 using ArchiveFqp.Services.ReferenceData;
+using ArchiveFqp.Services.Report;
 using ArchiveFqp.Services.User;
 using ArchiveFqp.Services.Work;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -48,7 +49,7 @@ builder.Services.AddScoped<IApplicationsService, ApplicationsService>();
 //builder.Services.AddTransient<StateContainer>();
 //builder.ServicesdScoped<StateContainer>();
 builder.Services.AddScoped<IPdfRenderService, PdfSciaRenderService>();
-
+builder.Services.AddScoped<ReportService>();
 
 // Подключение к БД
 string conString = builder.Configuration.GetConnectionString("ArchiveFqpContext") ??

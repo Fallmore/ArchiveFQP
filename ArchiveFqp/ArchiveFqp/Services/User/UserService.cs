@@ -7,6 +7,7 @@ using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Student;
 using ArchiveFqp.Models.DTO.Teacher;
 using ArchiveFqp.Models.DTO.User;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
 
 namespace ArchiveFqp.Services.User
@@ -53,6 +54,19 @@ namespace ArchiveFqp.Services.User
             return await _factoryUser.CreateDisplayDtoAsync(user);
         }
 
+        public async Task<List<UserDisplayDto>> GetUserDisplayAsync(List<int> idUsers)
+        {
+            List<Пользователь> users = (await _refDataService.GetAsync<Пользователь>())
+                .Where(x => idUsers.Contains(x.IdПользователя))
+                .ToList();
+            return await GetUserDisplayAsync(users);
+        }
+
+        public async Task<List<UserDisplayDto>> GetUserDisplayAsync(List<Пользователь> users)
+        {
+            return await _factoryUser.CreateDisplayDtoAsync(users);
+        }
+
         public async Task<TeacherDisplayDto?> GetTeacherDisplayAsync(int idUser)
         {
             Преподаватель? teacher = (await _refDataService.GetAsync<Преподаватель>()).FirstOrDefault(x => x.IdПользователя == idUser);
@@ -65,6 +79,19 @@ namespace ArchiveFqp.Services.User
             return await GetTeacherDisplayAsync(user.IdПользователя);
         }
 
+        public async Task<List<TeacherDisplayDto>> GetTeacherDisplayAsync(List<int> idUsers)
+        {
+            List<Преподаватель> teachers = (await _refDataService.GetAsync<Преподаватель>())
+                .Where(x => idUsers.Contains(x.IdПользователя))
+                .ToList();
+            return await _factoryTeacher.CreateDisplayDtoAsync(teachers);
+        }
+
+        public async Task<List<TeacherDisplayDto>> GetTeacherDisplayAsync(List<Пользователь> users)
+        {
+            return await GetTeacherDisplayAsync(users.Select(x => x.IdПользователя).ToList());
+        }
+
         public async Task<StudentDisplayDto?> GetStudentDisplayAsync(int idUser)
         {
             Студент? student = (await _refDataService.GetAsync<Студент>()).FirstOrDefault(x => x.IdПользователя == idUser);
@@ -75,6 +102,19 @@ namespace ArchiveFqp.Services.User
         public async Task<StudentDisplayDto?> GetStudentDisplayAsync(Пользователь user)
         {
             return await GetStudentDisplayAsync(user.IdПользователя);
+        }
+
+        public async Task<List<StudentDisplayDto>> GetStudentDisplayAsync(List<int> idUsers)
+        {
+            List<Студент> students = (await _refDataService.GetAsync<Студент>())
+                .Where(x => idUsers.Contains(x.IdПользователя))
+                .ToList();
+            return await _factoryStudent.CreateDisplayDtoAsync(students);
+        }
+
+        public async Task<List<StudentDisplayDto>> GetStudentDisplayAsync(List<Пользователь> users)
+        {
+            return await GetStudentDisplayAsync(users.Select(x => x.IdПользователя).ToList());
         }
 
         public async Task<bool> UpdateUser(Пользователь user)

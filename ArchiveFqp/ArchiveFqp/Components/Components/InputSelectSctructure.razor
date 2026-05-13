@@ -91,9 +91,9 @@
         {
             structures = (typeof(TItem).Name) switch
             {
-                nameof(Кафедра) => await structureFactory.CreateDisplayDtoListAsync(Snapshot!.Departments),
-                nameof(Направление) => await structureFactory.CreateDisplayDtoListAsync(Snapshot!.Directions),
-                nameof(Профиль) => await structureFactory.CreateDisplayDtoListAsync(Snapshot!.Profiles),
+                nameof(Кафедра) => await structureFactory.CreateDisplayDtoAsync(Snapshot!.Departments),
+                nameof(Направление) => await structureFactory.CreateDisplayDtoAsync(Snapshot!.Directions),
+                nameof(Профиль) => await structureFactory.CreateDisplayDtoAsync(Snapshot!.Profiles),
                 _ => []
             };
             DefaultTooltip ??= (typeof(TItem).Name) switch

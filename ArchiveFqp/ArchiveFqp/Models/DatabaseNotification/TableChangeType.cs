@@ -5,8 +5,8 @@
     /// </summary>
     public enum TableChangeType
     {
-        INSERT,
-        UPDATE,
-        DELETE,
+        Insert,
+        Update,
+        Delete,
     }
 }

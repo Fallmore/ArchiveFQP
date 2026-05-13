@@ -71,6 +71,11 @@ namespace ArchiveFqp.Models.DTO.Work
         private List<AttributeDto>? attributes;
         public List<AttributeDto>? Attributes { get => attributes; set => SetAttibutes(value); }
 
+        /// <summary>
+        /// Обновляет список атрибутов, добавляя новые, оставляя старые
+        /// и удаляя те, которых нет в новом списке.
+        /// </summary>
+        /// <param name="value"></param>
         private void SetAttibutes(List<AttributeDto>? value)
         {
             if (attributes == default || value == default)
@@ -81,8 +86,13 @@ namespace ArchiveFqp.Models.DTO.Work
 
             attributes.RemoveAll(f => !value.Contains(f));
             attributes = attributes.Union(value).ToList();
+            foreach (AttributeDto item in value)
+            {
+                if (!string.IsNullOrWhiteSpace(item.Данные))
+                {
+                    attributes.First(x => x.Название == item.Название).Данные = item.Данные;
+                }
+            }
         }
-
-
     }
 }

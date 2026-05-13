@@ -7,6 +7,8 @@ using ArchiveFqp.Models.DTO.Work;
 using ArchiveFqp.Models.Search;
 using ArchiveFqp.Models.Settings.SettingsArchive;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using NpgsqlTypes;
 using System.Text.Json;
 
 namespace ArchiveFqp.Services.Work
@@ -61,43 +63,32 @@ namespace ArchiveFqp.Services.Work
             // Вызов функции PostgreSQL
             List<Работа>? works = await context.Работаs
                 .FromSqlRaw(@"SELECT * FROM поиск_работы({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, 
-				{8}, {9}, {10}, {11}, {12}, {13}, {14}, {15}, {16}, {17}::timestamp, {18}::timestamp,
-				{19}::timestamp, {20}::timestamp, {21}::json)",
+				{8}, {9}, {10}, {11}, {12}, {13}, {14}, {15}, {16}, {17}, {18}, {19},
+				{20}, {21}, {22}::json)",
                     searchModel.SearchText ?? "",
                     searchModel.IdInstitute ?? -1,
                     searchModel.IdDepartment ?? -1,
                     searchModel.IdDirection ?? -1,
                     searchModel.IdProfile ?? -1,
-                    searchModel.IdWork,
-                    searchModel.IdStudent == 0 ? -1 : searchModel.IdStudent,
-                    searchModel.IdTeacher == 0 ? -1 : searchModel.IdTeacher,
-                    searchModel.IdPost,
+                    searchModel.IdWork ?? -1,
+                    searchModel.IdStudent ?? -1,
+                    searchModel.IdTeacher ?? -1,
+                    searchModel.IdPost ?? -1,
                     searchModel.IdConsultants.Count == 0 ? [-1] : searchModel.IdConsultants,
                     searchModel.IdReviewers.Count == 0 ? [-1] : searchModel.IdReviewers,
                     searchModel.MinPages ?? -1,
                     searchModel.MaxPages ?? -1,
-                    searchModel.IdWorkType,
-                    searchModel.IdWorkStatus,
+                    searchModel.IdWorkType ?? -1,
+                    searchModel.IdWorkStatus ?? -1,
+                    searchModel.IdWorkAccess ?? -1,
                     searchModel.MinYearDefense ?? -1,
                     searchModel.MaxYearDefense ?? -1,
-                    searchModel.MinDateAdded,
-                    searchModel.MaxDateAdded,
-                    searchModel.MinDateChanged,
-                    searchModel.MaxDateChanged,
+                    searchModel.MinDateAdded == null ? null : new NpgsqlParameter("p18", NpgsqlDbType.Timestamp) { Value = searchModel.MinDateAdded },
+                    searchModel.MaxDateAdded == null ? null : new NpgsqlParameter("p19", NpgsqlDbType.Timestamp) { Value = searchModel.MaxDateAdded },
+                    searchModel.MinDateChanged == null ? null : new NpgsqlParameter("p20", NpgsqlDbType.Timestamp) { Value = searchModel.MinDateChanged },
+                    searchModel.MaxDateChanged == null ? null : new NpgsqlParameter("p21", NpgsqlDbType.Timestamp) { Value = searchModel.MaxDateChanged },
                     attributesJson)
                 .AsNoTracking()
-                //.Include("IdПреподавателяNavigation.IdПользователяNavigation")
-                //.Include("IdПреподавателяNavigation.IdДолжностиNavigation")
-                //.Include("IdСтудентаNavigation.IdПользователяNavigation")
-                //.Include("IdСтудентаNavigation.IdИнститутаNavigation")
-                //.Include("IdСтудентаNavigation.IdУровняОбразованияNavigation")
-                //.Include("IdСтудентаNavigation.IdФормыОбученияNavigation")
-                //.Include("IdСтудентаNavigation.IdНаправленияNavigation.IdКафедрыNavigation.IdУгснNavigation.IdУгснСтандартаNavigation")
-                //.Include(x => x.IdТипаРаботыNavigation)
-                //.Include(x => x.IdСтатусаРаботыNavigation)
-                //            .Include(w => w.ВыдачаРаботыs)
-                //            .Include(w => w.ОценкаПреподавателяs)
-                //.AsSingleQuery()
                 .OrderByDescending(x => x.ДатаДобавления)
                 .ToListAsync();
 
@@ -196,14 +187,6 @@ namespace ArchiveFqp.Services.Work
             List<int> workIds = works.Select(w => w.IdРаботы).ToList();
             List<Атрибут> attributes = await _refDataService.GetAsync<Атрибут>();
 
-            var f = await _refDataService.GetAsync<АтрибутУчреждения>();
-            var d = await _refDataService.GetAsync<ДанныеПоАтриб>();
-            var s = (await _refDataService.GetAsync<АтрибутУчреждения>())
-                .Join(await _refDataService.GetAsync<ДанныеПоАтриб>(), a => a.IdСтруктуры, d => d.IdСтруктуры,
-                    (a, d) => new AttributeDto(
-                        a.IdАтрибута, d.IdДанных,
-                        d.IdСтруктуры, d.IdРаботы,
-                        attributes.First(atr => atr.IdАтрибута == a.IdАтрибута).Название, d.Данные));
             List<AttributeDto> data = (await _refDataService.GetAsync<АтрибутУчреждения>())
                 .Join(await _refDataService.GetAsync<ДанныеПоАтриб>(), a => a.IdСтруктуры, d => d.IdСтруктуры,
                     (a, d) => new AttributeDto(
@@ -229,16 +212,31 @@ namespace ArchiveFqp.Services.Work
 
         public async Task<List<WorkDisplayDto>> GetWorkDisplayAsync(List<Работа> works)
         {
+            Task<Dictionary<int, List<AttributeDto>>> attributes = Task.Run(() => GetWorksAttributesAsync(works, []));
+            
             WorkDtoFactory factory = new(_dbFactory, _refDataService);
-            return await factory.CreateDisplayDtoListAsync(works);
+            List<WorkDisplayDto> res = await factory.CreateDisplayDtoAsync(works);
+
+            Dictionary<int, List<AttributeDto>>? dict = await attributes;
+            foreach (WorkDisplayDto item in res)
+            {
+                item.Атрибуты = dict[item.IdРаботы];
+            }
+
+            return res;
         }
 
         public async Task<WorkDisplayDto> GetWorkDisplayAsync(Работа work, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null)
         {
             consultants ??= await GetConsultantsAsync(work);
             reviewers ??= await GetReviewersAsync(work);
+            
+            Task<List<AttributeDto>?> attributes = Task.Run(() => GetWorkAttributesAsync(work.IdРаботы, []));
+
             WorkDtoFactory factory = new(_dbFactory, _refDataService);
-            return await factory.CreateDisplayDtoAsync(work, consultants, reviewers);
+            WorkDisplayDto res = await factory.CreateDisplayDtoAsync(work, consultants, reviewers);
+            res.Атрибуты = await attributes;
+            return res;
         }
 
         public async Task<WorkDisplayDto> GetWorkDisplayAsync(int idWork, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null)

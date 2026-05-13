@@ -1,4 +1,5 @@
-﻿using ArchiveFqp.Models.DTO.Student;
+﻿using ArchiveFqp.Models.DTO.Attribute;
+using ArchiveFqp.Models.DTO.Student;
 using ArchiveFqp.Models.DTO.Teacher;
 
 namespace ArchiveFqp.Models.DTO.Work
@@ -21,10 +22,13 @@ namespace ArchiveFqp.Models.DTO.Work
         public string ДоступРаботы { get; set; } = "";
         public string Угсн { get; set; } = "";
 
+        public List<AttributeDto>? Атрибуты { get; set; }
+
         public string? Аннотация { get; set; }
         public int КоличСтраниц { get; set; }
         public DateTime ДатаДобавления { get; set; }
         public DateTime? ДатаИзменения { get; set; }
         public string? Местоположение { get; set; }
+        public string? Эцп { get; set; }
     }
 }

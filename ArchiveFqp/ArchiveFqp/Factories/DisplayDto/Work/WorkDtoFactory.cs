@@ -65,7 +65,8 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
                 КоличСтраниц = work.КоличСтраниц ?? 0,
                 ДатаДобавления = work.ДатаДобавления,
                 ДатаИзменения = work.ДатаИзменения,
-                Местоположение = work.Местоположение
+                Местоположение = work.Местоположение,
+                Эцп = work.Эцп
             };
         }
 
@@ -78,8 +79,8 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
                 Тема = work.Тема,
                 Студент = (await _studentDtoFactory.CreateDisplayDtoAsync(work.IdСтудента))!,
                 Руководитель = await _teacherDtoFactory.CreateDisplayDtoAsync(work.IdПреподавателя, work.IdДолжности),
-                Консультанты = await _teacherDtoFactory.CreateDisplayDtoListAsync(consultants),
-                Рецензенты = await _teacherDtoFactory.CreateDisplayDtoListAsync(reviewers),
+                Консультанты = await _teacherDtoFactory.CreateDisplayDtoAsync(consultants),
+                Рецензенты = await _teacherDtoFactory.CreateDisplayDtoAsync(reviewers),
                 ТипРаботы = _snapshot.WorkTypes.FirstOrDefault(o => o.IdТипаРаботы == work.IdТипаРаботы)?.Название ?? "",
                 СтатусРаботы = _snapshot.WorkStatuses.FirstOrDefault(o => o.IdСтатусаРаботы == work.IdСтатусаРаботы)?.Название ?? "",
                 ДоступРаботы = _snapshot.WorkAccess.FirstOrDefault(o => o.IdДоступаРаботы == work.IdДоступаРаботы)?.Название ?? "",
@@ -87,7 +88,8 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
                 КоличСтраниц = work.КоличСтраниц ?? 0,
                 ДатаДобавления = work.ДатаДобавления,
                 ДатаИзменения = work.ДатаИзменения,
-                Местоположение = work.Местоположение
+                Местоположение = work.Местоположение,
+                Эцп = work.Эцп
             };
         }
 
@@ -101,7 +103,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
             return await CreateDisplayDtoAsync(work);
         }
 
-        public async Task<List<WorkDisplayDto>> CreateDisplayDtoListAsync(IEnumerable<Работа> works)
+        public async Task<List<WorkDisplayDto>> CreateDisplayDtoAsync(IEnumerable<Работа> works)
         {
             IEnumerable<Task<WorkDisplayDto>> tasks = works.Select(CreateDisplayDtoAsync);
             WorkDisplayDto[] results = await Task.WhenAll(tasks);

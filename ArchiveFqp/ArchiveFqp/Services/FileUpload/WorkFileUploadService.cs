@@ -334,6 +334,7 @@ namespace ArchiveFqp.Services.FileUpload
         public override async Task<HashVerificationResult> VerifyUploadedFilesAsync(string sourceHash, string relativeFolderPath, CancellationToken cancellationToken = default)
         {
             HashVerificationResult result = new();
+            result.IsValid = false;
 
             try
             {
@@ -361,7 +362,7 @@ namespace ArchiveFqp.Services.FileUpload
 
                 hash = _hashService.ComputeCompositeHash(hashes);
 
-                result.IsValid = string.Equals(sourceHash, hash, StringComparison.OrdinalIgnoreCase); ;
+                result.IsValid = string.Equals(sourceHash, hash, StringComparison.OrdinalIgnoreCase);
                 result.Message = result.IsValid ? "Все файлы целы и не были изменены" : "Некоторые файлы изменены или отсутствуют!";
             }
             catch (Exception ex)

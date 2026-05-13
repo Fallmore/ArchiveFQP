@@ -9,6 +9,7 @@
 @using ArchiveFqp.Models.ReferenceData
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
 @inject SettingsArchive Settings
 @inject IWorkService WorkService
 @inject IUserService UserService
@@ -351,6 +352,8 @@
 </script>
 
 @code {
+    [CascadingParameter] private Task<AuthenticationState>? authenticationState { get; set; }
+
     [Parameter] public int? WorkId { get; set; }
     [Parameter] public bool IsWritingMode { get; set; } = true;
     [Parameter] public bool IsReviewMode { get; set; } = false;
@@ -518,7 +521,11 @@
     {
         try
         {
-            attributeApplication.IdПользователя = 2; // TODO: Получать из контекста авторизации
+            AuthenticationState? authState = await authenticationState!;
+            ClaimsPrincipal user = authState!.User;
+
+            int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
+            attributeApplication.IdПользователя = idUser;
             attributeApplication.IdСтатуса = (await ApplicationsService.GetApplicationsStatusesAsync())
                     .First(ws => ws.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
 

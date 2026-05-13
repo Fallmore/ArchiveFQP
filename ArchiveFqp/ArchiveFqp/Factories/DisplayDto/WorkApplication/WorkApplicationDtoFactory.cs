@@ -89,7 +89,7 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
             return await CreateDisplayDtoAsync(wApps);
         }
 
-        public async Task<List<WorkApplicationDto>> CreateDisplayDtoListAsync(IEnumerable<ЗаявлениеРаботы> wApps)
+        public async Task<List<WorkApplicationDto>> CreateDisplayDtoAsync(IEnumerable<ЗаявлениеРаботы> wApps)
         {
             IEnumerable<Task<WorkApplicationDto>> tasks = wApps.Select(CreateDisplayDtoAsync);
             WorkApplicationDto[] results = await Task.WhenAll(tasks);

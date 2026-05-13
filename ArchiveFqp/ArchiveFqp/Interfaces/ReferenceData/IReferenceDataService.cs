@@ -1,4 +1,5 @@
-﻿using ArchiveFqp.Models.ReferenceData;
+﻿using ArchiveFqp.Models.DatabaseNotification;
+using ArchiveFqp.Models.ReferenceData;
 
 namespace ArchiveFqp.Interfaces.ReferenceData
 {
@@ -26,6 +27,6 @@ namespace ArchiveFqp.Interfaces.ReferenceData
 
         void ClearCache();
 
-        event EventHandler<List<string>>? TablesChanged;
+        event EventHandler<TableChangeEvent>? TablesChanged;
     }
 }

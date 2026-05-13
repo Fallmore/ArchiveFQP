@@ -1,9 +1,12 @@
 ﻿@using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Interfaces.Applications
+@using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.Search
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using Microsoft.AspNetCore.Authorization
 @using System.Security.Claims
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Serialization
 @inject SettingsArchive Settings
 @inject IReferenceDataService RefDataService
 @inject IApplicationsService ApplicationsService
@@ -141,7 +144,8 @@
     private List<СтатусЗаявления> applicationStatuses = null!;
     private string modalName = "attributeApplicationModal";
 
-    private EventHandler<List<string>>? _tablesChangedHandler;
+    private EventHandler<TableChangeEvent>? _tablesChangedHandler;
+    JsonSerializerSettings settings = null!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -149,6 +153,13 @@
         {
             PageSize = 5,
             CurrentPage = 1
+        };
+        settings = new JsonSerializerSettings
+        {
+            ContractResolver = new DefaultContractResolver
+            {
+                NamingStrategy = new SnakeCaseNamingStrategy()
+            }
         };
         applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
         await GetAttributeApplications();
@@ -169,23 +180,31 @@
         StateHasChanged();
     }
 
-    private async Task GetAttributeApplications(object? sender, List<string> e)
+    private async Task GetAttributeApplications(object? sender, TableChangeEvent e)
     {
-        if (e.Contains(typeof(ЗаявлениеАтрибута).Name))
+        if (e.TableName == nameof(ЗаявлениеАтрибута))
         {
             await GetAttributeApplications();
-            // Если открыт просмотр заявления
-            if (selectedAttributeApplication != null)
+
+            if (e.ChangeType == TableChangeType.Update)
             {
-                // то, если данные просматриваемого заявления не совпадают с полученными,
-                // то заявление обновилось - обновляем данные и переоткрываем модал
-                ЗаявлениеАтрибута? app = result.Items.FirstOrDefault(x => x.IdЗаявления == selectedAttributeApplication.IdЗаявления);
-                if (!selectedAttributeApplication.Equals(app))
+                ЗаявлениеАтрибута? app = JsonConvert.DeserializeObject<ЗаявлениеАтрибута>(e.New!.ToString(), 
+                    new JsonSerializerSettings
+                    { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } });
+                if (app == null) return;
+
+                // Если открыт просмотр заявления
+                if (selectedAttributeApplication != null && selectedAttributeApplication.IdЗаявления == app.IdЗаявления)
                 {
-                    selectedAttributeApplication = app;
-                    await JS.InvokeVoidAsync("closeModal", modalName);
-                    StateHasChanged();
-                    await JS.InvokeVoidAsync("openModal", modalName);
+                    // то, если данные просматриваемого заявления не совпадают с полученными,
+                    // то заявление обновилось - обновляем данные и переоткрываем модал
+                    if (!selectedAttributeApplication.Equals(app))
+                    {
+                        selectedAttributeApplication = app;
+                        await JS.InvokeVoidAsync("closeModal", modalName);
+                        StateHasChanged();
+                        await JS.InvokeVoidAsync("openModal", modalName);
+                    }
                 }
             }
         }

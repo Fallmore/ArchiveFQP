@@ -1,5 +1,6 @@
 ﻿using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
+using ArchiveFqp.Models.DatabaseNotification;
 using ArchiveFqp.Models.Settings.SettingsArchive;
 using ArchiveFqp.Services.ReferenceData;
 using Microsoft.EntityFrameworkCore;
@@ -44,7 +45,6 @@ namespace ArchiveFqp.Services.ExpirationCheck
             await GetWorkApplicationsStatusesAsync();
             _workApplicationsActive = UpdateWorkApplicationsActive();
 
-            // подписка на изменения (можно подписываться тут)
             _refDataService.TablesChanged += UpdateWorkApplicationsData;
 
             _logger.LogInformation("ExpirationCheckService starting");
@@ -88,12 +88,13 @@ namespace ArchiveFqp.Services.ExpirationCheck
                 .Where(a => a.ДатаВозврПоЗаявл <= DateTime.Now)
                 .Select(a =>
                 {
-                    // Если срок действия заявления истек, то статус меняется на "Завершено",
-                    // если он был "Активно", и на "Отклонено" во всех остальных случаях
+                    // Если срок действия заявления истек, то
+                    // статус меняется на "Завершено", если он был "Активно",
                     if (a.IdСтатуса == _workApplicationsActiveStatus.IdСтатуса)
                     {
                         a.IdСтатуса = _workApplicationsCompleteStatus.IdСтатуса;
                     }
+                    // и на "Отклонено" во всех остальных случаях
                     else
                     {
                         a.IdСтатуса = _workApplicationsRejectStatus.IdСтатуса;
@@ -112,9 +113,9 @@ namespace ArchiveFqp.Services.ExpirationCheck
             }
         }
 
-        private async void UpdateWorkApplicationsData(object? sender, List<string> e)
+        private async void UpdateWorkApplicationsData(object? sender, TableChangeEvent e)
         {
-            if (e.Contains(typeof(ЗаявлениеРаботы).Name))
+            if (e.TableName == nameof(ЗаявлениеРаботы))
             {
                 try
                 {
@@ -123,7 +124,7 @@ namespace ArchiveFqp.Services.ExpirationCheck
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Ошибка обновления кэша {Name}", typeof(ЗаявлениеРаботы).Name);
+                    _logger.LogError(ex, "Ошибка обновления кэша {Name}", nameof(ЗаявлениеРаботы));
                 }
             }
         }

@@ -2,6 +2,7 @@
 @using System.Text.Json
 @using System.Web
 @using ArchiveFqp.Components.Components
+@using ArchiveFqp.Components.Pages.Report
 @using ArchiveFqp.Factories.DisplayDto.Student
 @using ArchiveFqp.Factories.DisplayDto.Teacher
 @using ArchiveFqp.Models.DTO.Attribute
@@ -24,7 +25,37 @@
 
 @if (RendererInfo.IsInteractive)
 {
-    <div class="container mt-4">
+    #region Для делопроизводителя
+
+    <AuthorizeView Roles="@Settings.RoleDepartmentClerkName">
+        <div class="container mb-2">
+            <button class="btn btn-outline-secondary z-0" type="button" @onclick="() => showReportGenerator = true"
+                    data-bs-toggle="modal" data-bs-target="#@modalName">
+                <i class="bi bi-search"></i> Сформировать отчет
+            </button>
+        </div>
+
+        <div class="modal fade" id="@modalName" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="workApplicationModalLabel">Информация о заявлении</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        @if (showReportGenerator)
+                        {
+                            <ReportGenerator Works="FilteredResult?.Items"
+                                             SearchModel="searchModel" />
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </AuthorizeView>
+    #endregion
+
+    <div class="container">
         <div @ref="topAnchor" tabindex="-1" style="outline: none; position: absolute;"></div>
 
         <!-- Поисковая панель -->
@@ -47,6 +78,9 @@
                                     aria-expanded="false" aria-controls="collapseAdvancedSearch">
                                 <i class="bi bi-funnel"></i> Расширенный поиск
                             </button>
+                            <button class="btn btn-outline-secondary z-0" type="button" @onclick="ClearSearch">
+                                <i class="bi bi-x"></i> Очистить
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -57,8 +91,8 @@
                         <div class="row mt-2">
                             <div class="col-md-3 mb-3">
                                 <label class="form-label mb-0 fw-bold">Количество страниц</label>
-                                <div class="row">
-                                    <div class="col" style="padding-right:0cm">
+                                <div class="row d-flex justify-content-center align-items-center">
+                                    <div class="col">
                                         <select class="form-select" @bind="searchModel.MinPages"
                                                 placeholder="С">
                                             <option value=""></option>
@@ -71,7 +105,7 @@
                                             }
                                         </select>
                                     </div>
-                                    <label class="col-sm-1 col-form-label">—</label>
+                                    <label class="col-sm-1 col-form-label d-flex justify-content-center align-items-center">—</label>
                                     <div class="col">
                                         <select class="form-select" @bind="searchModel.MaxPages"
                                                 placeholder="По">
@@ -87,35 +121,72 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3 mb-3">
-                                <label class="form-label mb-0 fw-bold">Год защиты</label>
-                                <div class="row">
-                                    <div class="col" style="padding-right:0cm">
-                                        <select class="form-select" @bind="searchModel.MinYearDefense"
-                                                placeholder="С">
-                                            <option value=""></option>
-                                            @foreach (var i in Enumerable.Range(minYear, maxYear - minYear + 1))
-                                            {
-                                                <option value="@i">@i</option>
-                                            }
-                                        </select>
-                                    </div>
-                                    <label class="col-sm-1 col-form-label">—</label>
-                                    <div class="col">
-                                        <select class="form-select" @bind="searchModel.MaxYearDefense"
-                                                placeholder="По">
-                                            <option value=""></option>
-                                            @foreach (var i in Enumerable.Range(minYear, maxYear - minYear + 1))
-                                            {
-                                                <option value="@i">@i</option>
-                                            }
-                                        </select>
+
+                            @if (showAllDates || selectedWorkType != null && Settings.FqpWorks.Contains(selectedWorkType.Название))
+                            {
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label mb-0 fw-bold">Год защиты</label>
+                                    <div class="row d-flex justify-content-center align-items-center">
+                                        <div class="col">
+                                            <select class="form-select" @bind="searchModel.MinYearDefense"
+                                                    placeholder="С">
+                                                <option value=""></option>
+                                                @foreach (var i in Enumerable.Range(minYear, maxYear - minYear + 1))
+                                                {
+                                                    <option value="@i">@i</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <label class="col-sm-1 col-form-label d-flex justify-content-center align-items-center">—</label>
+                                        <div class="col">
+                                            <select class="form-select" @bind="searchModel.MaxYearDefense"
+                                                    placeholder="По">
+                                                <option value=""></option>
+                                                @foreach (var i in Enumerable.Range(minYear, maxYear - minYear + 1))
+                                                {
+                                                    <option value="@i">@i</option>
+                                                }
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            }
+
+                            @if (showAllDates || selectedWorkType != null && !Settings.FqpWorks.Contains(selectedWorkType.Название))
+                            {
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label mb-0 fw-bold">Дата добавления</label>
+                                    <div class="row d-flex justify-content-center align-items-center">
+                                        <div class="col-sm-5" style="padding-left:0px;padding-right:2px">
+                                            <InputDate class="form-control" @bind-Value="searchModel.MinDateAdded" />
+                                        </div>
+                                        <label class="col-sm-1 col-form-label d-flex justify-content-center align-items-center">—</label>
+                                        <div class="col-sm-5" style="padding-right:0px;padding-left:2px">
+                                            <InputDate class="form-control" @bind-Value="searchModel.MaxDateAdded" />
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
+                            @if (showWorkDateChanged)
+                            {
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label mb-0 fw-bold">Дата изменения</label>
+                                    <div class="row d-flex justify-content-center align-items-center">
+                                        <div class="col-sm-5" style="padding-left:0px;padding-right:5px">
+                                            <InputDate class="form-control" @bind-Value="searchModel.MinDateChanged" />
+                                        </div>
+                                        <label class="col-sm-1 col-form-label d-flex justify-content-center align-items-center">—</label>
+                                        <div class="col-sm-5" style="padding-right:0px;padding-left:5px">
+                                            <InputDate class="form-control" @bind-Value="searchModel.MaxDateChanged" />
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
                             <div class="col-md-3 mb-3">
                                 <label class="form-label mb-0 fw-bold">Тип работы</label>
-                                <select class="form-select" @bind="searchModel.IdWorkType">
+                                <select class="form-select" @bind="searchModel.IdWorkType" @bind:after="OnWorkTypeChanged">
                                     <option value="-1">Все</option>
                                     @foreach (var type in snapshot.WorkTypes)
                                     {
@@ -124,7 +195,7 @@
                                 </select>
                             </div>
 
-                            @if (ShowWorkStatus)
+                            @if (showWorkStatus)
                             {
                                 <div class="col-md-3 mb-3">
                                     <label class="form-label mb-0 fw-bold">Статус работы</label>
@@ -138,28 +209,42 @@
                                 </div>
                             }
 
+                            @if (showWorkAccess)
+                            {
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label mb-0 fw-bold">Доступ работы</label>
+                                    <select class="form-select" @bind="searchModel.IdWorkAccess">
+                                        <option value="-1"></option>
+                                        @foreach (var access in snapshot.WorkAccess)
+                                        {
+                                            <option value="@access.IdДоступаРаботы">@access.Название</option>
+                                        }
+                                    </select>
+                                </div>
+                            }
+
                             <div class="col-md-3 mb-2">
                                 <label class="form-label mb-0 fw-bold">Студент</label>
                                 <SearchableSelect TItem="Студент"
-                                                  TValue="int"
+                                                  TValue="int?"
                                                   Items="@workStudents"
                                                   TextSelector="@((s) => studentDtoFactory!.CreateDisplayDtoAsync(s).Result.Пользователь.ФИО)"
                                                   ValueSelector="@(s => s.IdСтудента)"
                                                   Placeholder="Выберите или введите студента..."
                                                   @bind-SelectedValue="@searchModel.IdStudent"
-                                                  OnCustomValue="@(() => searchModel.IdStudent = -1)" />
+                                                  OnCustomValue="@(() => searchModel.IdStudent = null)" />
                             </div>
 
                             <div class="col-md-3  ">
                                 <label class="form-label mb-0 fw-bold">Руководитель</label>
                                 <SearchableSelect TItem="Преподаватель"
-                                                  TValue="int"
+                                                  TValue="int?"
                                                   Items="workTeachers"
                                                   TextSelector="@((s) => teacherDtoFactory!.CreateDisplayDtoAsync(s).Result.Пользователь.ФИО)"
                                                   ValueSelector="@(s => s.IdПреподавателя)"
                                                   Placeholder="Выберите или введите руководителя..."
                                                   @bind-SelectedValue="@searchModel.IdTeacher"
-                                                  OnCustomValue="@(() => searchModel.IdTeacher = -1)" />
+                                                  OnCustomValue="@(() => searchModel.IdTeacher = null)" />
                             </div>
 
                             <div class="col-md-3 ">
@@ -352,7 +437,7 @@
                                                 <i class="bi bi-calendar"></i>
                                                 @(WorkService.PickDateWork(work)) г.
                                             </span>
-                                            @if (ShowWorkStatus)
+                                            @if (showWorkStatus)
                                             {
                                                 <span class="badge @GetStatusBadgeClass(work.СтатусРаботы) ms-2">
                                                     @work.СтатусРаботы
@@ -361,19 +446,19 @@
                                         </div>
 
                                         <!-- Атрибуты работы -->
-                                        @if (workAttributes.TryGetValue(work.IdРаботы, out var атрибуты))
+                                        @if (work.Атрибуты != null && work.Атрибуты.Count != 0)
                                         {
                                             <div class="mt-2">
-                                                @foreach (var атр in атрибуты.Take(3))
+                                                @foreach (var атр in work.Атрибуты.Take(3))
                                                 {
                                                     <span class="badge bg-light text-dark border me-1 mb-1">
                                                         @атр.Название: @атр.Данные
                                                     </span>
                                                 }
-                                                @if (атрибуты.Count > 3)
+                                                @if (work.Атрибуты.Count > 3)
                                                 {
                                                     <span class="badge bg-light text-dark border">
-                                                        +@(атрибуты.Count - 3)
+                                                        +@(work.Атрибуты.Count - 3)
                                                     </span>
                                                 }
                                             </div>
@@ -443,7 +528,11 @@
     private WorkSearchModel searchModel = new();
     private bool isLoading = false;
     private bool advancedSearch = false;
-    private bool ShowWorkStatus = false;
+    private bool showWorkStatus = false;
+    private bool showWorkAccess = false;
+    private bool showWorkDateChanged = false;
+    private bool showAllDates = false;
+    private ТипРаботы? selectedWorkType;
     private int minPage, maxPage, minYear, maxYear;
     private TeacherDtoFactory? teacherDtoFactory;
     private StudentDtoFactory? studentDtoFactory;
@@ -454,8 +543,10 @@
     private List<Преподаватель> workTeachers = new();
     private List<Консультант> workConsultants = new();
     private List<Рецензент> workReviewers = new();
-    private Dictionary<int, List<AttributeDto>> workAttributes = new();
     Stopwatch watch = Stopwatch.StartNew();
+
+    private string modalName = "workApplicationModal";
+    private bool showReportGenerator = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -501,12 +592,12 @@
 
             if (result.Items.Count != 0)
             {
-                FilteredResult = new() {
+                FilteredResult = new()
+                {
                     CurrentPage = result.CurrentPage,
                     PageSize = result.PageSize,
                     Items = await FilterWorks(await WorkService.GetWorkDisplayAsync(result.Items))
                 };
-                workAttributes = await WorkService.GetWorksAttributesAsync(result.Items);
             }
         }
         finally
@@ -527,7 +618,7 @@
 
         if (user.IsInRole(Settings.RoleAdminName))
         {
-            ShowWorkStatus = true;
+            showWorkStatus = showWorkAccess = showAllDates = showWorkDateChanged = true;
             return works;
         }
 
@@ -537,10 +628,9 @@
 
         List<WorkDisplayDto> temp = [];
         if (user.IsInRole(Settings.RoleInstituteResponsibleName) || user.IsInRole(Settings.RoleDepartmentHeadName)
-            || user.IsInRole(Settings.RoleDepartmentResponsibleName) || user.IsInRole(Settings.RoleTeacherName)
-            || user.IsInRole(Settings.RoleDepartmentClerkName))
+            || user.IsInRole(Settings.RoleDepartmentResponsibleName) || user.IsInRole(Settings.RoleTeacherName))
         {
-            ShowWorkStatus = true;
+            showWorkStatus = showWorkAccess = true;
 
             Преподаватель? teacher = (await RefDataService.GetAsync<Преподаватель>())
                 .FirstOrDefault(x => x.IdПользователя == idUser);
@@ -566,9 +656,14 @@
             // Руководитель работы
             temp.AddRange(works.Where(x => x.Руководитель.Пользователь.Пользователь.IdПользователя == idUser));
         }
-        
+
+        if (user.IsInRole(Settings.RoleDepartmentClerkName))
+            showWorkStatus = showWorkAccess = showAllDates = showWorkDateChanged = true;
+
         if (user.IsInRole(Settings.RoleStudentName))
         {
+            showWorkAccess = true;
+
             Студент? student = (await RefDataService.GetAsync<Студент>())
                 .FirstOrDefault(x => x.IdПользователя == idUser);
 
@@ -582,7 +677,7 @@
                         ||
                         (x.ДоступРаботы == Settings.WorkAccessDirection
                         && x.Студент.Структура.Направление.IdНаправления == student.IdНаправления)).ToList());
-            
+
             // Если нет профиля, то нет смысла проверять соответствие
             if (!student.IdПрофиля.HasValue) return filtered;
 
@@ -681,6 +776,32 @@
 
         // Прокрутка к верху страницы
         await topAnchor.FocusAsync();
+    }
+
+    private void OnWorkTypeChanged()
+    {
+        selectedWorkType = snapshot.WorkTypes.FirstOrDefault(t => t.IdТипаРаботы == searchModel.IdWorkType);
+        if (selectedWorkType == null)
+        {
+            searchModel.MinDateAdded = searchModel.MaxDateAdded = null;
+            searchModel.MinYearDefense = searchModel.MaxYearDefense = null;
+        }
+        else if (Settings.FqpWorks.Contains(selectedWorkType!.Название))
+        {
+            searchModel.MinDateAdded = searchModel.MaxDateAdded = null;
+        }
+        else
+        {
+            searchModel.MinYearDefense = searchModel.MaxYearDefense = null;
+        }
+    }
+
+    private void ClearSearch()
+    {
+        List<Атрибут> attr = searchModel.AllAttributes;
+        List<AttributeValuesDto> attrVal = searchModel.AttributeValues;
+        searchModel = new() { AllAttributes = attr, AttributeValues = attrVal };
+        selectedWorkType = null;
     }
 
     private string GetStatusBadgeClass(string status)

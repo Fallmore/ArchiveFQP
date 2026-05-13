@@ -57,7 +57,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Student
             return await CreateDisplayDtoAsync(student);
         }
 
-        public async Task<List<StudentDisplayDto>> CreateDisplayDtoListAsync(IEnumerable<Студент> students)
+        public async Task<List<StudentDisplayDto>> CreateDisplayDtoAsync(IEnumerable<Студент> students)
         {
             IEnumerable<Task<StudentDisplayDto>> tasks = students.Select(CreateDisplayDtoAsync);
             StudentDisplayDto[] results = await Task.WhenAll(tasks);

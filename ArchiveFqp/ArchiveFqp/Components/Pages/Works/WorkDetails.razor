@@ -216,7 +216,7 @@
                         }
 
                         <!-- Атрибуты работы -->
-                        @if (workAttributes != null && workAttributes.Any())
+                        @if (displayDto.Атрибуты != null && displayDto.Атрибуты.Count != 0)
                         {
                             <div class="card mb-4 border-0 bg-light">
                                 <div class="card-body">
@@ -224,7 +224,7 @@
                                         <i class="bi bi-tags me-2"></i>Атрибуты работы
                                     </h5>
                                     <div class="row">
-                                        @foreach (var attr in workAttributes)
+                                        @foreach (var attr in displayDto.Атрибуты)
                                         {
                                             <div class="col-md-6 mb-2">
                                                 <div class="d-flex align-items-center">
@@ -298,7 +298,6 @@
 
     [Parameter] public int? IdWork { get; set; }
     [Parameter] public bool ShowBackButton { get; set; } = true;
-    private List<AttributeDto>? workAttributes;
     private Работа? work;
     private int? lastIdWork;
     private WorkDisplayDto displayDto = new();
@@ -331,22 +330,18 @@
             if (IdWork == null || IdWork < 1)
             {
                 work = null;
-                workAttributes = null;
                 displayDto = new();
                 return;
             }
 
-            wsm.IdWork = IdWork.Value;
+            wsm.IdWork = IdWork;
             lastIdWork = wsm.IdWork;
 
             // Загружаем работу со всеми связанными данными
-            work = await WorkService.GetWorkAsync(wsm.IdWork);
+            work = await WorkService.GetWorkAsync(wsm.IdWork!.Value);
 
             if (work != null)
             {
-                // Загружаем атрибуты работы
-                workAttributes = (await WorkService.GetWorksAttributesAsync(new List<Работа> { work })).FirstOrDefault().Value;
-
                 displayDto = await WorkService.GetWorkDisplayAsync(work);
                 
                 accessDenied = !(await CheckAccessAndClaims(displayDto));

@@ -1,13 +1,19 @@
-﻿@using ArchiveFqp.Models.DTO.Attribute
+﻿@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Models.DTO.Attribute
+@using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Interfaces.Work
 @using Microsoft.EntityFrameworkCore
 @using ArchiveFqp.Components.Components
 @using ArchiveFqp.Models.DTO
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Serialization
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject IWorkService WorkService
 @inject ILogger<WorkAdd> Logger
 @inject SettingsArchive Settings
+@inject IReferenceDataService RefDataService
+@implements IDisposable
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 @if (errorMessage != null && successMessage == null)
@@ -27,27 +33,28 @@
     <div class="card mb-2">
         <div class="card-body">
             <div class="row">
-                @for (int i = 0; i < Attributes.Count; i++)
-                {
-                    int index = i;
-                    <div class="col-md-6 mb-2">
-                        <div class="form-check">
-                            <label class="form-check-label mb-0 fw-bold">
-                                @(Attributes[index].Название)
-                            </label>
-                        </div>
+                @if (updated)
+                    @foreach (AttributeDto attribute in Attributes)
+                    {
+                        int index = Attributes.IndexOf(attribute);
+                        <div class="col-md-6 mb-2">
+                            <div class="form-check">
+                                <label class="form-check-label mb-0 fw-bold">
+                                    @(attribute.Название)
+                                </label>
+                            </div>
 
-                        <SearchableSelect TItem="string"
-                                          TValue="string"
-                                          Items="@(attributeValues.First(av => av.IdАтрибута == Attributes[index].IdАтрибута).Данные.Prepend(Settings.AttributesValueNone).ToList())"
-                                          Placeholder="Выберите или введите данные атрибута..."
-                                          IsInvalid="@(string.IsNullOrWhiteSpace(Attributes[index].Данные))"
-                                          SelectedValue="@(Attributes[index].Данные)"
-                                          SelectedValueChanged="@(async (s) => await SetAttribute(index, s))"
-                                          OnCustomValue="@(async (s) => await SetAttribute(index, s))"
-                                          Disabled="@Disabled" />
-                    </div>
-                }
+                            <SearchableSelect TItem="string"
+                                              TValue="string"
+                                              Items="@(attributeValues.First(av => av.IdАтрибута == attribute.IdАтрибута).Данные.Prepend(Settings.AttributesValueNone).ToList())"
+                                              Placeholder="Выберите или введите данные атрибута..."
+                                              IsInvalid="@(string.IsNullOrWhiteSpace(attribute.Данные))"
+                                              SelectedValue="@(attribute.Данные)"
+                                              SelectedValueChanged="@(async (s) => await SetAttribute(index, s))"
+                                              OnCustomValue="@(async (s) => await SetAttribute(index, s))"
+                                              Disabled="@Disabled" />
+                        </div>
+                    }
             </div>
         </div>
     </div>
@@ -86,28 +93,32 @@
     [Parameter] public EventCallback<List<AttributeDto>> AttributesChanged { get; set; }
     [Parameter] public bool Disabled { get; set; } = false;
     [Parameter] public EventCallback<bool> DisabledChanged { get; set; }
-    private List<AttributeValuesDto> attributeValues { get; set; } = [];
+    private List<AttributeValuesDto> attributeValues = [];
+    private bool updated = false;
     private string? errorMessage;
     private string? warningMessage;
     private string? successMessage;
 
     private EditContext? editContext;
 
-    protected override void OnInitialized()
+    private EventHandler<TableChangeEvent>? _tablesChangedHandler;
+
+    protected override async Task OnInitializedAsync()
     {
         editContext = new(Attributes);
-        attributeValues = Task.Run(() =>
-        {
-            return WorkService.GetAttributeValuesAsync(Attributes.Select(ad => ad.ToAttribute()).ToList());
-        }).Result;
+        await UpdateAttributes();
+
+        _tablesChangedHandler = (s, e) => InvokeAsync(() => UpdateAttributes(s, e));
+        RefDataService.TablesChanged += _tablesChangedHandler;
     }
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
         // Пересоздаём EditContext, если модель параметра изменилась (чтобы валидация работала корректно)
         if (editContext == null || editContext.Model != Attributes)
         {
             editContext = new EditContext(Attributes);
+            //await UpdateAttributes();
         }
     }
 
@@ -134,6 +145,22 @@
     {
         Attributes[index].Данные = value;
         await AttributesChanged.InvokeAsync(Attributes);
+    }
+
+    private async Task UpdateAttributes()
+    {
+        updated = false;
+        Attributes = (await WorkService.GetWorkAttributesAsync(Attributes[0].IdРаботы, []))
+                ?.Select(a =>
+                {
+                    if (a.Данные == Settings.AttributesValueAwait)
+                        a.Данные = "";
+                    return a;
+                }).ToList() ?? [];
+        await AttributesChanged.InvokeAsync(Attributes);
+        attributeValues = await WorkService.GetAttributeValuesAsync(Attributes.Select(ad => ad.ToAttribute()).ToList());
+        updated = true;
+        StateHasChanged();
     }
 
     private async Task SetDisabled(bool disabled)
@@ -197,5 +224,37 @@
             Logger.LogError(ex, "Ошибка добавления данных атрибутов");
             errorMessage = $"Ошибка при добавлении: {ex.Message}";
         }
+    }
+
+    private async Task UpdateAttributes(object? sender, TableChangeEvent e)
+    {
+        if (e.TableName == nameof(ДанныеПоАтриб))
+        {
+            // Пропускаем обновление атрибутов, если изменение не относится к текущей работе
+            if (e.ChangeType == TableChangeType.Delete)
+            {
+                ДанныеПоАтриб? old = JsonConvert.DeserializeObject<ДанныеПоАтриб>(e.Old!.ToString(),
+                    new JsonSerializerSettings
+                    { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } });
+
+                if (old == null || old.IdРаботы != Attributes[0].IdРаботы) return;
+            }
+            else if (e.ChangeType == TableChangeType.Update || e.ChangeType == TableChangeType.Insert)
+            {
+                ДанныеПоАтриб? neww = JsonConvert.DeserializeObject<ДанныеПоАтриб>(e.New!.ToString(),
+                    new JsonSerializerSettings
+                    { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } });
+
+                if (neww == null || neww.IdРаботы != Attributes[0].IdРаботы) return;
+            }
+
+            await UpdateAttributes();
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_tablesChangedHandler != null)
+            RefDataService.TablesChanged -= _tablesChangedHandler;
     }
 }

@@ -64,7 +64,7 @@ namespace ArchiveFqp.Factories.DisplayDto.User
             return await CreateDisplayDtoAsync(user);
         }
 
-        public async Task<List<UserDisplayDto>> CreateDisplayDtoListAsync(IEnumerable<Пользователь> users)
+        public async Task<List<UserDisplayDto>> CreateDisplayDtoAsync(IEnumerable<Пользователь> users)
         {
             _accounts = await _refDataService.GetAsync<АккаунтПользователя>();
             IEnumerable<Task<UserDisplayDto>> tasks = users.Select(CreateDisplayDtoAsync);

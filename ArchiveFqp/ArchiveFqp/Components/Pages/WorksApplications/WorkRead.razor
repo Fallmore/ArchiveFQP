@@ -15,6 +15,8 @@
 @inject SettingsArchive Settings
 @rendermode @(new InteractiveServerRenderMode())
 
+<PageTitle>АГТУ - @(title)</PageTitle>
+
 <script type="module" src="@Assets["Components/Pages/WorksApplications/WorkRead.razor.js"]"></script>
 
 @if (RendererInfo.IsInteractive)
@@ -34,7 +36,7 @@
                     <div class="spinner-border text-primary mb-2" role="status">
                         <span class="visually-hidden">Загрузка...</span>
                     </div>
-                    <div class="text-muted">Загрузка документа...</div>
+                    <div class="text-muted">Загрузка документа... <br />@(errorMessage == null ? $"{title}" : "")</div>
                     @if (renderProgress > 0)
                     {
                         <div class="progress">
@@ -168,6 +170,7 @@
     private int maxScale = 300;
     private int stepScale = 10;
     private string watermarkText = "ДЛЯ ПРОСМОТРА";
+    private string title = "Просмотр работы";
     private string? errorMessage;
 
     private Task? ExpirationCheckTask;
@@ -186,8 +189,12 @@
         {
             if (_allPagesBase64 == null && IdWork != null)
             {
-                if (!(await CheckWorkExists())) return;
-                if (!(await CheckClaims())) return;
+                if (!(await CheckWorkExists()) || !(await CheckClaims()))
+                {
+                    state = ViewState.Error;
+                    StateHasChanged();
+                    return;
+                }
                 LoadWorkTask = LoadDocumentAsync();
             }
         }
@@ -215,6 +222,8 @@
             errorMessage = "Не удалось найти работу для просмотра";
             return false;
         }
+        title = work.Тема;
+        StateHasChanged();
         return true;
     }
 
@@ -265,7 +274,11 @@
         }
         else
         {
-            if (user.IsInRole(Settings.RoleAdminName)) return true;
+            if (user.IsInRole(Settings.RoleAdminName))
+            {
+                watermarkText = "ДЛЯ ПРОСМОТРА АДМИНИСТРАТОРОМ";
+                return true;
+            }
 
             Преподаватель? teacher = (await RefDataService.GetAsync<Преподаватель>())
                 .FirstOrDefault(x => x.IdПользователя == idUser);
@@ -279,6 +292,7 @@
             Работа work = (await RefDataService.GetAsync<Работа>()).First(x => x.IdРаботы == IdWork);
             StructureDtoFactory factory = new(RefDataService);
             StructureDto structure = await factory.CreateDisplayDtoAsync(work);
+            watermarkText = "ДЛЯ ПРОСМОТРА " + user.Identity.Name;
 
             if (user.IsInRole(Settings.RoleInstituteResponsibleName))
             {
@@ -287,7 +301,6 @@
                     errorMessage = $"Вы не числитесь в {structure.Институт.Название.Insert(structure.Институт.Название.IndexOf(' '), "е")}";
                     return false;
                 }
-
                 return true;
             }
 
@@ -475,9 +488,9 @@
 
     private async Task Retry()
     {
-        errorMessage = null;
+        state = ViewState.Loading;
         await Task.Delay(500);
-        await OnParametersSetAsync();
+        await OnAfterRenderAsync(true);
         StateHasChanged();
     }
 

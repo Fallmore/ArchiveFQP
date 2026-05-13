@@ -1,0 +1,287 @@
+﻿@using ArchiveFqp.Interfaces.Work
+@using ArchiveFqp.Models
+@using ArchiveFqp.Models.DTO.Work
+@using ArchiveFqp.Models.ReferenceData
+@using ArchiveFqp.Models.Search
+@using ArchiveFqp.Services
+@using ArchiveFqp.Services.Report
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<ArchiveFqpContext> DbFactory
+@inject ReportService ReportService
+@inject IWorkService WorkService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@rendermode @(new InteractiveServerRenderMode())
+
+<div class="container">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">
+                <i class="bi bi-file-earmark-text me-2"></i>Формирование отчета
+            </h4>
+        </div>
+        <div class="card-body">
+            <EditForm Model="@reportConfig" OnValidSubmit="@GenerateReport" FormName="reportForm">
+                <!-- Основные параметры -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5 class="border-bottom pb-2 text-primary">
+                            <i class="bi bi-sliders2 me-2"></i>Основные параметры
+                        </h5>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Название отчета</label>
+                        <InputText class="form-control" @bind-Value="reportConfig.ReportTitle" />
+                    </div>
+                </div>
+
+                <!-- Что включать в отчет -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5 class="border-bottom pb-2 text-primary">
+                            <i class="bi bi-check2-square me-2"></i>Содержание отчета
+                        </h5>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="form-check mb-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="reportConfig.IncludeStatistics" />
+                            <label class="form-check-label">Статистика (типы, статусы, годы)</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="reportConfig.IncludeDistribution" />
+                            <label class="form-check-label">Распределение по атрибутам</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="reportConfig.IncludeWorksList" />
+                            <label class="form-check-label">Список работ</label>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-8">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="reportConfig.ShowAttributes" />
+                            <label class="form-check-label fw-bold">Показывать атрибуты в таблице</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Поля для отображения в таблице -->
+                @if (reportConfig.IncludeWorksList)
+                {
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="border-bottom pb-2 text-primary">
+                                <i class="bi bi-table me-2"></i>Отображаемые поля в таблице
+                            </h5>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input" @bind-Value="reportConfig.ShowWorkId" />
+                                <label class="form-check-label">ID работы</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input" @bind-Value="reportConfig.ShowTitle" />
+                                <label class="form-check-label">Тема работы</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input" @bind-Value="reportConfig.ShowStudent" />
+                                <label class="form-check-label">Студент</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input" @bind-Value="reportConfig.ShowSupervisor" />
+                                <label class="form-check-label">Руководитель</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input" @bind-Value="reportConfig.ShowType" />
+                                <label class="form-check-label">Тип работы</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input" @bind-Value="reportConfig.ShowStatus" />
+                                <label class="form-check-label">Статус</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input" @bind-Value="reportConfig.ShowAccess" />
+                                <label class="form-check-label">Доступ работы</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input" @bind-Value="reportConfig.ShowPages" />
+                                <label class="form-check-label">Количество страниц</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input" @bind-Value="reportConfig.ShowDateAdd" />
+                                <label class="form-check-label">Дата добавления</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input" @bind-Value="reportConfig.ShowDateChange" />
+                                <label class="form-check-label">Дата изменения</label>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Выбор атрибутов -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5 class="border-bottom pb-2 text-primary">
+                            <i class="bi bi-tags me-2"></i>Выберите атрибуты для анализа
+                        </h5>
+                    </div>
+                    
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            Выберите атрибуты, которые будут использованы для распределения и отображения в таблице
+                        </div>
+                        
+                        <div class="row">
+                            @foreach (var attribute in allAttributes)
+                            {
+                                <div class="col-md-4 mb-2">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" 
+                                               @onchange="@((e) => ToggleAttribute(attribute.IdАтрибута, (bool)e.Value!))"
+                                               checked="@reportConfig.SelectedAttributes.Contains(attribute.IdАтрибута)" />
+                                        <label class="form-check-label">@(attribute.Название)</label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Кнопки -->
+                <div class="row mt-4">
+                    <div class="col-12 d-flex justify-content-between">
+                        <button type="button" class="btn btn-secondary" @onclick="Cancel">
+                            <i class="bi bi-x-circle"></i> Отмена
+                        </button>
+                        <button type="submit" class="btn btn-primary" disabled="@isGenerating">
+                            @if (isGenerating)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            <i class="bi bi-file-earmark-text me-2"></i>
+                            Сформировать отчет
+                        </button>
+                    </div>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+<script>
+        window.downloadFile = (fileName, base64Content) => {
+        const link = document.createElement('a');
+        const byteCharacters = atob(base64Content);
+        const byteNumbers = new Array(byteCharacters.length);
+    
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+    
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        const url = URL.createObjectURL(blob);
+    
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+</script>
+
+@code {
+    [SupplyParameterFromForm]
+    private ReportConfig reportConfig { get; set; } = null!; 
+    [Parameter] public List<WorkDisplayDto>? Works { get; set; }
+    [Parameter] public WorkSearchModel SearchModel { get; set; } = null!;
+    [Parameter] public ReferenceDataSnapshot? Snapshot { get; set; }
+
+    private WorkSearchModel searchModel = new();
+    private List<Атрибут> allAttributes = new();
+    private List<ТипРаботы> workTypes = new();
+    private List<СтатусРаботы> workStatuses = new();
+
+    private bool isGenerating = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        reportConfig = new();
+        await LoadReferenceData();
+    }
+
+    private async Task LoadReferenceData()
+    {
+        using var context = DbFactory.CreateDbContext();
+        allAttributes = await context.Атрибутs.OrderBy(a => a.Название).ToListAsync();
+        workTypes = await context.ТипРаботыs.ToListAsync();
+        workStatuses = await context.СтатусРаботыs.ToListAsync();
+    }
+
+    private void ToggleAttribute(int attributeId, bool isSelected)
+    {
+        if (isSelected && !reportConfig.SelectedAttributes.Contains(attributeId))
+        {
+            reportConfig.SelectedAttributes.Add(attributeId);
+        }
+        else if (!isSelected)
+        {
+            reportConfig.SelectedAttributes.Remove(attributeId);
+        }
+    }
+
+    private async Task GenerateReport()
+    {
+        isGenerating = true;
+        StateHasChanged();
+
+        try
+        {
+            // Генерируем отчет
+            var reportBytes = await ReportService.GenerateReportAsync(reportConfig, SearchModel, Works, Snapshot);
+            
+            // Скачиваем файл
+            await JSRuntime.InvokeVoidAsync("downloadFile", 
+                $"Отчет_{DateTime.Now:yyyyMMdd_HHmmss}.docx", 
+                Convert.ToBase64String(reportBytes));
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка при формировании отчета: {ex.Message}");
+        }
+        finally
+        {
+            isGenerating = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/works");
+    }
+}

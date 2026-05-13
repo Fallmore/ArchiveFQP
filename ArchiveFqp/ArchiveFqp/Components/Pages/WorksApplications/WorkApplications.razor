@@ -1,5 +1,6 @@
 ﻿@using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Models.DTO.WorkApplication
+@using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.Search
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Interfaces.Applications
@@ -7,6 +8,8 @@
 @using ArchiveFqp.Interfaces.Work
 @using Microsoft.AspNetCore.Authorization
 @using System.Security.Claims
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Serialization
 @inject IReferenceDataService RefDataService
 @inject IApplicationsService ApplicationsService
 @inject IUserService UserService
@@ -144,7 +147,7 @@
     private WorkApplicationDto? selectedWorkApplicationDto;
     private string modalName = "workApplicationModal";
 
-    private EventHandler<List<string>>? _tablesChangedHandler;
+    private EventHandler<TableChangeEvent>? _tablesChangedHandler;
 
     protected override async Task OnInitializedAsync()
     {
@@ -237,23 +240,31 @@
         }
     }
 
-    private async Task GetWorkApplications(object? sender, List<string> e)
+    private async Task GetWorkApplications(object? sender, TableChangeEvent e)
     {
-        if (e.Contains(typeof(ЗаявлениеРаботы).Name))
+        if (e.TableName == nameof(ЗаявлениеРаботы))
         {
             await GetWorkApplications();
             // Если открыт просмотр заявления
-            if (selectedWorkApplicationDto != null)
+            if (e.ChangeType == TableChangeType.Update)
             {
-                // то, если данные просматриваемого заявления не совпадают с полученными,
-                // то заявление обновилось - обновляем данные и переоткрываем модал
-                WorkApplicationDto? app = result.Items.FirstOrDefault(x => x.IdЗаявления == selectedWorkApplicationDto.IdЗаявления);
-                if (!selectedWorkApplicationDto.Equals(app))
+                ЗаявлениеРаботы? app = JsonConvert.DeserializeObject<ЗаявлениеРаботы>(e.New!.ToString(),
+                    new JsonSerializerSettings
+                    { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } });
+                if (app == null) return;
+
+                if (selectedWorkApplicationDto != null && selectedWorkApplicationDto.IdЗаявления == app.IdЗаявления)
                 {
-                    selectedWorkApplicationDto = app;
-                    await JS.InvokeVoidAsync("closeModal", modalName);
-                    StateHasChanged();
-                    await JS.InvokeVoidAsync("openModal", modalName);
+                    // то, если данные просматриваемого заявления не совпадают с полученными,
+                    // значит заявление обновилось - обновляем данные и переоткрываем модал
+                    WorkApplicationDto? appDto = result.Items.FirstOrDefault(x => x.IdЗаявления == selectedWorkApplicationDto.IdЗаявления);
+                    if (!selectedWorkApplicationDto.Equals(appDto))
+                    {
+                        selectedWorkApplicationDto = appDto;
+                        await JS.InvokeVoidAsync("closeModal", modalName);
+                        StateHasChanged();
+                        await JS.InvokeVoidAsync("openModal", modalName);
+                    }
                 }
             }
         }

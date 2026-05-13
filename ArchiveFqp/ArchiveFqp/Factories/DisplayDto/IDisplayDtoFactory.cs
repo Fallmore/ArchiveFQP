@@ -28,6 +28,6 @@ namespace ArchiveFqp.Factories.DisplayDto
         /// </summary>
         /// <param name="obj"></param>
         /// <returns></returns>
-        Task<List<T>> CreateDisplayDtoListAsync(IEnumerable<V> obj);
+        Task<List<T>> CreateDisplayDtoAsync(IEnumerable<V> obj);
     }
 }

@@ -27,12 +27,12 @@ namespace ArchiveFqp.Interfaces.User
         /// <param name="idUser"></param>
         /// <returns></returns>
         Task<UserDisplayDto?> GetUserDisplayAsync(int idUser);
-        /// <summary>
         /// <inheritdoc cref="GetUserDisplayAsync"/>
-        /// </summary>
-        /// <param name="user"></param>
-        /// <returns></returns>
         Task<UserDisplayDto> GetUserDisplayAsync(Пользователь user);
+        /// <inheritdoc cref="GetUserDisplayAsync"/>
+        Task<List<UserDisplayDto>> GetUserDisplayAsync(List<int> idUsers);
+        /// <inheritdoc cref="GetUserDisplayAsync"/>
+        Task<List<UserDisplayDto>> GetUserDisplayAsync(List<Пользователь> users);
 
         /// <summary>
         /// Получение пользователя типа <see cref="TeacherDisplayDto"/> для отображения информации
@@ -40,12 +40,12 @@ namespace ArchiveFqp.Interfaces.User
         /// <param name="idUser"></param>
         /// <returns></returns>
         Task<TeacherDisplayDto?> GetTeacherDisplayAsync(int idUser);
-        /// <summary>
         /// <inheritdoc cref="GetTeacherDisplayAsync"/>
-        /// </summary>
-        /// <param name="user"></param>
-        /// <returns></returns>
         Task<TeacherDisplayDto?> GetTeacherDisplayAsync(Пользователь user);
+        /// <inheritdoc cref="GetTeacherDisplayAsync"/>
+        Task<List<TeacherDisplayDto>> GetTeacherDisplayAsync(List<int> idUsers);
+        /// <inheritdoc cref="GetTeacherDisplayAsync"/>
+        Task<List<TeacherDisplayDto>> GetTeacherDisplayAsync(List<Пользователь> users);
 
         /// <summary>
         /// Получение пользователя типа <see cref="StudentDisplayDto"/> для отображения информации
@@ -53,12 +53,12 @@ namespace ArchiveFqp.Interfaces.User
         /// <param name="idUser"></param>
         /// <returns></returns>
         Task<StudentDisplayDto?> GetStudentDisplayAsync(int idUser);
-        /// <summary>
         /// <inheritdoc cref="GetStudentDisplayAsync"/>
-        /// </summary>
-        /// <param name="user"></param>
-        /// <returns></returns>
         Task<StudentDisplayDto?> GetStudentDisplayAsync(Пользователь user);
+        /// <inheritdoc cref="GetStudentDisplayAsync"/>
+        Task<List<StudentDisplayDto>> GetStudentDisplayAsync(List<int> idUsers);
+        /// <inheritdoc cref="GetStudentDisplayAsync"/>
+        Task<List<StudentDisplayDto>> GetStudentDisplayAsync(List<Пользователь> users);
 
         Task<bool> UpdateUser(Пользователь user);
 

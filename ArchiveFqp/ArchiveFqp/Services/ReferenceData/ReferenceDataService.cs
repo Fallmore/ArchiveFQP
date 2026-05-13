@@ -2,6 +2,7 @@
 using ArchiveFqp.Interfaces.DatabaseNotification;
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
+using ArchiveFqp.Models.DatabaseNotification;
 using ArchiveFqp.Models.DTO.Attribute;
 using ArchiveFqp.Models.DTO.User;
 using ArchiveFqp.Models.ReferenceData;
@@ -29,9 +30,9 @@ namespace ArchiveFqp.Services.ReferenceData
         private static readonly string s_cacheAttributeValues = "ref_dict_attribute_values";
         private static readonly string s_cacheUserAccounts = "ref_user_account_values";
 
-        public event EventHandler<List<string>>? TablesChanged;
+        public event EventHandler<TableChangeEvent>? TablesChanged;
 
-        protected virtual void OnTablesChanged(List<string> e)
+        protected virtual void OnTablesChanged(TableChangeEvent e)
         {
             TablesChanged?.Invoke(this, e);
         }
@@ -98,7 +99,8 @@ namespace ArchiveFqp.Services.ReferenceData
                     if (GetTableClassName(changeEvent.TableName) == typeof(АккаунтПользователя).Name)
                     {
                         await UpdateUserAccountAsync();
-                        OnTablesChanged([GetTableClassName(changeEvent.TableName)]);
+                        changeEvent.TableName = GetTableClassName(changeEvent.TableName);
+                        OnTablesChanged(changeEvent);
                         return;
                     }
 
@@ -117,7 +119,8 @@ namespace ArchiveFqp.Services.ReferenceData
                         await UpdateUserAccountAsync();
                     }
 
-                    OnTablesChanged([GetTableClassName(changeEvent.TableName)]);
+                    changeEvent.TableName = GetTableClassName(changeEvent.TableName);
+                    OnTablesChanged(changeEvent);
 
                     // В итоге обновляем всю таблицу, а не измененную запись.
                     // Если обновление всей таблицы будет дорогой операцией для вас,
@@ -473,7 +476,7 @@ namespace ArchiveFqp.Services.ReferenceData
                 UserDtoFactory factory = new(this);
 
                 List<Пользователь> list = await GetAsync<Пользователь>(false, false);
-                List<UserDisplayDto> result = await factory.CreateDisplayDtoListAsync(list);
+                List<UserDisplayDto> result = await factory.CreateDisplayDtoAsync(list);
 
                 _cache.Set(s_cacheUserAccounts, result, new MemoryCacheEntryOptions
                 {

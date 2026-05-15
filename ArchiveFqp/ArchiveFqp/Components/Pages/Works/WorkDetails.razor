@@ -96,10 +96,10 @@
                                         <p class="card-text mb-1 fs-5">
                                             @(displayDto.Руководитель.Пользователь.ФИО)
                                         </p>
-                                        @if (!string.IsNullOrEmpty(displayDto.Руководитель.Должность))
+                                        @if (!string.IsNullOrEmpty(displayDto.Руководитель.Должность.Название))
                                         {
                                             <p class="card-text text-muted">
-                                                <i class="bi bi-briefcase me-1"></i>@(displayDto.Руководитель.Должность)
+                                                <i class="bi bi-briefcase me-1"></i>@(displayDto.Руководитель.Должность.Название)
                                             </p>
                                         }
                                     </div>
@@ -122,10 +122,10 @@
                                                 <p class="card-text mb-1 fs-5">
                                                     @(consultant.Пользователь.ФИО)
                                                 </p>
-                                                @if (!string.IsNullOrEmpty(consultant.Должность))
+                                                @if (!string.IsNullOrEmpty(consultant.Должность.Название))
                                                 {
                                                     <p class="card-text text-muted">
-                                                        <i class="bi bi-briefcase me-1"></i>@(consultant.Должность)
+                                                        <i class="bi bi-briefcase me-1"></i>@(consultant.Должность.Название)
                                                     </p>
                                                 }
                                             }
@@ -147,10 +147,10 @@
                                                 <p class="card-text mb-1 fs-5">
                                                     @(reviewer.Пользователь.ФИО)
                                                 </p>
-                                                @if (!string.IsNullOrEmpty(reviewer.Должность))
+                                                @if (!string.IsNullOrEmpty(reviewer.Должность.Название))
                                                 {
                                                     <p class="card-text text-muted">
-                                                        <i class="bi bi-briefcase me-1"></i>@(reviewer.Должность)
+                                                        <i class="bi bi-briefcase me-1"></i>@(reviewer.Должность.Название)
                                                     </p>
                                                 }
                                             }
@@ -277,11 +277,11 @@
                                     }
                                     <p class="mb-1">
                                         <strong>Уровень образования:</strong><br>
-                                        @(displayDto.Студент.УровеньОбразования)
+                                        @(displayDto.Студент.УровеньОбразования.Название)
                                     </p>
                                     <p class="mb-1">
                                         <strong>Форма образования:</strong><br>
-                                        @(displayDto.Студент.ФормаОбучения)
+                                        @(displayDto.Студент.ФормаОбучения.Название)
                                     </p>
                                 </div>
                             </div>

@@ -114,7 +114,7 @@
                     @if (selectedTeacher != null)
                     {
                         <div class="col-md-6 mx-1">
-                            <strong>Должность:</strong> @(selectedTeacher.Должность)
+                            <strong>Должность:</strong> @(selectedTeacher.Должность.Название)
                         </div>
                     }
                 </div>
@@ -301,10 +301,10 @@
                     <div class="col-md-6">
                         <label class="form-label mb-0 mx-1 fw-bold">Стандарт УГСН <span class="text-danger">*</span></label>
                         <InputSelect class="form-select" @bind-Value="WorkDto.IdУгснСтандарта"
-                                     @bind-Value:after="OnUgsnStandartChanged"
+                                     @bind-Value:after="OnUgsnStandardChanged"
                                      disabled="@(disabled || WorkDto.IdКафедры == null)">
                             <option value="">@(WorkDto.IdКафедры == null ? "" : "Выберите стандарт УГСН")</option>
-                            @foreach (УгснСтандарт standard in snapshot.UgsnStandarts.OrderBy(x => x.Название))
+                            @foreach (УгснСтандарт standard in snapshot.UgsnStandards.OrderBy(x => x.Название))
                             {
                                 <option value="@standard.IdУгснСтандарта">@standard.Название</option>
                             }
@@ -689,7 +689,7 @@
         await OnUgsnChanged();
     }
 
-    private async Task OnUgsnStandartChanged()
+    private async Task OnUgsnStandardChanged()
     {
         WorkDto.IdУгсн = null;
         await OnUgsnChanged();
@@ -1065,7 +1065,7 @@
             ТипРаботы workType = snapshot.WorkTypes.First(w => w.IdТипаРаботы == WorkDto.IdТипаРаботы);
             Институт institute = snapshot.Institutes.First(i => i.IdИнститута == WorkDto.IdИнститута);
             Кафедра department = filteredDepartments.First(d => d.IdКафедры == WorkDto.IdКафедры);
-            УгснСтандарт ugsnStandart = snapshot.UgsnStandarts.First(d => d.IdУгснСтандарта == WorkDto.IdУгснСтандарта);
+            УгснСтандарт ugsnStandard = snapshot.UgsnStandards.First(d => d.IdУгснСтандарта == WorkDto.IdУгснСтандарта);
             Направление direction = filteredDirections.First(d => d.IdНаправления == WorkDto.IdНаправления);
             Профиль? profile = filteredProfiles.FirstOrDefault(p => p.IdПрофиля == WorkDto.IdПрофиля);
 
@@ -1073,7 +1073,7 @@
             {
                 Institute = institute.Название,
                 Department = department.Название,
-                UgsnStandart = ugsnStandart.Название,
+                UgsnStandard = ugsnStandard.Название,
                 Direction = direction.Название,
                 Profile = profile?.Название ?? null,
                 WorkType = workType.Название,
@@ -1183,7 +1183,6 @@
 
     public void Dispose()
     {
-        // Отписываемся от события при уничтожении компонента
         FileUploadService.ProgressChanged -= OnUploadProgressChanged;
         RefDataService.TablesChanged -= OnTablesChanged;
         cancelTokenSource.Cancel();

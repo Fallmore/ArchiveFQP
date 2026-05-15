@@ -1,0 +1,186 @@
+﻿@using System.Text.RegularExpressions
+@typeparam TItem where TItem : class, new()
+@implements IDisposable
+
+@if (items == null)
+{
+    <div class="text-center">Загрузка...</div>
+}
+else
+{
+    <div class="table-responsive">
+        <div class="mb-3">
+            <button class="btn btn-success btn-sm" @onclick="OpenCreateModal">
+                <i class="bi bi-plus-circle"></i> Добавить
+            </button>
+        </div>
+        
+        <table class="table table-hover table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Название</th>
+                    <th style="width:10%">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in items.OrderBy(x => GetId(x)))
+                {
+                    <tr>
+                        <td>@GetId(item)</td>
+                        <td>@GetName(item)</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" @onclick="() => OpenEditModal(item)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" @onclick="async () => await OnDelete.InvokeAsync(GetId(item))">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<!-- Модальное окно -->
+@if (editContext != null)
+{
+    <div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">@(isEdit ? "Редактирование" : "Добавление")</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                </div>
+                <EditForm EditContext="editContext" OnValidSubmit="@SaveItem" FormName="userForm">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Название *</label>
+                            <input type="text" class="form-control" @bind="itemName" />
+                            <ValidationMessage For="() => itemName" />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" type="button" @onclick="CloseModal">Отмена</button>
+                        <button class="btn btn-primary" type="submit">Сохранить</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public List<TItem>? Data { get; set; }
+    [Parameter] public EventCallback<TItem> OnSave { get; set; }
+    [Parameter] public EventCallback<int> OnDelete { get; set; }
+
+    private List<TItem>? items;
+    private TItem selectedItem = new();
+    private string itemName = "";
+    private string itemNameOld = "";
+    private bool showModal = false;
+    private bool isEdit = false;
+
+    EditContext? editContext;
+    ValidationMessageStore? messageStore;
+
+    protected override void OnParametersSet()
+    {
+        items = Data;
+        editContext = new(selectedItem);
+        messageStore = new(editContext);
+        editContext.OnValidationStateChanged += HandleValidationRequested;
+        StateHasChanged();
+    }
+
+    private int GetId(TItem item)
+    {
+        string name = item.GetType().Name;
+        var prop = item.GetType().GetProperty("Id" + name + "а");
+        if (prop == null)
+        {
+            if (typeof(TItem).Name == nameof(УровеньОбразования))
+                prop = item.GetType().GetProperty(nameof(УровеньОбразования.IdУровняОбразования));
+            else if (typeof(TItem).Name == nameof(ФормаОбучения))
+                prop = item.GetType().GetProperty(nameof(ФормаОбучения.IdФормыОбучения));
+
+        }
+        if (prop == null) prop = item.GetType().GetProperty("Id" + name[..(name.Length - 1)] + "я");
+        if (prop == null) prop = item.GetType().GetProperty("Id" + name[..(name.Length - 1)] + "и");
+        if (prop == null)
+        {
+            Regex regex = new(@"[A-Z]|[А-Я]");
+            if (prop == null) prop = item.GetType().GetProperty("Id" + regex.Replace(name, (x) => x.Index == 0 ? x.Value : $"а{x.Value}"));
+            if (prop == null) prop = item.GetType().GetProperty("Id" + regex.Replace(name, (x) => x.Index == 0 ? x.Value : "а"));
+        }
+        return (int)(prop?.GetValue(item) ?? 0);
+    }
+
+    private string GetName(TItem item)
+    {
+        var prop = item.GetType().GetProperty("Название");
+        return prop?.GetValue(item)?.ToString() ?? "";
+    }
+
+    private void SetName(TItem item, string name)
+    {
+        var prop = item.GetType().GetProperty("Название");
+        prop?.SetValue(item, name);
+    }
+
+    private void OpenCreateModal()
+    {
+        selectedItem = new();
+
+        itemName = "";
+        isEdit = false;
+        showModal = true;
+        StateHasChanged();
+    }
+
+    private void OpenEditModal(TItem item)
+    {
+        selectedItem = item;
+        itemName = GetName(item);
+        itemNameOld = itemName;
+        isEdit = true;
+        showModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        StateHasChanged();
+    }
+
+    private async Task SaveItem()
+    {
+        if (selectedItem != null && itemNameOld != itemName)
+        {
+            SetName(selectedItem, itemName);
+            await OnSave.InvokeAsync(selectedItem);
+        }
+        CloseModal();
+    }
+
+    private void HandleValidationRequested(object? sender, ValidationStateChangedEventArgs args)
+    {
+        messageStore?.Clear();
+        
+        if (string.IsNullOrWhiteSpace(itemName))
+        {
+            messageStore?.Add(() => itemName, "Название не может быть пустым");
+        }
+    }
+
+    public void Dispose()
+    {
+        if (editContext != null)
+            editContext.OnValidationStateChanged -= HandleValidationRequested;
+    }
+}

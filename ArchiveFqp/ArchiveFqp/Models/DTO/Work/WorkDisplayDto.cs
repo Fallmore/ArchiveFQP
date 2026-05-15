@@ -14,8 +14,8 @@ namespace ArchiveFqp.Models.DTO.Work
 
         public StudentDisplayDto Студент { get; set; } = new();
         public TeacherDisplayDto Руководитель { get; set; } = new();
-        public List<TeacherDisplayDto>? Консультанты { get; set; } = [];
-        public List<TeacherDisplayDto>? Рецензенты { get; set; } = [];
+        public List<TeacherDisplayDto>? Консультанты { get; set; }
+        public List<TeacherDisplayDto>? Рецензенты { get; set; }
 
         public string ТипРаботы { get; set; } = "";
         public string СтатусРаботы { get; set; } = "";

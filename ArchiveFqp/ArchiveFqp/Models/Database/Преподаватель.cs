@@ -1,15 +1,21 @@
-﻿namespace ArchiveFqp.Models.Database;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace ArchiveFqp.Models.Database;
 
 public partial class Преподаватель
 {
     public int IdПреподавателя { get; set; }
 
+    [Range(1, int.MaxValue, ErrorMessage = "Выберите пользователя")]
     public int IdПользователя { get; set; }
 
+    [Range(1, int.MaxValue, ErrorMessage = "Выберите должность")]
     public int IdДолжности { get; set; }
 
+    [Range(1, int.MaxValue, ErrorMessage = "Выберите институт")]
     public int IdИнститута { get; set; }
 
+    [Range(1, int.MaxValue, ErrorMessage = "Выберите кафедру")]
     public int IdКафедры { get; set; }
 
     public virtual Должность IdДолжностиNavigation { get; set; } = null!;

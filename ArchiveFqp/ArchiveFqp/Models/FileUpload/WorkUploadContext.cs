@@ -10,7 +10,7 @@ namespace ArchiveFqp.Models.FileUpload
     {
         public string Institute { get; set; } = string.Empty;
         public string Department { get; set; } = string.Empty;
-        public string UgsnStandart { get; set; } = string.Empty;
+        public string UgsnStandard { get; set; } = string.Empty;
         public string Direction { get; set; } = string.Empty;
         public string? Profile { get; set; } = string.Empty;
         public string WorkType { get; set; } = string.Empty;

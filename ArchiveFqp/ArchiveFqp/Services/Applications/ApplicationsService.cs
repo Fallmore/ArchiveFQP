@@ -50,7 +50,7 @@ namespace ArchiveFqp.Services.Applications
 
         public async Task<WorkApplicationDto> GetWorkApplicationAsync(ЗаявлениеРаботы app, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null)
         {
-            WorkDisplayDto work = await _workService.GetWorkDisplayAsync(app.IdРаботы);
+            WorkDisplayDto work = await _workService.GetWorkDisplayAsync(app.IdРаботы, consultants, reviewers);
             WorkApplicationDtoFactory factory = new(_dbFactory, _refDataService);
             return await factory.CreateDisplayDtoAsync(app, work);
         }

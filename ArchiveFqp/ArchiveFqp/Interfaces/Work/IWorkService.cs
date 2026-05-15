@@ -113,7 +113,7 @@ namespace ArchiveFqp.Interfaces.Work
         /// <param name="consultants"></param>
         /// <param name="reviewers"></param>
         /// <returns></returns>
-        Task<WorkDisplayDto> GetWorkDisplayAsync(Работа work, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null);
+        Task<WorkDisplayDto> GetWorkDisplayAsync(Работа work, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null, List<string>? abandonedValues = null);
 
         /// <summary>
         /// Получение объекта работы как <see cref="WorkDisplayDto"/> для отображение данных в виде строк
@@ -122,9 +122,9 @@ namespace ArchiveFqp.Interfaces.Work
         /// <param name="consultants"></param>
         /// <param name="reviewers"></param>
         /// <returns></returns>
-        Task<WorkDisplayDto> GetWorkDisplayAsync(int idWork, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null);
+        Task<WorkDisplayDto> GetWorkDisplayAsync(int idWork, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null, List<string>? abandonedValues = null);
 
-        Task<List<WorkDisplayDto>> GetWorkDisplayAsync(List<Работа> works);
+        Task<List<WorkDisplayDto>> GetWorkDisplayAsync(List<Работа> works, List<string>? abandonedValues = null);
 
 
         /// <summary>

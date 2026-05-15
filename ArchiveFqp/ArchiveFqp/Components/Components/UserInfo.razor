@@ -28,7 +28,7 @@
                 </p>
                 <p class="mb-1">
                     <strong>Должность:</strong><br>
-                    @Teacher.Должность
+                    @Teacher.Должность.Название
                 </p>
             }
             @if (Student != null)
@@ -66,11 +66,11 @@
                 }
                 <p class="mb-1">
                     <strong>Уровень образования:</strong><br>
-                    @Student.УровеньОбразования
+                    @Student.УровеньОбразования.Название
                 </p>
                 <p class="mb-1">
                     <strong>Форма образования:</strong><br>
-                    @Student.ФормаОбучения
+                    @Student.ФормаОбучения.Название
                 </p>
             }
         </div>

@@ -321,7 +321,7 @@
         }
     }
 
-    void HandleValidationRequested(object? sender, ValidationStateChangedEventArgs args)
+    private void HandleValidationRequested(object? sender, ValidationStateChangedEventArgs args)
     {
         successMessage = null;
         messageStore?.Clear();

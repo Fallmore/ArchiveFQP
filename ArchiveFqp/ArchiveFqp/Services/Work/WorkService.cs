@@ -180,7 +180,7 @@ namespace ArchiveFqp.Services.Work
             Dictionary<int, List<AttributeDto>> result = [];
 
             if (works.Count == 0) return result;
-            if (abandonedValues == default) abandonedValues = _settings.AttributesAbandonedValues;
+            abandonedValues ??= _settings.AttributesAbandonedValues;
 
             using ArchiveFqpContext context = _dbFactory.CreateDbContext();
 
@@ -210,9 +210,10 @@ namespace ArchiveFqp.Services.Work
             return result;
         }
 
-        public async Task<List<WorkDisplayDto>> GetWorkDisplayAsync(List<Работа> works)
+        public async Task<List<WorkDisplayDto>> GetWorkDisplayAsync(List<Работа> works, List<string>? abandonedValues = null)
         {
-            Task<Dictionary<int, List<AttributeDto>>> attributes = Task.Run(() => GetWorksAttributesAsync(works, []));
+            abandonedValues ??= _settings.AttributesAbandonedValues;
+            Task<Dictionary<int, List<AttributeDto>>> attributes = Task.Run(() => GetWorksAttributesAsync(works, abandonedValues));
             
             WorkDtoFactory factory = new(_dbFactory, _refDataService);
             List<WorkDisplayDto> res = await factory.CreateDisplayDtoAsync(works);
@@ -226,25 +227,29 @@ namespace ArchiveFqp.Services.Work
             return res;
         }
 
-        public async Task<WorkDisplayDto> GetWorkDisplayAsync(Работа work, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null)
+        public async Task<WorkDisplayDto> GetWorkDisplayAsync(Работа work,
+            List<Консультант>? consultants = null, List<Рецензент>? reviewers = null,
+            List<string>? abandonedValues = null)
         {
+            Task<List<AttributeDto>?> attributes = Task.Run(() => GetWorkAttributesAsync(work.IdРаботы, abandonedValues));
+            
             consultants ??= await GetConsultantsAsync(work);
             reviewers ??= await GetReviewersAsync(work);
-            
-            Task<List<AttributeDto>?> attributes = Task.Run(() => GetWorkAttributesAsync(work.IdРаботы, []));
-
             WorkDtoFactory factory = new(_dbFactory, _refDataService);
             WorkDisplayDto res = await factory.CreateDisplayDtoAsync(work, consultants, reviewers);
+
             res.Атрибуты = await attributes;
             return res;
         }
 
-        public async Task<WorkDisplayDto> GetWorkDisplayAsync(int idWork, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null)
+        public async Task<WorkDisplayDto> GetWorkDisplayAsync(int idWork, 
+            List<Консультант>? consultants = null, List<Рецензент>? reviewers = null,
+            List<string>? abandonedValues = null)
         {
             using ArchiveFqpContext context = _dbFactory.CreateDbContext();
             Работа? work = (await _refDataService.GetAsync<Работа>()).FirstOrDefault(w => w.IdРаботы == idWork);
             if (work == null) return new();
-            return await GetWorkDisplayAsync(work, consultants, reviewers);
+            return await GetWorkDisplayAsync(work, consultants, reviewers, abandonedValues);
         }
 
         public bool SetStudent(WorkCreateDto work, int? idStudent)

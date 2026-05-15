@@ -1198,7 +1198,7 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.HasIndex(e => e.Название, "idx_ugsn_name");
 
-            entity.HasIndex(e => e.IdУгснСтандарта, "idx_ugsn_standart_id");
+            entity.HasIndex(e => e.IdУгснСтандарта, "idx_ugsn_standard_id");
 
             entity.HasIndex(e => e.Название, "угсн_название_key").IsUnique();
 
@@ -1220,7 +1220,7 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("угсн_стандарт", tb => tb.HasComment("Стандарт угсн"));
 
-            entity.HasIndex(e => e.Название, "idx_ugsn_standart_name");
+            entity.HasIndex(e => e.Название, "idx_ugsn_standard_name");
 
             entity.HasIndex(e => e.Название, "угсн_стандарт_название_key").IsUnique();
 

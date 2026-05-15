@@ -54,7 +54,7 @@ namespace ArchiveFqp.Services.FileUpload
             [
                 Abbreviate(Sanitize(context.Institute), true),
                 Abbreviate(Sanitize(context.Department)),
-                Sanitize(context.UgsnStandart),
+                Sanitize(context.UgsnStandard),
                 Abbreviate(Sanitize(context.Direction)),
                 context.Profile != null ? Abbreviate(Sanitize(context.Profile)) : "Без профиля",
                 Sanitize(context.WorkType),

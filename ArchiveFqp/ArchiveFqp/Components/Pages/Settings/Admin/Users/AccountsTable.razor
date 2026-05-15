@@ -1,0 +1,277 @@
+﻿@using ArchiveFqp.Components.Components
+@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Models
+@using Microsoft.EntityFrameworkCore
+@inject IReferenceDataService RefDataService
+@inject IDbContextFactory<ArchiveFqpContext> DbFactory
+@inject IJSRuntime JSRuntime
+
+<div class="table-responsive">
+    <div class="mb-3">
+        <div class="row">
+            <div class="col-auto d-flex align-items-end">
+                <button class="btn btn-success btn-sm" @onclick="OpenCreateModal">
+                    <i class="bi bi-plus-circle"></i> Добавить аккаунт
+                </button>
+            </div>
+            <div class="col-md-4 pt-1">
+                <input type="text" class="form-control"
+                       @bind="searchText"
+                       @bind:event="oninput"
+                       placeholder="Введите ФИО для поиска аккаунта" />
+            </div>
+        </div>
+    </div>
+    
+    <table class="table table-hover table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>ID</th>
+                <th>Пользователь</th>
+                <th>Логин</th>
+                <th>Роли</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (filteredAccounts == null)
+            {
+                <tr><td colspan="5" class="text-center">Загрузка...</td></tr>
+            }
+            else if (filteredAccounts.Count == 0)
+            {
+                <tr><td colspan="5" class="text-center">Нет данных</td></tr>
+            }
+            else
+            {
+                @foreach (var account in filteredAccounts)
+                {
+                    var user = users?.FirstOrDefault(u => u.IdПользователя == account.IdПользователя);
+                    <tr>
+                        <td>@account.IdАккаунта</td>
+                        <td>@(user != null ? $"{user.Фамилия} {user.Имя} {user.Отчество}" : "Не найден")</td>
+                        <td>@account.Логин</td>
+                        <td>@string.Join(", ", allRoles.Where(x => account.Роли.Contains(x.IdРоли)).Select(x => x.Название))</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" @onclick="() => OpenEditModal(account)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteAccount(account.IdАккаунта)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- Модальное окно для аккаунта -->
+@if (users != null && users.Count > 0 && allRoles != null && allRoles.Count > 0)
+{
+    <div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">@(isEdit ? "Редактирование" : "Добавление") аккаунта</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                </div>
+                <EditForm Model="@selectedAccount" OnValidSubmit="@SaveAccount" FormName="accountForm">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Пользователь *</label>
+                            <SearchableSelect TItem="Пользователь"
+                                              TValue="int"
+                                              Items="@users"
+                                              TextSelector="@((s) => string.Join(" ", s.Фамилия, s.Имя, s.Отчество))"
+                                              ValueSelector="@(s => s.IdПользователя)"
+                                              Placeholder="Выберите или введите пользователя..."
+                                              @bind-SelectedValue="@selectedAccount.IdПользователя"
+                                              OnCustomValue="@(() => selectedAccount.IdПользователя = 0)" />
+                            <ValidationMessage For="() => selectedAccount.IdПользователя" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Логин *</label>
+                            <input type="text" class="form-control" @bind="selectedAccount.Логин" />
+                            <ValidationMessage For="() => selectedAccount.Логин" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Пароль *</label>
+                            <div class="input-group" style="padding:0; border-right-color:transparent">
+                                <InputText @bind-Value="selectedAccount.Пароль" type="password" class="form-control input-password" style="border-right-color:transparent" id="password" />
+                                <div class="input-group-text" style="border-left-color:transparent; background-color:transparent;">
+                                    <input id="eye" class="form-check-input checkbox-password" style="border-color:transparent" type="checkbox" onclick="ChangeVisibilityPassword('password')">
+                                    <label for="eye"></label>
+                                </div>
+                            </div>
+                            <ValidationMessage For="() => selectedAccount.Пароль" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Роли</label>
+                            <div class="border p-3 rounded">
+                                @foreach (var role in allRoles)
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input"
+                                               @onchange="@((e) => ToggleRole(role.IdРоли, (bool)e.Value!))"
+                                               checked="@selectedAccount.Роли.Contains(role.IdРоли)" />
+                                        <label class="form-check-label">@role.Название</label>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" type="button" @onclick="CloseModal">Отмена</button>
+                        <button class="btn btn-primary" type="submit">Сохранить</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+<script>
+    function ChangeVisibilityPassword(name) {
+      var x = document.getElementById(name);
+      if (x.type === "password") {
+        x.type = "text";
+      } else {
+        x.type = "password";
+      }
+    }
+    
+</script>
+
+@code {
+    private List<АккаунтПользователя>? accounts;
+    private List<Пользователь> users = null!;
+    private List<РольПользователя> allRoles = null!;
+    private АккаунтПользователя selectedAccount = null!;
+    private bool showModal = false;
+    private bool isEdit = false;
+    private string searchText = "";
+    private List<АккаунтПользователя> filteredAccounts
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
+                return accounts ?? [];
+
+            return accounts?.Where(item =>
+            {
+                var user = users?.FirstOrDefault(u => u.IdПользователя == item.IdПользователя);
+                var text = string.Join(' ', user?.Фамилия, user?.Имя, user?.Отчество);
+                return text.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+            }).ToList() ?? [];
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        using var context = DbFactory.CreateDbContext();
+        accounts = await context.АккаунтПользователяs.OrderBy(x => x.IdАккаунта).ToListAsync();
+        users = await RefDataService.GetAsync<Пользователь>();
+        allRoles = await RefDataService.GetAsync<РольПользователя>();
+        selectedAccount = new() { Роли = [] };
+
+        StateHasChanged();
+    }
+
+    private void ToggleRole(int role, bool isSelected)
+    {
+        if (isSelected && !selectedAccount.Роли.Contains(role))
+        {
+            selectedAccount.Роли.Add(role);
+        }
+        else if (!isSelected && selectedAccount.Роли.Contains(role))
+        {
+            selectedAccount.Роли.Remove(role);
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        selectedAccount = new() { Роли = [] };
+        isEdit = false;
+        showModal = true;
+        StateHasChanged();
+    }
+
+    private void OpenEditModal(АккаунтПользователя account)
+    {
+        selectedAccount = new()
+        {
+            IdАккаунта = account.IdАккаунта,
+            IdПользователя = account.IdПользователя,
+            Логин = account.Логин,
+            Пароль = "",
+            Роли = new List<int>(account.Роли)
+        };
+        isEdit = true;
+        showModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        StateHasChanged();
+    }
+
+    private async Task SaveAccount()
+    {
+        try
+        {
+            using var context = DbFactory.CreateDbContext();
+            selectedAccount.Пароль = BCrypt.Net.BCrypt.HashPassword(selectedAccount.Пароль);
+
+            if (isEdit)
+            {
+                context.АккаунтПользователяs.Update(selectedAccount);
+            }
+            else
+            {
+                context.АккаунтПользователяs.Add(selectedAccount);
+            }
+            
+            await context.SaveChangesAsync();
+            await LoadData();
+            CloseModal();
+            await JSRuntime.InvokeVoidAsync("alert", "Сохранено успешно");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteAccount(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Удалить аккаунт?"))
+        {
+            try
+            {
+                using var context = DbFactory.CreateDbContext();
+                var account = await context.АккаунтПользователяs.FindAsync(id);
+                if (account != null)
+                {
+                    context.АккаунтПользователяs.Remove(account);
+                    await context.SaveChangesAsync();
+                    await LoadData();
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+            }
+        }
+    }
+}

@@ -1,12 +1,14 @@
 ﻿using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Interfaces.User;
 using ArchiveFqp.Models.Database;
+using ArchiveFqp.Models.DTO.Attribute;
 using ArchiveFqp.Models.DTO.Student;
 using ArchiveFqp.Models.DTO.Work;
 using ArchiveFqp.Models.ReferenceData;
 using ArchiveFqp.Models.Search;
 using ArchiveFqp.Services.FileUpload;
 using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Drawing.Charts;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +35,12 @@ namespace ArchiveFqp.Services.Report
             public int Count { get; set; }
         }
 
+        public enum SectionPageOrientationValues
+        {
+            Portrait,
+            Landscape
+        }
+
         public async Task<byte[]> GenerateReportAsync(ReportConfig config, WorkSearchModel searchModel,
             List<WorkDisplayDto>? works, ReferenceDataSnapshot? snapshot)
         {
@@ -45,6 +53,9 @@ namespace ArchiveFqp.Services.Report
                 var mainPart = wordDocument.AddMainDocumentPart();
                 mainPart.Document = new Document();
                 var body = mainPart.Document.AppendChild(new Body());
+
+                var portraitSection = CreateSection(SectionPageOrientationValues.Landscape);
+                body.AppendChild(portraitSection);
 
                 // Заголовок отчета
                 AddHeading(body, config.ReportTitle, 1);
@@ -64,9 +75,12 @@ namespace ArchiveFqp.Services.Report
                         await AddAttributeDistributionSection(body, works, config);
                     }
 
-                    //// Список работ
+                    // Список работ
                     if (config.IncludeWorksList)
                     {
+                        // Разрыв страницы
+                        body.AppendChild(new Paragraph(new Run(new Break() { Type = BreakValues.Page })));
+
                         await AddWorksListSection(body, works, config);
                     }
                 }
@@ -135,8 +149,9 @@ namespace ArchiveFqp.Services.Report
             }
 
             // Параметры поиска
-            AddHeading(body, "Параметры поиска", 3);
+            AddHeading(body, "Параметры поиска", 2);
             var searchParams = await GetSearchParametersDescription(searchModel, snapshot);
+            if (searchParams.Count == 0) AddParagraph(body, "отсутствуют");
             foreach (var param in searchParams)
             {
                 AddParagraph(body, $"• {param}");
@@ -146,7 +161,8 @@ namespace ArchiveFqp.Services.Report
             AddEmptyParagraph(body);
         }
 
-        private async Task<List<string>> GetSearchParametersDescription(WorkSearchModel searchModel, ReferenceDataSnapshot snapshot)
+        private async Task<List<string>> GetSearchParametersDescription(WorkSearchModel searchModel,
+            ReferenceDataSnapshot snapshot)
         {
             var params_ = new List<string>();
 
@@ -248,21 +264,21 @@ namespace ArchiveFqp.Services.Report
 
             if (config.GroupByWorkType)
             {
-                AddStatisticsSubsection(body, "Распределение по типам работ",
+                AddStatisticsSubsection(body, "Распределение по типам работ", works.Count,
                     works.GroupBy(w => w.ТипРаботы)
                         .Select(g => new Statistic { Name = g.Key, Count = g.Count() }));
             }
 
             if (config.GroupByStatus)
             {
-                AddStatisticsSubsection(body, "Распределение по статусам",
+                AddStatisticsSubsection(body, "Распределение по статусам", works.Count,
                     works.GroupBy(w => w.СтатусРаботы)
                         .Select(g => new Statistic { Name = g.Key, Count = g.Count() }));
             }
 
             if (config.GroupByYear)
             {
-                AddStatisticsSubsection(body, "Распределение по годам добавления",
+                AddStatisticsSubsection(body, "Распределение по годам добавления", works.Count,
                     works.GroupBy(w => w.ДатаДобавления.Year)
                         .OrderBy(g => g.Key)
                         .Select(g => new Statistic { Name = g.Key.ToString(), Count = g.Count() }));
@@ -270,7 +286,7 @@ namespace ArchiveFqp.Services.Report
 
             if (config.GroupByInstitute)
             {
-                AddStatisticsSubsection(body, "Распределение по институтам",
+                AddStatisticsSubsection(body, "Распределение по институтам", works.Count,
                     works.GroupBy(w => w.Студент.Структура.Институт.Название)
                         .OrderBy(g => g.Key)
                         .Select(g => new Statistic { Name = g.Key.ToString(), Count = g.Count() }));
@@ -285,7 +301,7 @@ namespace ArchiveFqp.Services.Report
             AddTableRow(statsTable, ["Общее количество работ", works.Count.ToString()]);
             AddTableRow(statsTable, ["Общее количество страниц", totalPages.ToString()]);
             AddTableRow(statsTable, ["Среднее количество страниц", (totalPages / works.Count).ToString()]);
-            
+
             var tasks = works
                 .Select(x =>
                     _workFileUploadService.VerifyUploadedFilesAsync(x.Эцп ?? "", x.Местоположение ?? ""));
@@ -298,16 +314,17 @@ namespace ArchiveFqp.Services.Report
             AddEmptyParagraph(body);
         }
 
-        private static void AddStatisticsSubsection(Body body, string title, IEnumerable<Statistic> distribution)
+        private static void AddStatisticsSubsection(Body body, string title,
+            int countWorks, IEnumerable<Statistic> distribution)
         {
             AddHeading(body, title, 3);
             var table = new Table();
             AddTableBorders(table);
-            AddTableRow(table, ["Параметр", "Количество"], true);
+            AddTableRow(table, ["Параметр", "Количество", "Процент"], true);
 
             foreach (var item in distribution)
             {
-                AddTableRow(table, [item.Name, item.Count.ToString()]);
+                AddTableRow(table, [item.Name, item.Count.ToString(), (((double)item.Count / countWorks) * 100).ToString("F2")]);
             }
 
             body.AppendChild(table);
@@ -316,27 +333,38 @@ namespace ArchiveFqp.Services.Report
 
         private async Task AddAttributeDistributionSection(Body body, List<WorkDisplayDto> works, ReportConfig config)
         {
+            List<AttributeValuesDto> attributeValuesDto = await _refDataService.GetAsync<AttributeValuesDto>();
+
             AddHeading(body, "Анализ по атрибутам", 2);
             var table = new Table();
             AddTableBorders(table);
-            AddTableRow(table, ["Название", "Количество работ"], true);
+            AddTableRow(table, ["Название", "Количество работ", "Процент"], true);
 
             var idWorks = works.Select(w => w.IdРаботы).ToList();
-            var allAttributes = works.Select(x => x.Атрибуты).ToList();
+            var workAttributes = works.Select(x => x.Атрибуты).ToList();
             foreach (var idAttr in config.SelectedAttributes)
             {
-                var attributes = allAttributes
-                    .FirstOrDefault(x => x?.Exists(y => y.IdАтрибута == idAttr) ?? false);
-                var attribute = attributes?.FirstOrDefault();
+                AttributeValuesDto values = attributeValuesDto.First(x => x.IdАтрибута == idAttr);
+                List<List<AttributeDto>?> allAttributeValues = workAttributes
+                    .Where(x => x?.Exists(y => y.IdАтрибута == idAttr) ?? false)
+                    .ToList();
+                AttributeDto? attribute = allAttributeValues.FirstOrDefault()
+                    ?.FirstOrDefault(x => x.IdАтрибута == idAttr);
 
                 if (attribute != null)
                 {
-                    AddTableRow(table, [attribute.Название, attributes!.Count.ToString()]);
+                    AddTableRow(table, [attribute.Название, allAttributeValues!.Count.ToString(), (((double)allAttributeValues.Count / workAttributes.Count) * 100).ToString("F2")], true);
+                    foreach (string data in values.Данные)
+                    {
+                        int attributes = allAttributeValues.Count(x => x?.Exists(y => y.Данные == data) ?? false);
+                        if (attributes != 0)
+                            AddTableRow(table, [data, attributes.ToString(), (((double)attributes / allAttributeValues.Count) * 100).ToString("F2")]);
+                    }
                 }
                 else
                 {
                     string attrName = (await _refDataService.GetAsync<Атрибут>()).First(x => x.IdАтрибута == idAttr).Название;
-                    AddTableRow(table, [attrName, "0"]);
+                    AddTableRow(table, [attrName, "0", "0"]);
                 }
             }
             body.AppendChild(table);
@@ -353,10 +381,10 @@ namespace ArchiveFqp.Services.Report
             // Формируем заголовки на основе настроек
             List<string> headers = [];
             headers.Add("№");
-            if (config.ShowTitle) headers.Add("Тема работы");
+            if (config.ShowTitle) headers.Add("Тема");
             if (config.ShowStudent) headers.Add("Студент");
             if (config.ShowSupervisor) headers.Add("Руководитель");
-            if (config.ShowType) headers.Add("Тип работы");
+            if (config.ShowType) headers.Add("Тип");
             if (config.ShowStatus) headers.Add("Статус");
             if (config.ShowAccess) headers.Add("Доступ");
             if (config.ShowPages) headers.Add("Страницы");
@@ -366,15 +394,15 @@ namespace ArchiveFqp.Services.Report
             if (config.ShowConsultants) headers.Add("Консультанты");
             if (config.ShowReviewers) headers.Add("Рецензенты");
 
-            List<List<Models.DTO.Attribute.AttributeDto>?> allAttributes = [];
+            List<List<AttributeDto>?> workAttributes = [];
             if (config.ShowAttributes && config.SelectedAttributes.Count != 0)
             {
-                allAttributes = works.Select(x => x.Атрибуты).ToList();
+                workAttributes = works.Select(x => x.Атрибуты).ToList();
                 foreach (var idAttr in config.SelectedAttributes)
                 {
-                    var attribute = allAttributes
+                    AttributeDto? attribute = workAttributes
                         .FirstOrDefault(x => x?.Exists(y => y.IdАтрибута == idAttr) ?? false)
-                        ?.FirstOrDefault();
+                        ?.FirstOrDefault(x => x.IdАтрибута == idAttr);
                     if (attribute != null) headers.Add(attribute.Название);
                 }
             }
@@ -386,9 +414,9 @@ namespace ArchiveFqp.Services.Report
             foreach (var work in works)
             {
                 i++;
-                var rowData = new List<string>();
+                List<string>? rowData = [];
 
-                if (config.ShowWorkId) rowData.Add(i.ToString());
+                rowData.Add(i.ToString());
                 if (config.ShowTitle) rowData.Add(work.Тема);
                 if (config.ShowStudent) rowData.Add(work.Студент.Пользователь.ФИО);
                 if (config.ShowSupervisor) rowData.Add(work.Руководитель.Пользователь.ФИО);
@@ -414,9 +442,8 @@ namespace ArchiveFqp.Services.Report
                 {
                     foreach (var idAttr in config.SelectedAttributes)
                     {
-                        var attribute = allAttributes
-                        .FirstOrDefault(x => x?.Exists(y => y.IdАтрибута == idAttr) ?? false)
-                        ?.FirstOrDefault();
+
+                        AttributeDto? attribute = work.Атрибуты?.FirstOrDefault(x => x.IdАтрибута == idAttr);
                         rowData.Add(attribute?.Данные ?? "—");
                     }
                 }
@@ -426,9 +453,6 @@ namespace ArchiveFqp.Services.Report
 
             body.AppendChild(table);
             AddEmptyParagraph(body);
-
-            // Информация о количестве
-            AddParagraph(body, $"Всего в списке: {works.Count} работ");
         }
 
         // Вспомогательные методы для форматирования Word
@@ -438,11 +462,12 @@ namespace ArchiveFqp.Services.Report
             var run = new Run(new Text(text));
             var runProps = new RunProperties();
             runProps.AppendChild(new Bold());
+            runProps.AppendChild(new RunFonts() { Ascii= "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "Times New Roman" });
             runProps.AppendChild(new FontSize() { Val = (28 - (level - 1) * 4).ToString() });
             run.RunProperties = runProps;
             paragraph.AppendChild(run);
             paragraph.ParagraphProperties = new ParagraphProperties(
-                new SpacingBetweenLines() { After = "200", Before = "200" });
+                new SpacingBetweenLines() { After = "200", Before = "100" });
             body.AppendChild(paragraph);
         }
 
@@ -450,6 +475,10 @@ namespace ArchiveFqp.Services.Report
         {
             var paragraph = new Paragraph();
             var run = new Run(new Text(text));
+            var runProps = new RunProperties();
+            runProps.AppendChild(new RunFonts() { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "Times New Roman" });
+            runProps.AppendChild(new FontSize() { Val = "24" });
+            run.RunProperties = runProps;
             paragraph.AppendChild(run);
             body.AppendChild(paragraph);
         }
@@ -481,23 +510,77 @@ namespace ArchiveFqp.Services.Report
                 var tableCell = new TableCell();
                 var paragraph = new Paragraph();
                 var run = new Run(new Text(value));
+                var runProps = new RunProperties();
+                runProps.AppendChild(new FontSize() { Val = "20" });
+
                 paragraph.AppendChild(run);
 
                 if (isHeader)
                 {
-                    var runProps = new RunProperties();
                     runProps.AppendChild(new Bold());
-                    run.RunProperties = runProps;
                     tableCell.AppendChild(new TableCellProperties(
                         new TableCellWidth() { Type = TableWidthUnitValues.Auto },
                         new Shading() { Val = ShadingPatternValues.Clear, Color = "auto", Fill = "D3D3D3" }));
                 }
+                else
+                {
+                    runProps.AppendChild(new RunFonts() { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "Times New Roman" });
+                }
+
+                run.RunProperties = runProps;
 
                 tableCell.AppendChild(paragraph);
                 tableRow.AppendChild(tableCell);
             }
 
             table.AppendChild(tableRow);
+        }
+
+        /// <summary>
+        /// Создает новую секцию с указанной ориентацией
+        /// </summary>
+        private static SectionProperties CreateSection(SectionPageOrientationValues orientation)
+        {
+            var sectionProperties = new SectionProperties();
+
+            // Настройка размера страницы
+            var pageSize = new PageSize();
+
+            if (orientation == SectionPageOrientationValues.Landscape)
+            {
+                // Альбомная ориентация: ширина больше высоты
+                pageSize.Width = 16838U;  // A4 landscape width (11.69 inches)
+                pageSize.Height = 11906U; // A4 landscape height (8.27 inches)
+                pageSize.Orient = PageOrientationValues.Landscape;
+            }
+            else
+            {
+                // Книжная ориентация
+                pageSize.Width = 11906U;  // A4 portrait width (8.27 inches)
+                pageSize.Height = 16838U; // A4 portrait height (11.69 inches)
+                pageSize.Orient = PageOrientationValues.Portrait;
+            }
+
+            sectionProperties.AppendChild(pageSize);
+
+            // Настройка полей
+            var pageMargin = new PageMargin()
+            {
+                Top = 1417,   // 1 inch (in twentieths of a point)
+                Bottom = 1417,
+                Left = 1417,
+                Right = 1417,
+                Header = 708,
+                Footer = 708,
+                Gutter = 0
+            };
+            sectionProperties.AppendChild(pageMargin);
+
+            // Настройка колонтитулов
+            var titlePage = new TitlePage() { Val = true };
+            sectionProperties.AppendChild(titlePage);
+
+            return sectionProperties;
         }
     }
 

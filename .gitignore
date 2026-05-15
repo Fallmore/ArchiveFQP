@@ -4,6 +4,8 @@
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
 AppData/
+ai-extractor/
+
 
 # User-specific files
 *.rsuser

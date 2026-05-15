@@ -208,11 +208,12 @@ namespace ArchiveFqp.Services.ReferenceData
 #pragma warning disable EF1002 // Risk of vulnerability to SQL injection.
                 return await context.Set<T>()
                     .FromSqlRaw($"SELECT * FROM ONLY {GetTableName<T>()}")
+                    .AsNoTracking()
                     .ToListAsync();
 #pragma warning restore EF1002 // Risk of vulnerability to SQL injection.
             }
 
-            return await context.Set<T>().ToListAsync();
+            return await context.Set<T>().AsNoTracking().ToListAsync();
         }
 
         /// <summary>
@@ -295,30 +296,30 @@ namespace ArchiveFqp.Services.ReferenceData
 
                 snapshot = new ReferenceDataSnapshot
                 {
-                    Attributes = await context.Атрибутs.ToListAsync(),
-                    AttributesOrganization = await context.АтрибутУчрежденияs.ToListAsync(),
-                    AttributesInstitute = await context.АтрибутИнститутаs.ToListAsync(),
-                    AttributesDepartment = await context.АтрибутКафедрыs.ToListAsync(),
-                    AttributesDirection = await context.АтрибутНаправленияs.ToListAsync(),
-                    AttributesProfile = await context.АтрибутПрофиляs.ToListAsync(),
-                    Posts = await context.Должностьs.ToListAsync(),
-                    WorkAccess = await context.ДоступРаботыs.ToListAsync(),
-                    Institutes = await context.Институтs.ToListAsync(),
-                    Departments = await context.Кафедраs.ToListAsync(),
-                    Consultants = await context.Консультантs.FromSqlRaw("SELECT * FROM ONLY \"консультант\"").ToListAsync(),
-                    Reviewers = await context.Рецензентs.FromSqlRaw("SELECT * FROM ONLY \"рецензент\"").ToListAsync(),
-                    Directions = await context.Направлениеs.ToListAsync(),
-                    Teachers = await context.Преподавательs.ToListAsync(),
-                    Profiles = await context.Профильs.ToListAsync(),
-                    RoleUsers = await context.РольПользователяs.ToListAsync(),
-                    WorkStatuses = await context.СтатусРаботыs.ToListAsync(),
-                    ApplicationStatuses = await context.СтатусЗаявленияs.ToListAsync(),
-                    Students = await context.Студентs.ToListAsync(),
-                    WorkTypes = await context.ТипРаботыs.ToListAsync(),
-                    Ugsns = await context.Угснs.ToListAsync(),
-                    UgsnStandarts = await context.УгснСтандартs.ToListAsync(),
-                    EducationLevels = await context.УровеньОбразованияs.ToListAsync(),
-                    EducationForms = await context.ФормаОбученияs.ToListAsync(),
+                    Attributes = await context.Атрибутs.AsNoTracking().ToListAsync(),
+                    AttributesOrganization = await context.АтрибутУчрежденияs.AsNoTracking().ToListAsync(),
+                    AttributesInstitute = await context.АтрибутИнститутаs.AsNoTracking().ToListAsync(),
+                    AttributesDepartment = await context.АтрибутКафедрыs.AsNoTracking().ToListAsync(),
+                    AttributesDirection = await context.АтрибутНаправленияs.AsNoTracking().ToListAsync(),
+                    AttributesProfile = await context.АтрибутПрофиляs.AsNoTracking().ToListAsync(),
+                    Posts = await context.Должностьs.AsNoTracking().ToListAsync(),
+                    WorkAccess = await context.ДоступРаботыs.AsNoTracking().ToListAsync(),
+                    Institutes = await context.Институтs.AsNoTracking().ToListAsync(),
+                    Departments = await context.Кафедраs.AsNoTracking().ToListAsync(),
+                    Consultants = await context.Консультантs.FromSqlRaw("SELECT * FROM ONLY \"консультант\"").AsNoTracking().ToListAsync(),
+                    Reviewers = await context.Рецензентs.FromSqlRaw("SELECT * FROM ONLY \"рецензент\"").AsNoTracking().ToListAsync(),
+                    Directions = await context.Направлениеs.AsNoTracking().ToListAsync(),
+                    Teachers = await context.Преподавательs.AsNoTracking().ToListAsync(),
+                    Profiles = await context.Профильs.AsNoTracking().ToListAsync(),
+                    RoleUsers = await context.РольПользователяs.AsNoTracking().ToListAsync(),
+                    WorkStatuses = await context.СтатусРаботыs.AsNoTracking().ToListAsync(),
+                    ApplicationStatuses = await context.СтатусЗаявленияs.AsNoTracking().ToListAsync(),
+                    Students = await context.Студентs.AsNoTracking().ToListAsync(),
+                    WorkTypes = await context.ТипРаботыs.AsNoTracking().ToListAsync(),
+                    Ugsns = await context.Угснs.AsNoTracking().ToListAsync(),
+                    UgsnStandards = await context.УгснСтандартs.AsNoTracking().ToListAsync(),
+                    EducationLevels = await context.УровеньОбразованияs.AsNoTracking().ToListAsync(),
+                    EducationForms = await context.ФормаОбученияs.AsNoTracking().ToListAsync(),
                     LastUpdated = DateTime.Now
                 };
 

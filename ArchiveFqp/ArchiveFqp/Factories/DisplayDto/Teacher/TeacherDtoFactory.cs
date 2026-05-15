@@ -37,9 +37,10 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
             _init.Wait();
             return new()
             {
+                IdПреподавателя = teacher.IdПреподавателя,
                 Пользователь = await _userDisplayFactory.CreateDisplayDtoAsync(teacher.IdПользователя) ?? new(),
                 Структура = await _structureDisplayFactory.CreateDisplayDtoAsync<Кафедра>(teacher.IdКафедры) ?? new(),
-                Должность = _snapshot.Posts.FirstOrDefault(o => o.IdДолжности == teacher.IdДолжности)?.Название ?? ""
+                Должность = _snapshot.Posts.FirstOrDefault(o => o.IdДолжности == teacher.IdДолжности) ?? new()
             };
         }
 

@@ -1,11 +1,15 @@
-﻿namespace ArchiveFqp.Models.Database;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace ArchiveFqp.Models.Database;
 
 public partial class Пользователь
 {
     public int IdПользователя { get; set; }
 
+    [Required(AllowEmptyStrings = false, ErrorMessage = "Введите фамилию")]
     public string Фамилия { get; set; } = null!;
 
+    [Required(AllowEmptyStrings = false, ErrorMessage = "Введите имя")]
     public string Имя { get; set; } = null!;
 
     public string? Отчество { get; set; }

@@ -1,0 +1,80 @@
+﻿@page "/admin/users"
+@using ArchiveFqp.Models
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Администратор")]
+@rendermode @(new InteractiveServerRenderMode())
+
+<PageTitle>Админ-панель - Управление пользователями</PageTitle>
+
+@if (RendererInfo.IsInteractive)
+{
+    <div class="container-fluid mt-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-people me-2"></i>Управление пользователями и аккаунтами
+                    </h4>
+                    <button class="btn btn-light btn-sm" @onclick="@(() => NavigationManager.NavigateTo("/admin"))">
+                        <i class="bi bi-arrow-left"></i> Назад
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Вкладки -->
+                <ul class="nav nav-tabs mb-3">
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "users" ? "active" : "")" @onclick="@(() => SetActiveTab("users"))">
+                            <i class="bi bi-person-badge"></i> Пользователи
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "accounts" ? "active" : "")" @onclick="@(() => SetActiveTab("accounts"))">
+                            <i class="bi bi-key"></i> Аккаунты
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "students" ? "active" : "")" @onclick="@(() => SetActiveTab("students"))">
+                            <i class="bi bi-mortarboard"></i> Студенты
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "teachers" ? "active" : "")" @onclick="@(() => SetActiveTab("teachers"))">
+                            <i class="bi bi-person-workspace"></i> Преподаватели
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Контент вкладок -->
+                @if (activeTab == "users")
+                {
+                    <UsersTable />
+                }
+                else if (activeTab == "accounts")
+                {
+                    <AccountsTable />
+                }
+                else if (activeTab == "students")
+                {
+                    <StudentsTable />
+                }
+                else if (activeTab == "teachers")
+                {
+                    <TeachersTable />
+                }
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    private string activeTab = "users";
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+    }
+}

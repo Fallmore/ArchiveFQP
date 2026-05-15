@@ -13,6 +13,7 @@
 @inject NavigationManager NavigationManager
 @rendermode @(new InteractiveServerRenderMode())
 
+
 <div class="container">
     <div class="card shadow-sm">
         <div class="card-header bg-primary text-white">
@@ -77,12 +78,6 @@
                             </h5>
                         </div>
                         
-                        <div class="col-md-3">
-                            <div class="form-check">
-                                <InputCheckbox class="form-check-input" @bind-Value="reportConfig.ShowWorkId" />
-                                <label class="form-check-label">ID работы</label>
-                            </div>
-                        </div>
                         <div class="col-md-3">
                             <div class="form-check">
                                 <InputCheckbox class="form-check-input" @bind-Value="reportConfig.ShowTitle" />
@@ -215,6 +210,9 @@
 </script>
 
 @code {
+    // TODO Доп группировки
+    // TODO Реализовать ограничения делопроизводителю
+    // TODO Реализовать доп логику с критериями в зависимости от поиска и принадлежности к структурам
     [SupplyParameterFromForm]
     private ReportConfig reportConfig { get; set; } = null!; 
     [Parameter] public List<WorkDisplayDto>? Works { get; set; }

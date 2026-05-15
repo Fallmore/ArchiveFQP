@@ -117,7 +117,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
             StructureDto res = await CreateDisplayDtoAsync(кафедра);
             res.Направление = obj;
             res.Угсн = угсн;
-            res.УгснСтандарт = _snapshot.UgsnStandarts.FirstOrDefault(o => o.IdУгснСтандарта == угсн.IdУгснСтандарта) ?? new();
+            res.УгснСтандарт = _snapshot.UgsnStandards.FirstOrDefault(o => o.IdУгснСтандарта == угсн.IdУгснСтандарта) ?? new();
             return res;
         }
 

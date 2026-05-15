@@ -28,7 +28,7 @@ namespace ArchiveFqp.Models.ReferenceData
         public List<Студент> Students { get; set; } = [];
         public List<ТипРаботы> WorkTypes { get; set; } = [];
         public List<Угсн> Ugsns { get; set; } = [];
-        public List<УгснСтандарт> UgsnStandarts { get; set; } = [];
+        public List<УгснСтандарт> UgsnStandards { get; set; } = [];
         public List<УровеньОбразования> EducationLevels { get; set; } = [];
         public List<ФормаОбучения> EducationForms { get; set; } = [];
 
@@ -71,7 +71,7 @@ namespace ArchiveFqp.Models.ReferenceData
                 nameof(Студент) => (Students as List<T>)!,
                 nameof(ТипРаботы) => (WorkTypes as List<T>)!,
                 nameof(Угсн) => (Ugsns as List<T>)!,
-                nameof(УгснСтандарт) => (UgsnStandarts as List<T>)!,
+                nameof(УгснСтандарт) => (UgsnStandards as List<T>)!,
                 nameof(УровеньОбразования) => (EducationLevels as List<T>)!,
                 nameof(ФормаОбучения) => (EducationForms as List<T>)!,
                 _ => throw new ArgumentException($"Неизвестная таблица: {typeof(T).Name}")
@@ -105,7 +105,7 @@ namespace ArchiveFqp.Models.ReferenceData
                 case nameof(Студент): Students = (table as List<Студент>)!; break;
                 case nameof(ТипРаботы): WorkTypes = (table as List<ТипРаботы>)!; break;
                 case nameof(Угсн): Ugsns = (table as List<Угсн>)!; break;
-                case nameof(УгснСтандарт): UgsnStandarts = (table as List<УгснСтандарт>)!; break;
+                case nameof(УгснСтандарт): UgsnStandards = (table as List<УгснСтандарт>)!; break;
                 case nameof(УровеньОбразования): EducationLevels = (table as List<УровеньОбразования>)!; break;
                 case nameof(ФормаОбучения): EducationForms = (table as List<ФормаОбучения>)!; break;
                 default: throw new ArgumentException($"Unknown type: {typeof(T).Name}");

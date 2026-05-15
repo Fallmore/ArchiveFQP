@@ -1,0 +1,117 @@
+﻿@page "/admin"
+@using Microsoft.AspNetCore.Authorization
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Администратор")]
+@rendermode @(new InteractiveServerRenderMode())
+
+<PageTitle>АГТУ - Админ-панель</PageTitle>
+
+@if (RendererInfo.IsInteractive)
+{
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">
+                            <i class="bi bi-shield-lock me-2"></i>Панель администратора
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Управление пользователями -->
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card h-100 border-0 shadow-sm">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-people fs-1 text-primary"></i>
+                                        <h5 class="card-title mt-3">Пользователи и аккаунты</h5>
+                                        <p class="card-text small">Управление пользователями, аккаунтами, студентами и преподавателями</p>
+                                        <button class="btn btn-outline-primary btn-sm" onclick="@(() => NavigateTo("users"))">
+                                            Управлять
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Управление работами -->
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card h-100 border-0 shadow-sm">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-file-earmark-text fs-1 text-success"></i>
+                                        <h5 class="card-title mt-3">Работы</h5>
+                                        <p class="card-text small">Редактирование и удаление работ</p>
+                                        <button class="btn btn-outline-success btn-sm" @onclick="@(() => NavigateTo("works"))">
+                                            Управлять
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Справочники -->
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card h-100 border-0 shadow-sm">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-book fs-1 text-info"></i>
+                                        <h5 class="card-title mt-3">Справочники</h5>
+                                        <p class="card-text small">Управление справочными данными (институты, кафедры, направления и т.д.)</p>
+                                        <button class="btn btn-outline-info btn-sm" @onclick="@(() => NavigateTo("directories"))">
+                                            Управлять
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Атрибуты -->
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card h-100 border-0 shadow-sm">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-tags fs-1 text-warning"></i>
+                                        <h5 class="card-title mt-3">Атрибуты</h5>
+                                        <p class="card-text small">Управление атрибутами и данными по атрибутам</p>
+                                        <button class="btn btn-outline-warning btn-sm" @onclick="@(() => NavigateTo("attributes"))">
+                                            Управлять
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Журнал действий -->
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card h-100 border-0 shadow-sm">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-journal-bookmark fs-1 text-secondary"></i>
+                                        <h5 class="card-title mt-3">Журнал действий</h5>
+                                        <p class="card-text small">Просмотр истории изменений</p>
+                                        <button class="btn btn-outline-secondary btn-sm" @onclick="@(() => NavigateTo("logs"))">
+                                            Просмотреть
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Настройки системы -->
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card h-100 border-0 shadow-sm">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-gear fs-1 text-danger"></i>
+                                        <h5 class="card-title mt-3">Настройки системы</h5>
+                                        <p class="card-text small">Конфигурация приложения и ролей</p>
+                                        <button class="btn btn-outline-danger btn-sm" @onclick="@(() => NavigateTo("settings"))">
+                                            Настроить
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+@code {
+    private void NavigateTo(string section)
+    {
+        NavigationManager.NavigateTo($"/admin/{section}");
+    }
+}

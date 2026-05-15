@@ -13,7 +13,6 @@ namespace ArchiveFqp.Services.Report
         public string ListTitle { get; set; } = "Список работ";
 
         // Настройки отображения в таблице
-        public bool ShowWorkId { get; set; } = true;
         public bool ShowTitle { get; set; } = true;
         public bool ShowStudent { get; set; } = true;
         public bool ShowSupervisor { get; set; } = true;

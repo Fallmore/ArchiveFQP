@@ -38,9 +38,10 @@ namespace ArchiveFqp.Factories.DisplayDto.Student
 
             return new()
             {
+                IdСтудента = student.IdСтудента,
                 Пользователь = await _userDisplayFactory.CreateDisplayDtoAsync(student.IdПользователя) ?? new(),
-                УровеньОбразования = _snapshot.EducationLevels.FirstOrDefault(o => o.IdУровняОбразования == student.IdУровняОбразования)?.Название ?? "",
-                ФормаОбучения = _snapshot.EducationForms.FirstOrDefault(o => o.IdФормыОбучения == student.IdФормыОбучения)?.Название ?? "",
+                УровеньОбразования = _snapshot.EducationLevels.FirstOrDefault(o => o.IdУровняОбразования == student.IdУровняОбразования) ?? new(),
+                ФормаОбучения = _snapshot.EducationForms.FirstOrDefault(o => o.IdФормыОбучения == student.IdФормыОбучения) ?? new(),
                 ГодОкончания = student.ГодОкончания,
                 Структура = student.IdПрофиля.HasValue
                     ? await _structureDisplayFactory.CreateDisplayDtoAsync<Профиль>(student.IdПрофиля.Value) ?? new()

@@ -1,0 +1,280 @@
+﻿@using System.Text.RegularExpressions
+@using ArchiveFqp.Factories.DisplayDto.Structure
+@using ArchiveFqp.Models.DTO.Structure
+@using ArchiveFqp.Models.ReferenceData
+@implements IDisposable
+
+@if (items == null || editContext == null || Snapshot == null)
+{
+    <div class="text-center">Загрузка...</div>
+}
+else
+{
+    <div class="table-responsive">
+        <div class="mb-3">
+            <button class="btn btn-success btn-sm" @onclick="OpenCreateModal">
+                <i class="bi bi-plus-circle"></i> Добавить
+            </button>
+        </div>
+        
+        <table class="table table-hover table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Название</th>
+                    <th>Институт</th>
+                    <th>Кафедра</th>
+                    <th>УГСН</th>
+                    <th>Стандарт УГСН</th>
+                    <th style="width:10%">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in items.OrderBy(x => x.Институт.Название).ThenBy(x => x.Кафедра.Название).ThenBy(x => x.Угсн.Название).ThenBy(x => x.Направление.Название))
+                {
+                    <tr>
+                        <td>@item.Направление.IdНаправления</td>
+                        <td>@item.Направление.Название</td>
+                        <td>@item.Институт.Название</td>
+                        <td>@item.Кафедра.Название</td>
+                        <td>@item.Угсн.Название</td>
+                        <td>@item.УгснСтандарт.Название</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" @onclick="() => OpenEditModal(item)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" @onclick="async () => await OnDelete.InvokeAsync(item.Кафедра.IdКафедры)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Модальное окно -->
+    <div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">@(isEdit ? "Редактирование" : "Добавление")</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                </div>
+                <EditForm EditContext="editContext" OnValidSubmit="@SaveItem" FormName="userForm">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Название *</label>
+                            <input type="text" class="form-control" @bind="selectedItem.Название" />
+                            <ValidationMessage For="() => selectedItem.Название" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Институт *</label>
+                            <InputSelect class="form-select" @bind-Value="idИнститута"
+                                         @bind-Value:after="OnInstituteChanged">
+                                <option value="0"></option>
+                                @foreach (Институт institute in Snapshot.Institutes.OrderBy(x => x.Название))
+                                {
+                                    <option value="@institute.IdИнститута">@institute.Название</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Кафедра *</label>
+                            <InputSelect class="form-select" @bind-Value="selectedItem.IdКафедры"
+                                         @bind-Value:after="OnDepartmentChanged"
+                                         disabled="@(idИнститута == 0)">
+                                <option value="0"></option>
+                                @foreach (Кафедра department in filteredDepartments.OrderBy(x => x.Название))
+                                {
+                                    <option value="@department.IdКафедры">@department.Название</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="() => selectedItem.IdКафедры" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Стандарт УГСН *</label>
+                                <InputSelect class="form-select" @bind-Value="idУгснСтандарта"
+                                             @bind-Value:after="OnUgsnStandardChanged"
+                                             disabled="@(selectedItem.IdКафедры == 0)">
+                                    <option value="0"></option>
+                                    @foreach (УгснСтандарт standard in Snapshot.UgsnStandards.OrderBy(x => x.Название))
+                                    {
+                                        <option value="@standard.IdУгснСтандарта">@standard.Название</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">УГСН *</label>
+                                <InputSelect class="form-select" @bind-Value="selectedItem.IdУгсн"
+                                             @bind-Value:after="OnUgsnChanged"
+                                             disabled="@(idУгснСтандарта == 0)">
+                                    <option value="0"></option>
+                                    @foreach (Угсн ugsn in filteredUgsns.OrderBy(x => x.Название))
+                                    {
+                                        <option value="@ugsn.IdУгсн">@ugsn.Название</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="() => selectedItem.IdУгсн" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" type="button" @onclick="CloseModal">Отмена</button>
+                        <button class="btn btn-primary" type="submit">Сохранить</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public List<Направление>? Data { get; set; }
+    [Parameter] public EventCallback<Направление> OnSave { get; set; }
+    [Parameter] public EventCallback<int> OnDelete { get; set; }
+    [Parameter] public StructureDtoFactory? Factory { get; set; }
+    [Parameter] public ReferenceDataSnapshot? Snapshot { get; set; }
+
+    private List<StructureDto>? items;
+    private Направление selectedItem = new();
+    private bool showModal = false;
+    private bool isEdit = false;
+
+    private int idИнститута;
+    private List<Угсн> filteredUgsns = new();
+    private List<Профиль> filteredProfiles = new();
+    private List<Кафедра> filteredDepartments = new();
+    private int idУгснСтандарта;
+
+    EditContext? editContext;
+    ValidationMessageStore? messageStore;
+
+    protected override void OnParametersSet()
+    {
+        if (Data != null && Factory != null)
+        {
+            items = Factory.CreateDisplayDtoAsync(Data).Result;
+            editContext = new(selectedItem);
+            messageStore = new(editContext);
+            editContext.OnValidationStateChanged += HandleValidationRequested;
+        }
+
+        StateHasChanged();
+    }
+
+    private void OpenCreateModal()
+    {
+        selectedItem = new();
+
+        isEdit = false;
+        showModal = true;
+        StateHasChanged();
+    }
+
+    private void OpenEditModal(StructureDto item)
+    {
+        selectedItem = new()
+        {
+            IdКафедры = item.Направление.IdКафедры,
+            IdНаправления = item.Направление.IdНаправления,
+            IdУгсн = item.Направление.IdУгсн,
+            Название = item.Направление.Название
+        };
+        idИнститута = item.Институт.IdИнститута;
+        idУгснСтандарта = item.УгснСтандарт.IdУгснСтандарта;
+        _ = UpdateDependentLists();
+        isEdit = true;
+        showModal = true;
+
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        StateHasChanged();
+    }
+
+    private async Task SaveItem()
+    {
+        if (selectedItem != null)
+        {
+            await OnSave.InvokeAsync(selectedItem);
+            CloseModal();
+        }
+    }
+
+    private void HandleValidationRequested(object? sender, ValidationStateChangedEventArgs args)
+    {
+        messageStore?.Clear();
+        
+        if (string.IsNullOrWhiteSpace(selectedItem.Название))
+        {
+            messageStore?.Add(() => selectedItem.Название, "Название не может быть пустым");
+        }
+
+        if (selectedItem.IdКафедры == 0)
+        {
+            messageStore?.Add(() => selectedItem.IdКафедры, "Выберите кафедру");
+        }
+
+        if (selectedItem.IdУгсн == 0)
+        {
+            messageStore?.Add(() => selectedItem.IdУгсн, "Выберите УГСН");
+        }
+    }
+
+    private async Task UpdateDependentLists()
+    {
+        if (idИнститута == 0)
+            filteredDepartments = Snapshot!.Departments.ToList();
+        else
+            filteredDepartments = Snapshot!.Departments
+                .Where(d => d.IdИнститута == idИнститута)
+                .DistinctBy(d => d.Название)
+                .ToList();
+
+        if (idУгснСтандарта == 0)
+            filteredUgsns = Snapshot!.Ugsns;
+        else
+            filteredUgsns = Snapshot!.Ugsns
+                .Where(u => u.IdУгснСтандарта == idУгснСтандарта)
+                .ToList();
+    }
+
+    #region Цепочка функций, вызывающих друг друга по иерархии
+
+    private async Task OnInstituteChanged()
+    {
+        selectedItem.IdКафедры = idУгснСтандарта = 0;
+        await OnDepartmentChanged();
+    }
+
+    private async Task OnDepartmentChanged()
+    {
+        selectedItem.IdУгсн = 0;
+        await OnUgsnChanged();
+    }
+
+    private async Task OnUgsnStandardChanged()
+    {
+        selectedItem.IdУгсн = 0;
+        await OnUgsnChanged();
+    }
+
+    private async Task OnUgsnChanged()
+    {
+        await UpdateDependentLists();
+    }
+
+    #endregion
+
+    public void Dispose()
+    {
+        if (editContext != null)
+            editContext.OnValidationStateChanged -= HandleValidationRequested;
+    }
+}

@@ -445,17 +445,21 @@
                                             }
                                         </div>
 
+                                        @{
+                                            var filtered = work.Атрибуты
+                                                ?.Where(x => !Settings.AttributesAbandonedValues.Contains(x.Данные)).ToList();
+                                        }
                                         <!-- Атрибуты работы -->
-                                        @if (work.Атрибуты != null && work.Атрибуты.Count != 0)
+                                        @if (filtered != null && filtered.Count != 0)
                                         {
                                             <div class="mt-2">
-                                                @foreach (var атр in work.Атрибуты.Take(3))
+                                                @foreach (var атр in filtered.Take(3))
                                                 {
                                                     <span class="badge bg-light text-dark border me-1 mb-1">
                                                         @атр.Название: @атр.Данные
                                                     </span>
                                                 }
-                                                @if (work.Атрибуты.Count > 3)
+                                                @if (filtered.Count > 3)
                                                 {
                                                     <span class="badge bg-light text-dark border">
                                                         +@(work.Атрибуты.Count - 3)
@@ -596,7 +600,7 @@
                 {
                     CurrentPage = result.CurrentPage,
                     PageSize = result.PageSize,
-                    Items = await FilterWorks(await WorkService.GetWorkDisplayAsync(result.Items))
+                    Items = await FilterWorks(await WorkService.GetWorkDisplayAsync(result.Items, []))
                 };
             }
         }

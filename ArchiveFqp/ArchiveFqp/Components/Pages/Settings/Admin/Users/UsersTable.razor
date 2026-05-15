@@ -1,0 +1,241 @@
+﻿@using ArchiveFqp.Components.Components
+@using ArchiveFqp.Models
+@using ArchiveFqp.Services.ReferenceData
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<ArchiveFqpContext> DbFactory
+@inject IJSRuntime JSRuntime
+
+<div class="table-responsive">
+    <div class="mb-3">
+        <div class="row">
+            <div class="col-auto d-flex align-items-end">
+                <button class="btn btn-success btn-sm" @onclick="OpenCreateModal">
+                    <i class="bi bi-plus-circle"></i> Добавить пользователя
+                </button>
+            </div>
+            <div class="col-md-4 pt-1">
+                <input type="text" class="form-control"
+                       @bind="searchText"
+                       @bind:event="oninput"
+                       placeholder="Введите ФИО для поиска пользователя" />
+            </div>
+        </div>
+    </div>
+    
+    <table class="table table-hover table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>ID</th>
+                <th>Фамилия</th>
+                <th>Имя</th>
+                <th>Отчество</th>
+                <th>Email</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (filteredUsers == null)
+            {
+                <tr><td colspan="6" class="text-center">Загрузка...</td></tr>
+            }
+            else if (filteredUsers.Count == 0)
+            {
+                <tr><td colspan="6" class="text-center">Нет данных</td></tr>
+            }
+            else
+            {
+                @foreach (var user in filteredUsers)
+                {
+                    <tr>
+                        <td>@user.IdПользователя</td>
+                        <td>@user.Фамилия</td>
+                        <td>@user.Имя</td>
+                        <td>@user.Отчество</td>
+                        <td>@user.Email</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" @onclick="() => OpenEditModal(user)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteUser(user.IdПользователя)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- Модальное окно для пользователя -->
+<div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)" @onclick:stopPropagation>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">@(isEdit ? "Редактирование" : "Добавление") пользователя</h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+            </div>
+            <EditForm Model="@selectedUser" OnValidSubmit="@SaveUser" FormName="userForm">
+                <DataAnnotationsValidator />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Фамилия *</label>
+                        <input type="text" class="form-control" @bind="selectedUser.Фамилия" />
+                        <ValidationMessage For="() => selectedUser.Фамилия" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Имя *</label>
+                        <input type="text" class="form-control" @bind="selectedUser.Имя" />
+                        <ValidationMessage For="() => selectedUser.Имя" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Отчество</label>
+                        <input type="text" class="form-control" @bind="selectedUser.Отчество" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" @bind="selectedUser.Email" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" @onclick="CloseModal">Отмена</button>
+                    <button class="btn btn-primary" type="submit">Сохранить</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Пользователь>? users;
+    private Пользователь selectedUser = new();
+    private bool showModal = false;
+    private bool isEdit = false;
+    private string searchText = "";
+    private List<Пользователь> filteredUsers
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
+                return users ?? [];
+
+            return users?.Where(item =>
+            {
+                var text = string.Join(' ', item.Фамилия, item.Имя, item.Отчество);
+                return text.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+            }).ToList() ?? [];
+        }
+    }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        using var context = DbFactory.CreateDbContext();
+        users = await context.Пользовательs
+            .OrderBy(u => u.Фамилия)
+            .ToListAsync();
+        StateHasChanged();
+    }
+
+    private void OpenCreateModal()
+    {
+        selectedUser = new Пользователь();
+        isEdit = false;
+        showModal = true;
+        StateHasChanged();
+    }
+
+    private void OpenEditModal(Пользователь user)
+    {
+        selectedUser = new()
+        {
+            IdПользователя = user.IdПользователя,
+            Фамилия = user.Фамилия,
+            Имя = user.Имя,
+            Отчество = user.Отчество,
+            Email = user.Email
+        };
+        isEdit = true;
+        showModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        StateHasChanged();
+    }
+
+    private async Task SaveUser()
+    {
+        try
+        {
+            using var context = DbFactory.CreateDbContext();
+
+            if (isEdit)
+            {
+                context.Пользовательs.Update(selectedUser);
+            }
+            else
+            {
+                context.Пользовательs.Add(selectedUser);
+            }
+
+            await context.SaveChangesAsync();
+            await LoadUsers();
+            CloseModal();
+            await JSRuntime.InvokeVoidAsync("alert", "Сохранено успешно");
+        }
+        catch (DbUpdateException ex)
+        {
+            string errorMessage = ex.InnerException?.Message ?? "";
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteUser(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Удалить пользователя?"))
+        {
+            try
+            {
+                using var context = DbFactory.CreateDbContext();
+                var user = await context.Пользовательs.FindAsync(id);
+                if (user != null)
+                {
+                    context.Пользовательs.Remove(user);
+                    await context.SaveChangesAsync();
+                    await LoadUsers();
+                }
+            }
+            catch (DbUpdateException ex)
+            {
+                string errorMessage = ex.InnerException?.Message ?? "";
+                if (errorMessage.Contains(ReferenceDataService.GetTableName<АккаунтПользователя>()))
+                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: Пользователь имеет аккаунт");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<Студент>()))
+                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: Пользователь является студентом");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<Преподаватель>()))
+                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: Пользователь является преподавателем");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<ЗаявлениеРаботы>()))
+                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: Пользователь имеет заявление на просмотр работ");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<ЗаявлениеАтрибута>()))
+                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: Пользователь имеет заявление на добавление атрибутов");
+                else
+                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+            }
+        }
+    }
+}

@@ -9,10 +9,24 @@ namespace ArchiveFqp.Models.DTO.Teacher
     /// </summary>
     public class TeacherDisplayDto : IDisplayDto
     {
+        public int IdПреподавателя { get; set; }
+
         public UserDisplayDto Пользователь { get; set; } = new();
 
-        public string Должность { get; set; } = "";
+        public Должность Должность { get; set; } = new();
 
         public StructureDto Структура { get; set; } = new();
+
+        public Преподаватель ToTeacher()
+        {
+            return new Преподаватель
+            {
+                IdПользователя = Пользователь.Пользователь.IdПользователя,
+                IdПреподавателя = IdПреподавателя,
+                IdДолжности = Должность.IdДолжности,
+                IdИнститута = Структура.Институт.IdИнститута,
+                IdКафедры = Структура.Кафедра.IdКафедры
+            };
+        }
     }
 }

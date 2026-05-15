@@ -1,0 +1,265 @@
+﻿@page "/admin/directories"
+@using ArchiveFqp.Factories.DisplayDto.Structure
+@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Models
+@using ArchiveFqp.Models.DatabaseNotification
+@using ArchiveFqp.Models.ReferenceData
+@using ArchiveFqp.Services.ReferenceData
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<ArchiveFqpContext> DbFactory
+@inject NavigationManager NavigationManager
+@inject IReferenceDataService RefDataService
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+@attribute [Authorize(Roles = "Администратор")]
+@rendermode @(new InteractiveServerRenderMode())
+
+<PageTitle>Админ-панель - Справочники</PageTitle>
+
+@if (RendererInfo.IsInteractive && snapshot != null)
+{
+    <div class="container-fluid mt-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-book me-2"></i>Управление справочниками
+                    </h4>
+                    <button class="btn btn-light btn-sm" @onclick="@(() => NavigationManager.NavigateTo("/admin"))">
+                        <i class="bi bi-arrow-left"></i> Назад
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <ul class="nav nav-tabs mb-3">
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "institutes" ? "active" : "")" @onclick="@(() => SetActiveTab("institutes"))">
+                            Институты
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "departments" ? "active" : "")" @onclick="@(() => SetActiveTab("departments"))">
+                            Кафедры
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "directions" ? "active" : "")" @onclick="@(() => SetActiveTab("directions"))">
+                            Направления
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "profiles" ? "active" : "")" @onclick="@(() => SetActiveTab("profiles"))">
+                            Профили
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "ugsn" ? "active" : "")" @onclick="@(() => SetActiveTab("ugsn"))">
+                            УГСН
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "ugsnStandards" ? "active" : "")" @onclick="@(() => SetActiveTab("ugsnStandards"))">
+                            Стандарты УГСН
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "educationLevels" ? "active" : "")" @onclick="@(() => SetActiveTab("educationLevels"))">
+                            Уровни образования
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "educationForms" ? "active" : "")" @onclick="@(() => SetActiveTab("educationForms"))">
+                            Формы обучения
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "posts" ? "active" : "")" @onclick="@(() => SetActiveTab("posts"))">
+                            Должности
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "workTypes" ? "active" : "")" @onclick="@(() => SetActiveTab("workTypes"))">
+                            Типы работ
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "workStatuses" ? "active" : "")" @onclick="@(() => SetActiveTab("workStatuses"))">
+                            Статусы работ
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "workAccess" ? "active" : "")" @onclick="@(() => SetActiveTab("workAccess"))">
+                            Доступ к работам
+                        </button>
+                    </li>
+                </ul>
+
+                
+                <!-- Контент вкладок -->
+                @if (activeTab == "institutes")
+                {
+                    <DirectoryTable TItem="Институт" Data="@snapshot.Institutes" OnSave="@SaveItem" OnDelete="@(DeleteItem<Институт>)" />
+                }
+                else if (activeTab == "departments")
+                {
+                    <DepartmentTable Data="@snapshot.Departments" Factory="factory" Snapshot="snapshot"
+                                     OnSave="@SaveItem" OnDelete="@(DeleteItem<Кафедра>)" />
+                }
+                else if (activeTab == "directions")
+                {
+                    <DirectionTable Data="@snapshot.Directions" Factory="factory" Snapshot="snapshot"
+                                    OnSave="@SaveItem" OnDelete="@(DeleteItem<Направление>)" />
+                }
+                else if (activeTab == "profiles")
+                {
+                    <ProfileTable Data="@snapshot.Profiles" Factory="factory" Snapshot="snapshot"
+                                  OnSave="@SaveItem" OnDelete="@(DeleteItem<Профиль>)" />
+                }
+                else if (activeTab == "ugsn")
+                {
+                    <UgsnTable Data="@snapshot.Ugsns" Factory="factory" Snapshot="snapshot"
+                               OnSave="@SaveItem" OnDelete="@(DeleteItem<Угсн>)" />
+                }
+                else if (activeTab == "ugsnStandards")
+                {
+                    <DirectoryTable TItem="УгснСтандарт" Data="@snapshot.UgsnStandards" OnSave="@SaveItem" OnDelete="@(DeleteItem<УгснСтандарт>)" />
+                }
+                else if (activeTab == "educationLevels")
+                {
+                    <DirectoryTable TItem="УровеньОбразования" Data="@snapshot.EducationLevels" OnSave="@SaveItem" OnDelete="@(DeleteItem<УровеньОбразования>)" />
+                }
+                else if (activeTab == "educationForms")
+                {
+                    <DirectoryTable TItem="ФормаОбучения" Data="@snapshot.EducationForms" OnSave="@SaveItem" OnDelete="@(DeleteItem<ФормаОбучения>)" />
+                }
+                else if (activeTab == "posts")
+                {
+                    <DirectoryTable TItem="Должность" Data="@snapshot.Posts" OnSave="@SaveItem" OnDelete="@(DeleteItem<Должность>)" />
+                }
+                else if (activeTab == "workTypes")
+                {
+                    <DirectoryTable TItem="ТипРаботы" Data="@snapshot.WorkTypes" OnSave="@SaveItem" OnDelete="@(DeleteItem<ТипРаботы>)" />
+                }
+                else if (activeTab == "workAccess")
+                {
+                    <DirectoryTable TItem="ДоступРаботы" Data="@snapshot.WorkAccess" OnSave="@SaveItem" OnDelete="@(DeleteItem<ДоступРаботы>)" />
+                }
+                else if (activeTab == "workStatuses")
+                {
+                    <DirectoryTable TItem="СтатусРаботы" Data="@snapshot.WorkStatuses" OnSave="@SaveItem" OnDelete="@(DeleteItem<СтатусРаботы>)" />
+                }
+                else if (activeTab == "workStatuses")
+                {
+                    <DirectoryTable TItem="СтатусРаботы" Title="Статусы работ" Data="@snapshot.WorkStatuses" OnSave="@SaveItem" OnDelete="@(DeleteItem<СтатусРаботы>)" />
+                }
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    private string activeTab = "institutes";
+    private StructureDtoFactory factory = null!;
+
+    // Справочные данные
+    private ReferenceDataSnapshot? snapshot;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        factory = new(RefDataService);
+        RefDataService.TablesChanged += OnTablesChanged;
+    }
+
+    private async Task LoadData()
+    {
+        snapshot = await RefDataService.GetAllAsync();
+        StateHasChanged();
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    private async Task SaveItem<T>(T item) where T : class
+    {
+        using var context = DbFactory.CreateDbContext();
+        DbSet<T> dbSet = context.Set<T>();
+        if (!dbSet.Any(x => x == item))
+            dbSet.Add(item);
+        else
+            dbSet.Update(item);
+        await context.SaveChangesAsync();
+    }
+
+    private async Task DeleteItem<T>(int id) where T : class
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Вы уверены?"))
+        {
+            try
+            {
+                using var context = DbFactory.CreateDbContext();
+                DbSet<T> dbSet = context.Set<T>();
+                var item = await dbSet.FindAsync(id);
+                if (item != null)
+                {
+                    dbSet.Remove(item);
+                    await context.SaveChangesAsync();
+                }
+            }
+            catch (DbUpdateException ex)
+            {
+                string errorMessage = ex.InnerException?.Message ?? ex.Message;
+                if (errorMessage.Contains(ReferenceDataService.GetTableName<Угсн>() + "_"))
+                    await JSRuntime.InvokeVoidAsync("alert", "Ошибка: Запись используется в УГСН");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<Кафедра>() + "_"))
+                    await JSRuntime.InvokeVoidAsync("alert", "Ошибка: Запись используется в кафедрах");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<Направление>() + "_"))
+                    await JSRuntime.InvokeVoidAsync("alert", "Ошибка: Запись используется в направлениях");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<Профиль>() + "_"))
+                    await JSRuntime.InvokeVoidAsync("alert", "Ошибка: Запись используется в профилях");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<Студент>() + "_"))
+                    await JSRuntime.InvokeVoidAsync("alert", "Ошибка: Запись используется в студентах");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<Преподаватель>() + "_"))
+                    await JSRuntime.InvokeVoidAsync("alert", "Ошибка: Запись используется в преподавателях");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<Работа>() + "_"))
+                    await JSRuntime.InvokeVoidAsync("alert", "Ошибка: Запись используется в работах");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<Консультант>() + "_"))
+                    await JSRuntime.InvokeVoidAsync("alert", "Ошибка: Запись используется в консультантах");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<Рецензент>() + "_"))
+                    await JSRuntime.InvokeVoidAsync("alert", "Ошибка: Запись используется в рецензентах");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<ЗаявлениеРаботы>() + "_"))
+                    await JSRuntime.InvokeVoidAsync("alert", "Ошибка: Запись используется в заявлениях работы");
+                else if (errorMessage.Contains(ReferenceDataService.GetTableName<ЗаявлениеАтрибута>() + "_"))
+                    await JSRuntime.InvokeVoidAsync("alert", "Ошибка: Запись используется в заявлениях атрибута");
+                else if (errorMessage.Contains("настройки"))
+                    await JSRuntime.InvokeVoidAsync("alert", "Ошибка: Запись используется в настройках данной структуры");
+                else if (errorMessage.Contains("атрибут"))
+                    await JSRuntime.InvokeVoidAsync("alert", "Ошибка: Запись используется в атрибутах данной структуры");
+                else
+                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+            }
+        }
+    }
+
+    private async void OnTablesChanged(object? sender, TableChangeEvent e)
+    {
+        if (ReferenceDataSnapshot.GetTablesName().Contains(e.TableName))
+        {
+            await InvokeAsync(async () => { await LoadData(); });
+        }
+    }
+
+    public void Dispose()
+    {
+        RefDataService.TablesChanged -= OnTablesChanged;
+    }
+}

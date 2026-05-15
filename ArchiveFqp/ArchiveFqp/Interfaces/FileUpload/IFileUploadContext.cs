@@ -9,7 +9,7 @@ namespace ArchiveFqp.Interfaces.FileUpload
     {
         string Institute { get; }
         string Department { get; }
-        string UgsnStandart { get; }
+        string UgsnStandard { get; }
         string Direction { get; }
         string? Profile { get; }
         string WorkType { get; }

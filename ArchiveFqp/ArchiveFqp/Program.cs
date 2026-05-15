@@ -68,7 +68,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.LogoutPath = "/logout";
         options.AccessDeniedPath = "/access-denied";
         options.ReturnUrlParameter = "returnUrl";
-        options.Cookie.MaxAge = TimeSpan.FromMinutes(60);
+        options.Cookie.MaxAge = TimeSpan.FromHours(8);
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
         options.SlidingExpiration = true;
     });
 

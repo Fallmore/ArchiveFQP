@@ -1,0 +1,170 @@
+﻿@using System.Text.RegularExpressions
+@using ArchiveFqp.Factories.DisplayDto.Structure
+@using ArchiveFqp.Models.DTO.Structure
+@using ArchiveFqp.Models.ReferenceData
+@implements IDisposable
+
+@if (items == null || editContext == null || Snapshot == null)
+{
+    <div class="text-center">Загрузка...</div>
+}
+else
+{
+    <div class="table-responsive">
+        <div class="mb-3">
+            <button class="btn btn-success btn-sm" @onclick="OpenCreateModal">
+                <i class="bi bi-plus-circle"></i> Добавить
+            </button>
+        </div>
+        
+        <table class="table table-hover table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Название</th>
+                    <th>Стандарт УГСН</th>
+                    <th style="width:10%">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in items.OrderBy(x => x.IdУгснСтандарта).ThenBy(x => x.Название))
+                {
+                    <tr>
+                        <td>@item.IdУгсн</td>
+                        <td>@item.Название</td>
+                        <td>@Snapshot.UgsnStandards.First(x => x.IdУгснСтандарта == item.IdУгснСтандарта).Название</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" @onclick="() => OpenEditModal(item)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" @onclick="async () => await OnDelete.InvokeAsync(item.IdУгсн)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+<!-- Модальное окно -->
+<div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">@(isEdit ? "Редактирование" : "Добавление")</h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+            </div>
+            <EditForm EditContext="editContext" OnValidSubmit="@SaveItem" FormName="userForm">
+                <DataAnnotationsValidator />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Название *</label>
+                        <input type="text" class="form-control" @bind="selectedItem.Название" />
+                        <ValidationMessage For="() => selectedItem.Название" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Стандарт УГСН *</label>
+                        <InputSelect class="form-select" @bind-Value="selectedItem.IdУгснСтандарта">
+                            <option value="0"></option>
+                            @foreach (УгснСтандарт institute in Snapshot.UgsnStandards.OrderBy(x => x.Название))
+                            {
+                                <option value="@institute.IdУгснСтандарта">@institute.Название</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => selectedItem.IdУгснСтандарта" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" @onclick="CloseModal">Отмена</button>
+                    <button class="btn btn-primary" type="submit">Сохранить</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+}
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public List<Угсн>? Data { get; set; }
+    [Parameter] public EventCallback<Угсн> OnSave { get; set; }
+    [Parameter] public EventCallback<int> OnDelete { get; set; }
+    [Parameter] public StructureDtoFactory? Factory { get; set; }
+    [Parameter] public ReferenceDataSnapshot? Snapshot { get; set; }
+
+    private List<Угсн>? items;
+    private Угсн selectedItem = new();
+    private bool showModal = false;
+    private bool isEdit = false;
+
+    EditContext? editContext;
+    ValidationMessageStore? messageStore;
+
+    protected override void OnParametersSet()
+    {
+        if (Data != null && Factory != null)
+        {
+            items = Data;
+            editContext = new(selectedItem);
+            messageStore = new(editContext);
+            editContext.OnValidationStateChanged += HandleValidationRequested;
+        }
+            
+        StateHasChanged();
+    }
+
+    private void OpenCreateModal()
+    {
+        selectedItem = new();
+        
+        isEdit = false;
+        showModal = true;
+        StateHasChanged();
+    }
+
+    private void OpenEditModal(Угсн item)
+    {
+        selectedItem = item;
+        isEdit = true;
+        showModal = true;
+
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        StateHasChanged();
+    }
+
+    private async Task SaveItem()
+    {
+        if (selectedItem != null)
+        {
+            await OnSave.InvokeAsync(selectedItem);
+            CloseModal();
+        }
+    }
+
+    private void HandleValidationRequested(object? sender, ValidationStateChangedEventArgs args)
+    {
+        messageStore?.Clear();
+        
+        if (string.IsNullOrWhiteSpace(selectedItem.Название))
+        {
+            messageStore?.Add(() => selectedItem.Название, "Название не может быть пустым");
+        }
+
+        if (selectedItem.IdУгснСтандарта == 0)
+        {
+            messageStore?.Add(() => selectedItem.IdУгснСтандарта, "Выберите стандарт УГСН");
+        }
+    }
+
+    public void Dispose()
+    {
+        if (editContext != null)
+            editContext.OnValidationStateChanged -= HandleValidationRequested;
+    }
+}

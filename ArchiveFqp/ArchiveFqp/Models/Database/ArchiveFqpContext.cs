@@ -474,6 +474,7 @@ public partial class ArchiveFqpContext : DbContext
             entity.Property(e => e.IdЗаявления).HasColumnName("id_заявления");
             entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
             entity.Property(e => e.IdАтрибута).HasColumnName("id_атрибута");
+            entity.Property(e => e.IdТипаРаботы).HasColumnName("id_типа_работы");
             entity.Property(e => e.IdИнститута).HasColumnName("id_института");
             entity.Property(e => e.IdКафедры).HasColumnName("id_кафедры");
             entity.Property(e => e.IdНаправления).HasColumnName("id_направления");
@@ -509,6 +510,11 @@ public partial class ArchiveFqpContext : DbContext
                 .HasForeignKey(d => d.IdАтрибута)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("заявление_атрибута_id_атрибута_fkey");
+
+            entity.HasOne(d => d.IdТипаРаботыNavigation).WithMany(p => p.ЗаявлениеАтрибутаs)
+                .HasForeignKey(d => d.IdТипаРаботы)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("заявление_атрибута_id_типа_работы_fkey");
 
             entity.HasOne(d => d.IdИнститутаNavigation).WithMany(p => p.ЗаявлениеАтрибутаs)
                 .HasForeignKey(d => d.IdИнститута)
@@ -840,6 +846,8 @@ public partial class ArchiveFqpContext : DbContext
             entity.HasIndex(e => e.IdДолжности, "idx_teacher_position");
 
             entity.HasIndex(e => e.IdПользователя, "idx_teacher_user");
+            
+            entity.HasIndex(e => new { e.IdПользователя, e.IdИнститута, e.IdКафедры }, "преподаватель_преподаватель_key").IsUnique();
 
             entity.Property(e => e.IdПреподавателя).HasColumnName("id_преподавателя");
             entity.Property(e => e.IdДолжности).HasColumnName("id_должности");
@@ -1129,7 +1137,7 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.HasIndex(e => e.IdПользователя, "idx_student_user");
 
-            entity.HasIndex(e => new { e.IdПользователя, e.IdИнститута, e.IdНаправления, e.IdПрофиля, e.IdФормыОбучения, e.IdУровняОбразования, e.ГодОкончания }, "студент_студент_key").IsUnique();
+            entity.HasIndex(e => new { e.IdПользователя, e.IdИнститута, e.IdКафедры, e.IdНаправления, e.IdПрофиля, e.IdФормыОбучения, e.IdУровняОбразования, e.ГодОкончания }, "студент_студент_key").IsUnique();
 
             entity.Property(e => e.IdСтудента).HasColumnName("id_студента");
             entity.Property(e => e.IdИнститута).HasColumnName("id_института");

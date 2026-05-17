@@ -1,4 +1,5 @@
 ﻿@using ArchiveFqp.Components.Components
+@using ArchiveFqp.Interfaces
 @using ArchiveFqp.Models
 @using ArchiveFqp.Services.ReferenceData
 @using Microsoft.EntityFrameworkCore
@@ -108,6 +109,7 @@
 
 @code {
     private List<Пользователь>? users;
+    private CrudGeneric crud = new();
     private Пользователь selectedUser = new();
     private bool showModal = false;
     private bool isEdit = false;
@@ -174,25 +176,17 @@
     {
         try
         {
-            using var context = DbFactory.CreateDbContext();
-
-            if (isEdit)
-            {
-                context.Пользовательs.Update(selectedUser);
-            }
-            else
-            {
-                context.Пользовательs.Add(selectedUser);
-            }
-
-            await context.SaveChangesAsync();
+            string message = await crud.Upsert(selectedUser, DbFactory) ? "Обновлено" : "Добавлено";
             await LoadUsers();
             CloseModal();
-            await JSRuntime.InvokeVoidAsync("alert", "Сохранено успешно");
+            await JSRuntime.InvokeVoidAsync("alert", message + "успешно");
         }
         catch (DbUpdateException ex)
         {
             string errorMessage = ex.InnerException?.Message ?? "";
+            if (errorMessage.Contains("email"))
+                errorMessage = "Введенный email уже существует";
+
             await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
         }
         catch (Exception ex)
@@ -207,30 +201,23 @@
         {
             try
             {
-                using var context = DbFactory.CreateDbContext();
-                var user = await context.Пользовательs.FindAsync(id);
-                if (user != null)
-                {
-                    context.Пользовательs.Remove(user);
-                    await context.SaveChangesAsync();
-                    await LoadUsers();
-                }
+                await crud.Delete<Пользователь>(id, DbFactory);
             }
             catch (DbUpdateException ex)
             {
                 string errorMessage = ex.InnerException?.Message ?? "";
                 if (errorMessage.Contains(ReferenceDataService.GetTableName<АккаунтПользователя>()))
-                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: Пользователь имеет аккаунт");
+                    errorMessage = "Пользователь имеет аккаунт";
                 else if (errorMessage.Contains(ReferenceDataService.GetTableName<Студент>()))
-                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: Пользователь является студентом");
+                    errorMessage = "Пользователь является студентом";
                 else if (errorMessage.Contains(ReferenceDataService.GetTableName<Преподаватель>()))
-                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: Пользователь является преподавателем");
+                    errorMessage = "Пользователь является преподавателем";
                 else if (errorMessage.Contains(ReferenceDataService.GetTableName<ЗаявлениеРаботы>()))
-                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: Пользователь имеет заявление на просмотр работ");
+                    errorMessage = "Пользователь имеет заявление на просмотр работ";
                 else if (errorMessage.Contains(ReferenceDataService.GetTableName<ЗаявлениеАтрибута>()))
-                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: Пользователь имеет заявление на добавление атрибутов");
-                else
-                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
+                    errorMessage = "Пользователь имеет заявление на добавление атрибутов";
+                
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
             }
             catch (Exception ex)
             {

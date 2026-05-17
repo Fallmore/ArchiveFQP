@@ -60,18 +60,11 @@ namespace ArchiveFqp.Interfaces.User
         /// <inheritdoc cref="GetStudentDisplayAsync"/>
         Task<List<StudentDisplayDto>> GetStudentDisplayAsync(List<Пользователь> users);
 
-        Task<bool> UpdateUser(Пользователь user);
-
-        Task<Пользователь> AddUser(Пользователь user);
-
-        Task<Студент> AddStudent(Студент student);
-
-        Task<Преподаватель> AddTeacher(Преподаватель teacher);
-
-        Task RemoveUser(Пользователь user);
-
-        Task RemoveStudent(Студент student);
-
-        Task RemoveTeacher(Преподаватель teacher);
+        /// <summary> <inheritdoc cref="CrudGeneric.Upsert"/> </summary>
+        /// <returns><inheritdoc cref="CrudGeneric.Upsert"/></returns>
+        public Task<bool> Upsert<T>(T item) where T : class;
+        /// <summary> <inheritdoc cref="CrudGeneric.Delete"/> </summary>
+        /// <returns><inheritdoc cref="CrudGeneric.Delete"/></returns>
+        public Task<bool> Delete<T>(int id) where T : class;
     }
 }

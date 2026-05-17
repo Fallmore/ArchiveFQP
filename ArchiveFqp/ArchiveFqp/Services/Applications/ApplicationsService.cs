@@ -1,28 +1,34 @@
 ﻿using ArchiveFqp.Factories.DisplayDto.WorkApplication;
+using ArchiveFqp.Interfaces;
 using ArchiveFqp.Interfaces.Applications;
+using ArchiveFqp.Interfaces.Attributes;
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Interfaces.Work;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Work;
 using ArchiveFqp.Models.DTO.WorkApplication;
 using ArchiveFqp.Models.Settings.SettingsArchive;
+using ArchiveFqp.Services.Attributes;
+using DocumentFormat.OpenXml.Drawing;
 using Microsoft.EntityFrameworkCore;
 
 namespace ArchiveFqp.Services.Applications
 {
-    public class ApplicationsService : IApplicationsService
+    public class ApplicationsService : CrudGeneric, IApplicationsService
     {
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
+        private readonly IAttributeService _attributeService;
         private readonly IReferenceDataService _refDataService;
         private readonly IWorkService _workService;
         private SettingsArchive _settings;
 
-        public ApplicationsService(IDbContextFactory<ArchiveFqpContext> dbFactory,
+        public ApplicationsService(IDbContextFactory<ArchiveFqpContext> dbFactory, IAttributeService attributeService,
             IReferenceDataService referenceDataService, IWorkService workService,
             SettingsArchive settings)
         {
             _dbFactory = dbFactory;
             _refDataService = referenceDataService;
+            _attributeService = attributeService;
             _workService = workService;
             _settings = settings;
             _settings.SettingsChanged += SettingsChanged;
@@ -57,8 +63,6 @@ namespace ArchiveFqp.Services.Applications
 
         public async Task<bool> AddWorkApplication(WorkApplicationDto workApplication)
         {
-            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
-
             ЗаявлениеРаботы newApp = new()
             {
                 IdРаботы = workApplication.IdРаботы!.Value,
@@ -69,9 +73,7 @@ namespace ArchiveFqp.Services.Applications
                 IdСтатуса = workApplication.IdСтатуса
             };
 
-            context.ЗаявлениеРаботыs.Add(newApp);
-            await context.SaveChangesAsync();
-            return true;
+            return await base.Upsert(newApp, _dbFactory);
         }
 
         public async Task<bool> AddAnswerWorkApplication(WorkApplicationDto workApplication)
@@ -91,26 +93,7 @@ namespace ArchiveFqp.Services.Applications
 
         public async Task<bool> AddAttributeApplication(ЗаявлениеАтрибута attributeApplication)
         {
-            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
-            ЗаявлениеАтрибута newApp = new()
-            {
-                IdАтрибута = attributeApplication.IdАтрибута,
-                Описание = attributeApplication.Описание!,
-                ДатаПоступления = DateTime.Now,
-                IdИнститута = attributeApplication.IdИнститута,
-                IdКафедры = attributeApplication.IdКафедры,
-                IdНаправления = attributeApplication.IdНаправления,
-                IdПрофиля = attributeApplication.IdПрофиля,
-                Название = attributeApplication.Название,
-                Новый = attributeApplication.Новый,
-                Примеры = attributeApplication.Новый ? attributeApplication.Примеры : null,
-                IdПользователя = attributeApplication.IdПользователя,
-                IdСтатуса = attributeApplication.IdСтатуса
-            };
-
-            context.ЗаявлениеАтрибутаs.Add(newApp);
-            await context.SaveChangesAsync();
-            return true;
+            return await base.Upsert(attributeApplication, _dbFactory);
         }
 
         public async Task<bool> AddAnswerAttributeApplication(ЗаявлениеАтрибута attributeApplication)
@@ -125,6 +108,72 @@ namespace ArchiveFqp.Services.Applications
             app.IdСтатуса = attributeApplication.IdСтатуса;
 
             await context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> CompleteAttributeApplication(ЗаявлениеАтрибута attributeApplication)
+        {
+            Атрибут attr = new()
+            {
+                IdАтрибута = attributeApplication.IdАтрибута ?? 0,
+                Название = attributeApplication.Название,
+            };
+
+            if (attributeApplication.Новый)
+            {
+                await _attributeService.Upsert(attr);
+            }
+
+            if (attributeApplication.IdИнститута != null)
+            {
+                await _attributeService.Upsert(new АтрибутИнститута()
+                {
+                    IdАтрибута = attr.IdАтрибута,
+                    IdСтатусаРаботы = null,
+                    IdТипаРаботы = attributeApplication.IdТипаРаботы,
+                    IdИнститута = attributeApplication.IdИнститута.Value
+                });
+            }
+            else if (attributeApplication.IdКафедры != null)
+            {
+                await _attributeService.Upsert(new АтрибутКафедры()
+                {
+                    IdАтрибута = attr.IdАтрибута,
+                    IdСтатусаРаботы = null,
+                    IdТипаРаботы = attributeApplication.IdТипаРаботы,
+                    IdКафедры = attributeApplication.IdКафедры.Value
+                });
+            }
+            else if (attributeApplication.IdНаправления != null)
+            {
+                await _attributeService.Upsert(new АтрибутНаправления()
+                {
+                    IdАтрибута = attr.IdАтрибута,
+                    IdСтатусаРаботы = null,
+                    IdТипаРаботы = attributeApplication.IdТипаРаботы,
+                    IdНаправления = attributeApplication.IdНаправления.Value
+                });
+            }
+            else if (attributeApplication.IdПрофиля != null)
+            {
+                await _attributeService.Upsert(new АтрибутПрофиля()
+                {
+                    IdАтрибута = attr.IdАтрибута,
+                    IdСтатусаРаботы = null,
+                    IdТипаРаботы = attributeApplication.IdТипаРаботы,
+                    IdПрофиля = attributeApplication.IdПрофиля.Value
+                });
+            }
+            else
+            {
+                await _attributeService.Upsert(new АтрибутУчреждения()
+                {
+                    IdАтрибута = attr.IdАтрибута,
+                    IdСтатусаРаботы = null,
+                    IdТипаРаботы = attributeApplication.IdТипаРаботы
+                });
+            }
+
             return true;
         }
     }

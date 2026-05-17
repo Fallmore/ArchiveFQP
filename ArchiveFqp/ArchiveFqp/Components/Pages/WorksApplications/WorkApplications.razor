@@ -211,9 +211,9 @@
                         ? x.ПользовательСтудент.Структура.Институт.IdИнститута == teacher.IdИнститута
                         : x.ПользовательПреподаватель!.Структура.Институт.IdИнститута == teacher.IdИнститута)
                         && // Даем проверять заявления, доступные для всех или выше кафедры
-                        (x.Работа.ДоступРаботы == Settings.WorkAccessOrganization
-                        || x.Работа.ДоступРаботы == Settings.WorkAccessInstitute
-                        || x.Работа.ДоступРаботы == Settings.WorkAccessAll)
+                        (x.Работа.ДоступРаботы.Название == Settings.WorkAccessOrganization
+                        || x.Работа.ДоступРаботы.Название == Settings.WorkAccessInstitute
+                        || x.Работа.ДоступРаботы.Название == Settings.WorkAccessAll)
                     ).ToList();
             }
 

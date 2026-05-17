@@ -16,5 +16,7 @@ public partial class ТипРаботы
 
     public virtual ICollection<АтрибутУчреждения> АтрибутУчрежденияs { get; set; } = new List<АтрибутУчреждения>();
 
+    public virtual ICollection<ЗаявлениеАтрибута> ЗаявлениеАтрибутаs { get; set; } = new List<ЗаявлениеАтрибута>();
+
     public virtual ICollection<Работа> Работаs { get; set; } = new List<Работа>();
 }

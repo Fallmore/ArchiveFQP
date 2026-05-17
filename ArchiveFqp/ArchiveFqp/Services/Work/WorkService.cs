@@ -187,7 +187,7 @@ namespace ArchiveFqp.Services.Work
             List<int> workIds = works.Select(w => w.IdРаботы).ToList();
             List<Атрибут> attributes = await _refDataService.GetAsync<Атрибут>();
 
-            List<AttributeDto> data = (await _refDataService.GetAsync<АтрибутУчреждения>())
+            List<AttributeDto> data = (await _refDataService.GetAsync<АтрибутУчреждения>(false, false))
                 .Join(await _refDataService.GetAsync<ДанныеПоАтриб>(), a => a.IdСтруктуры, d => d.IdСтруктуры,
                     (a, d) => new AttributeDto(
                         a.IdАтрибута, d.IdДанных,
@@ -424,7 +424,7 @@ namespace ArchiveFqp.Services.Work
 
         public int PickDateWork(WorkDisplayDto work)
         {
-            if (_settings.FqpWorks.Contains(work.ТипРаботы))
+            if (_settings.FqpWorks.Contains(work.ТипРаботы.Название))
                 return work.Студент.ГодОкончания;
 
             return work.ДатаДобавления.Year;

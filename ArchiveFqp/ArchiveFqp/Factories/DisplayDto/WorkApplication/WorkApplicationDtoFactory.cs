@@ -40,7 +40,7 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
         private async Task InitializeLists()
         {
             _users = await _refDataService.GetAsync<Пользователь>();
-            _snapshot = await _refDataService.GetAllAsync();
+            _snapshot = await _refDataService.GetSnapshotAsync();
         }
 
         public async Task<WorkApplicationDto> CreateDisplayDtoAsync(ЗаявлениеРаботы wApps)

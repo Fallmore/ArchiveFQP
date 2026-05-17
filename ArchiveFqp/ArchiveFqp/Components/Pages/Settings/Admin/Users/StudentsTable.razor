@@ -9,7 +9,6 @@
 @using Microsoft.EntityFrameworkCore
 @inject IReferenceDataService RefDataService
 @inject IUserService UserService
-@inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -268,7 +267,7 @@
         List<int> idStudents = (await RefDataService.GetAsync<Студент>()).Select(x => x.IdПользователя).ToList();
         studentsDisplay = (await UserService.GetStudentDisplayAsync(idStudents)).OrderBy(x => x.Пользователь.ФИО).ToList();
         users = await RefDataService.GetAsync<Пользователь>();
-        snapshot = await RefDataService.GetAllAsync();
+        snapshot = await RefDataService.GetSnapshotAsync();
         StateHasChanged();
     }
 
@@ -303,24 +302,18 @@
     {
         try
         {
-            using var context = DbFactory.CreateDbContext();
-
-            if (isEdit)
-            {
-                context.Студентs.Update(selectedStudent);
-            }
-            else
-            {
-                context.Студентs.Add(selectedStudent);
-            }
-
-            await context.SaveChangesAsync();
+            string message = await UserService.Upsert(selectedStudent) ? "Обновлено" : "Добавлено";
             CloseModal();
-            await JSRuntime.InvokeVoidAsync("alert", "Сохранено успешно");
+            await JSRuntime.InvokeVoidAsync("alert", message + " успешно");
         }
         catch (DbUpdateException ex)
         {
             string errorMessage = ex.InnerException?.Message ?? ex.Message;
+            if (errorMessage.Contains("студент_студент_key"))
+                errorMessage = "Студент уже существует";
+            if (errorMessage.Contains("неправильное_год_окончания"))
+                errorMessage = "Неправильный год окончания";
+                
             await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
         }
         catch (Exception ex)
@@ -335,21 +328,15 @@
         {
             try
             {
-                using var context = DbFactory.CreateDbContext();
-                var student = await context.Студентs.FindAsync(id);
-                if (student != null)
-                {
-                    context.Студентs.Remove(student);
-                    await context.SaveChangesAsync();
-                }
+                await UserService.Delete<Студент>(id);
             }
             catch (DbUpdateException ex)
             {
                 string errorMessage = ex.InnerException?.Message ?? "";
                 if (errorMessage.Contains(ReferenceDataService.GetTableName<Работа>()))
-                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: Студент имеет работы");
-                else
-                    await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
+                    errorMessage = "Студент имеет работы";
+                
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
             }
             catch (Exception ex)
             {

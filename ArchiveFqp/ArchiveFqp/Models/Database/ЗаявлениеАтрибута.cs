@@ -10,6 +10,8 @@ public partial class ЗаявлениеАтрибута
 
     public int? IdАтрибута { get; set; }
 
+    public int? IdТипаРаботы { get; set; }
+
     public string Название { get; set; } = null!;
 
     public bool Новый { get; set; } = false;
@@ -39,6 +41,8 @@ public partial class ЗаявлениеАтрибута
     public virtual Пользователь IdПользователяNavigation { get; set; } = null!;
 
     public virtual Атрибут IdАтрибутаNavigation { get; set; } = null!;
+
+    public virtual ТипРаботы? IdТипаРаботыNavigation { get; set; }
 
     public virtual Институт? IdИнститутаNavigation { get; set; }
 

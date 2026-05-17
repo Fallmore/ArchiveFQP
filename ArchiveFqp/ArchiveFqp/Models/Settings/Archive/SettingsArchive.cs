@@ -1,13 +1,98 @@
-﻿namespace ArchiveFqp.Models.Settings.SettingsArchive
+﻿using ArchiveFqp.Models.Database;
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
+
+namespace ArchiveFqp.Models.Settings.SettingsArchive
 {
     public class SettingsArchive
     {
+        public SettingsArchive()
+        {
 
+        }
+
+        public SettingsArchive(IDbContextFactory<ArchiveFqpContext> dbFactory, IWebHostEnvironment env)
+        {
+            using ArchiveFqpContext context = dbFactory.CreateDbContext();
+            НастройкиУчреждения? settingsEntity = context.НастройкиУчрежденияs.FirstOrDefault();
+            if (settingsEntity?.Настройки != null)
+            {
+                SettingsArchive? temp = JsonConvert.DeserializeObject<SettingsArchive>(settingsEntity.Настройки);
+                if (temp != null)
+                {
+                    Copy(temp);
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(FilesRootPath))
+            {
+                FilesRootPath = Path.Combine(
+                    env.ContentRootPath,
+                    FolderDataName,
+                    FolderWorksName
+                );
+            }
+        }
+
+        public event Action? OnChange;
         public event EventHandler<SettingsArchive>? SettingsChanged;
 
         public void SaveSettings()
         {
             SettingsChanged?.Invoke(this, this);
+            OnChange?.Invoke();
+        }
+
+        public void Copy(SettingsArchive settings)
+        {
+            FolderDataName = settings.FolderDataName;
+            FolderWorksName = settings.FolderWorksName;
+            MinDayWatchWorks = settings.MinDayWatchWorks;
+            MaxDayWatchWorks = settings.MaxDayWatchWorks;
+            SendNotifications = settings.SendNotifications;
+            SendNotificationsOnEmail = settings.SendNotificationsOnEmail;
+            RoleAdminName = settings.RoleAdminName;
+            RoleInstituteResponsibleName = settings.RoleInstituteResponsibleName;
+            RoleDepartmentHeadName = settings.RoleDepartmentHeadName;
+            RoleDepartmentResponsibleName = settings.RoleDepartmentResponsibleName;
+            RoleDepartmentClerkName = settings.RoleDepartmentClerkName;
+            RoleTeacherName = settings.RoleTeacherName;
+            RoleStudentName = settings.RoleStudentName;
+            ApplicationTimeCheckMinutes = settings.ApplicationTimeCheckMinutes;
+            ApplicationsInProcessStatus = settings.ApplicationsInProcessStatus;
+            ApplicationsRejectStatus = settings.ApplicationsRejectStatus;
+            ApplicationsAcceptStatus = settings.ApplicationsAcceptStatus;
+            ApplicationsActiveStatus = settings.ApplicationsActiveStatus;
+            ApplicationsCompleteStatus = settings.ApplicationsCompleteStatus;
+            WorkOnReviewStatus = settings.WorkOnReviewStatus;
+            WorkOnProcessStatus = settings.WorkOnProcessStatus;
+            WorkInArchiveStatus = settings.WorkInArchiveStatus;
+            WorkAcceptedStatus = settings.WorkAcceptedStatus;
+            WorkOnReworkStatus = settings.WorkOnReworkStatus;
+            WorkWrittenOffStatus = settings.WorkWrittenOffStatus;
+            WorkAccessAll = settings.WorkAccessAll;
+            WorkAccessOrganization = settings.WorkAccessOrganization;
+            WorkAccessInstitute = settings.WorkAccessInstitute;
+            WorkAccessDepartment = settings.WorkAccessDepartment;
+            WorkAccessDirection = settings.WorkAccessDirection;
+            WorkAccessProfile = settings.WorkAccessProfile;
+            WorkAccessSecret = settings.WorkAccessSecret;
+            AttributesValueAwait = settings.AttributesValueAwait;
+            AttributesValueNone = settings.AttributesValueNone;
+            AttributesAbandonedValues = settings.AttributesAbandonedValues;
+            FqpWorks = settings.FqpWorks;
+            FqpWorksWithCR = settings.FqpWorksWithCR;
+            FqpWorksEducationLevels = settings.FqpWorksEducationLevels;
+
+            FilesRootPath = settings.FilesRootPath;
+            MaxFileSize = settings.MaxFileSize;
+            AllowedWordExtensions = settings.AllowedWordExtensions;
+            AllowedPdfExtensions = settings.AllowedPdfExtensions;
+            AllowedPresentationExtensions = settings.AllowedPresentationExtensions;
+            AllowedSourceCodeExtensions = settings.AllowedSourceCodeExtensions;
+            AllowedDbExtensions = settings.AllowedDbExtensions;
+            AllowedPasswordExtensions = settings.AllowedPasswordExtensions;
+
         }
 
         public string FolderDataName { get; set; } = "AppData";
@@ -17,7 +102,9 @@
         public int MaxDayWatchWorks { get; set; } = 14;
         public bool SendNotifications { get; set; }
         public bool SendNotificationsOnEmail { get; set; }
+        public int ApplicationTimeCheckMinutes { get; set; } = 1;
 
+        #region Для удобства доступа к данным, которые не предполагается менять в процессе работы программы
         public string RoleAdminName { get; set; } = "Администратор";
         public string RoleInstituteResponsibleName { get; set; } = "Ответственный института";
         public string RoleDepartmentHeadName { get; set; } = "Завкафедрой";
@@ -26,7 +113,6 @@
         public string RoleTeacherName { get; set; } = "Преподаватель";
         public string RoleStudentName { get; set; } = "Студент";
 
-        public int ApplicationTimeCheckMinutes { get; set; } = 1;
         public string ApplicationsInProcessStatus { get; set; } = "На рассмотрении";
         public string ApplicationsRejectStatus { get; set; } = "Отклонено";
         public string ApplicationsAcceptStatus { get; set; } = "Принято";
@@ -50,6 +136,16 @@
 
         public string AttributesValueAwait { get; set; } = "Ожидание поиска...";
         public string AttributesValueNone { get; set; } = "Н/Д";
+
+        public string FileExplanatoryNoteWord { get; set; } = "Пояснительная_записка_Word";
+        public string FileExplanatoryNotePDF { get; set; } = "Пояснительная_записка_PDF";
+        public string FilePresentation { get; set; } = "Презентация";
+        public string FileSourceCode { get; set; } = "Исходный_код";
+        public string FileDb { get; set; } = "База_данных";
+        public string FilePassword { get; set; } = "Пароли";
+        #endregion
+
+        
         /// <summary>
         /// Значения атрибутов, которые не относятся к данным
         /// </summary>
@@ -78,12 +174,5 @@
         public List<string> AllowedSourceCodeExtensions { get; set; } = [".zip", ".rar", ".7z"];
         public List<string> AllowedDbExtensions { get; set; } = [".sql", ".bak", ".backup", ".dump", ".txt"];
         public List<string> AllowedPasswordExtensions { get; set; } = [".txt"];
-        public string FileExplanatoryNoteWord { get; set; } = "Пояснительная_записка_Word";
-        public string FileExplanatoryNotePDF { get; set; } = "Пояснительная_записка_PDF";
-        public string FilePresentation { get; set; } = "Презентация";
-        public string FileSourceCode { get; set; } = "Исходный_код";
-        public string FileDb { get; set; } = "База_данных";
-        public string FilePassword { get; set; } = "Пароли";
-
     }
 }

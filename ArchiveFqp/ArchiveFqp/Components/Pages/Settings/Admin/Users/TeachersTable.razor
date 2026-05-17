@@ -10,7 +10,6 @@
 @using Microsoft.EntityFrameworkCore
 @inject IReferenceDataService RefDataService
 @inject IUserService UserService
-@inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -182,7 +181,7 @@
         List<int> idTeachers = (await RefDataService.GetAsync<Преподаватель>()).Select(x => x.IdПользователя).ToList();
         teachersDisplay = (await UserService.GetTeacherDisplayAsync(idTeachers)).OrderBy(x => x.Пользователь.ФИО).ToList();
         users = await RefDataService.GetAsync<Пользователь>();
-        snapshot = await RefDataService.GetAllAsync();
+        snapshot = await RefDataService.GetSnapshotAsync();
         StateHasChanged();
     }
 
@@ -212,24 +211,16 @@
     {
         try
         {
-            using var context = DbFactory.CreateDbContext();
-
-            if (isEdit)
-            {
-                context.Преподавательs.Update(selectedTeacher);
-            }
-            else
-            {
-                context.Преподавательs.Add(selectedTeacher);
-            }
-
-            await context.SaveChangesAsync();
+            string message = await UserService.Upsert(selectedTeacher) ? "Обновлено" : "Добавлено";
             CloseModal();
-            await JSRuntime.InvokeVoidAsync("alert", "Сохранено успешно");
+            await JSRuntime.InvokeVoidAsync("alert", message + " успешно");
         }
         catch (DbUpdateException ex)
         {
             string errorMessage = ex.InnerException?.Message ?? "";
+            if (errorMessage.Contains("преподаватель_преподаватель_key"))
+                errorMessage = "Преподаватель уже существует";
+
             await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
         }
         catch (Exception ex)
@@ -244,13 +235,7 @@
         {
             try
             {
-                using var context = DbFactory.CreateDbContext();
-                var teacher = await context.Преподавательs.FindAsync(id);
-                if (teacher != null)
-                {
-                    context.Преподавательs.Remove(teacher);
-                    await context.SaveChangesAsync();
-                }
+                await UserService.Delete<Преподаватель>(id);
             }
             catch (DbUpdateException ex)
             {

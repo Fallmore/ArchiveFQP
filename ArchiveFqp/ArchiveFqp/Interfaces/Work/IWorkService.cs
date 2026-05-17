@@ -107,23 +107,24 @@ namespace ArchiveFqp.Interfaces.Work
         Task<Dictionary<int, List<AttributeDto>>> GetWorksAttributesAsync(List<Работа> works, List<string>? abandonedValues = null);
 
         /// <summary>
-        /// Получение объекта работы как <see cref="WorkDisplayDto"/> для отображение данных в виде строк
+        /// Получение объекта работы как <see cref="WorkDisplayDto"/> для отображение данных
         /// </summary>
         /// <param name="work"></param>
         /// <param name="consultants"></param>
         /// <param name="reviewers"></param>
+        /// <param name="abandonedValues">Список запрещенных значений атрибутов, которые нужно игнорировать. Если таких нет, поставьте пустой список</param>
         /// <returns></returns>
         Task<WorkDisplayDto> GetWorkDisplayAsync(Работа work, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null, List<string>? abandonedValues = null);
 
-        /// <summary>
-        /// Получение объекта работы как <see cref="WorkDisplayDto"/> для отображение данных в виде строк
-        /// </summary>
-        /// <param name="idWork"></param>
-        /// <param name="consultants"></param>
-        /// <param name="reviewers"></param>
-        /// <returns></returns>
+        /// <inheritdoc cref="GetWorkDisplayAsync"/>
         Task<WorkDisplayDto> GetWorkDisplayAsync(int idWork, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null, List<string>? abandonedValues = null);
 
+        /// <summary>
+        /// Получение списка объектов работы как <see cref="WorkDisplayDto"/> для отображение данных
+        /// </summary>
+        /// <param name="works"></param>
+        /// <param name="abandonedValues">Список запрещенных значений атрибутов, которые нужно игнорировать. Если таких нет, поставьте пустой список</param>
+        /// <returns></returns>
         Task<List<WorkDisplayDto>> GetWorkDisplayAsync(List<Работа> works, List<string>? abandonedValues = null);
 
 

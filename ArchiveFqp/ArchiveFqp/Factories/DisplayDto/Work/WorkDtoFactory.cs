@@ -46,7 +46,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
 
         private async Task InitializeLists()
         {
-            _snapshot = await _refDataService.GetAllAsync();
+            _snapshot = await _refDataService.GetSnapshotAsync();
         }
 
         public async Task<WorkDisplayDto> CreateDisplayDtoAsync(Работа work)
@@ -58,9 +58,9 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
                 Тема = work.Тема,
                 Студент = await _studentDtoFactory.CreateDisplayDtoAsync(work.IdСтудента) ?? new(),
                 Руководитель = await _teacherDtoFactory.CreateDisplayDtoAsync(work.IdПреподавателя, work.IdДолжности),
-                ТипРаботы = _snapshot.WorkTypes.FirstOrDefault(o => o.IdТипаРаботы == work.IdТипаРаботы)?.Название ?? "",
-                СтатусРаботы = _snapshot.WorkStatuses.FirstOrDefault(o => o.IdСтатусаРаботы == work.IdСтатусаРаботы)?.Название ?? "",
-                ДоступРаботы = _snapshot.WorkAccess.FirstOrDefault(o => o.IdДоступаРаботы == work.IdДоступаРаботы)?.Название ?? "",
+                ТипРаботы = _snapshot.WorkTypes.FirstOrDefault(o => o.IdТипаРаботы == work.IdТипаРаботы) ?? new (),
+                СтатусРаботы = _snapshot.WorkStatuses.FirstOrDefault(o => o.IdСтатусаРаботы == work.IdСтатусаРаботы) ?? new(),
+                ДоступРаботы = _snapshot.WorkAccess.FirstOrDefault(o => o.IdДоступаРаботы == work.IdДоступаРаботы) ?? new(),
                 Аннотация = work.Аннотация,
                 КоличСтраниц = work.КоличСтраниц ?? 0,
                 ДатаДобавления = work.ДатаДобавления,
@@ -81,9 +81,9 @@ namespace ArchiveFqp.Factories.DisplayDto.Work
                 Руководитель = await _teacherDtoFactory.CreateDisplayDtoAsync(work.IdПреподавателя, work.IdДолжности),
                 Консультанты = await _teacherDtoFactory.CreateDisplayDtoAsync(consultants),
                 Рецензенты = await _teacherDtoFactory.CreateDisplayDtoAsync(reviewers),
-                ТипРаботы = _snapshot.WorkTypes.FirstOrDefault(o => o.IdТипаРаботы == work.IdТипаРаботы)?.Название ?? "",
-                СтатусРаботы = _snapshot.WorkStatuses.FirstOrDefault(o => o.IdСтатусаРаботы == work.IdСтатусаРаботы)?.Название ?? "",
-                ДоступРаботы = _snapshot.WorkAccess.FirstOrDefault(o => o.IdДоступаРаботы == work.IdДоступаРаботы)?.Название ?? "",
+                ТипРаботы = _snapshot.WorkTypes.FirstOrDefault(o => o.IdТипаРаботы == work.IdТипаРаботы) ?? new(),
+                СтатусРаботы = _snapshot.WorkStatuses.FirstOrDefault(o => o.IdСтатусаРаботы == work.IdСтатусаРаботы) ?? new(),
+                ДоступРаботы = _snapshot.WorkAccess.FirstOrDefault(o => o.IdДоступаРаботы == work.IdДоступаРаботы) ?? new(),
                 Аннотация = work.Аннотация,
                 КоличСтраниц = work.КоличСтраниц ?? 0,
                 ДатаДобавления = work.ДатаДобавления,

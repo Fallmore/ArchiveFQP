@@ -225,15 +225,22 @@ namespace ArchiveFqp.Services.ReferenceData
         /// <param name="forceRefresh"></param>
         /// <param name="onlyParentData"></param>
         /// <returns><inheritdoc cref="IReferenceDataService.GetAsync{T}(bool, bool)"/></returns>
-        public async Task<List<T>> GetAsync<T>(bool forceRefresh, bool onlyParentData) where T : class
+        public async Task<List<T>> GetAsync<T>(bool forceRefresh = false, bool onlyParentData = true) where T : class
         {
             string tableName = GetTableName<T>();
             string cacheKey;
 
             if (TablesInSnapshot.Contains(tableName))
             {
-                ReferenceDataSnapshot snapshot = await GetAllAsync(forceRefresh);
-                return snapshot.GetTable<T>();
+                if (TablesInherited.Contains(tableName) && onlyParentData)
+                {
+                    // Завершенное место
+                }
+                else
+                {
+                    ReferenceDataSnapshot snapshot = await GetSnapshotAsync(forceRefresh);
+                    return snapshot.GetTable<T>();
+                }
             }
             else if (typeof(T).Name == typeof(AttributeValuesDto).Name)
             {
@@ -257,11 +264,11 @@ namespace ArchiveFqp.Services.ReferenceData
         }
 
         /// <summary>
-        /// <inheritdoc cref="IReferenceDataService.GetAllAsync(bool)"/>
+        /// <inheritdoc cref="IReferenceDataService.GetSnapshotAsync(bool)"/>
         /// </summary>
         /// <param name="forceRefresh"></param>
         /// <returns></returns>
-        public async Task<ReferenceDataSnapshot> GetAllAsync(bool forceRefresh = false)
+        public async Task<ReferenceDataSnapshot> GetSnapshotAsync(bool forceRefresh = false)
         {
             if (!forceRefresh && _cache.TryGetValue(s_cacheAllDataName, out ReferenceDataSnapshot? snapshot))
             {
@@ -341,14 +348,21 @@ namespace ArchiveFqp.Services.ReferenceData
         /// <param name="forceFullRefresh"></param>
         /// <param name="onlyParentData"></param>
         /// <returns></returns>
-        public async Task UpdateSingleTableAsync<T>(bool forceFullRefresh = false, bool onlyParentData = false) where T : class
+        public async Task UpdateSingleTableAsync<T>(bool forceFullRefresh = false, bool onlyParentData = true) where T : class
         {
             string tableName = GetTableName<T>();
 
             if (TablesInSnapshot.Contains(tableName))
             {
-                await UpdateSingleTableSnapshotAsync<T>(forceFullRefresh);
-                return;
+                if (TablesInherited.Contains(tableName) && onlyParentData)
+                {
+                    // Завершенное место
+                }
+                else
+                {
+                    await UpdateSingleTableSnapshotAsync<T>(forceFullRefresh);
+                    return;
+                }
             }
 
             string cacheKey = GetCacheKey(tableName);
@@ -436,7 +450,7 @@ namespace ArchiveFqp.Services.ReferenceData
             {
                 using ArchiveFqpContext context = _dbFactory.CreateDbContext();
 
-                var query = from data in (await GetAsync<ДанныеПоАтриб>(false, false))
+                var query = from data in (await GetAsync<ДанныеПоАтриб>())
                             join attrStruct in (await GetAsync<АтрибутУчреждения>(false, false))
                                 on data.IdСтруктуры equals attrStruct.IdСтруктуры
                             select new { attrStruct.IdАтрибута, data.Данные };
@@ -476,7 +490,7 @@ namespace ArchiveFqp.Services.ReferenceData
             {
                 UserDtoFactory factory = new(this);
 
-                List<Пользователь> list = await GetAsync<Пользователь>(false, false);
+                List<Пользователь> list = await GetAsync<Пользователь>();
                 List<UserDisplayDto> result = await factory.CreateDisplayDtoAsync(list);
 
                 _cache.Set(s_cacheUserAccounts, result, new MemoryCacheEntryOptions

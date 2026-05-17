@@ -25,7 +25,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
 
         private async Task InitializeLists()
         {
-            _snapshot = await _refDataService.GetAllAsync();
+            _snapshot = await _refDataService.GetSnapshotAsync();
         }
 
         public async Task<StructureDto?> CreateDisplayDtoAsync(int idProfile)
@@ -40,8 +40,8 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
         /// <summary>
         /// <inheritdoc cref="CreateDisplayDtoAsync(int)"/> <typeparamref name="T"/>
         /// </summary>
-        /// <typeparam name="T">1 из 3 классов: <see cref="Профиль"/>, 
-        /// <see cref="Направление"/> или <see cref="Кафедра"/></typeparam>
+        /// <typeparam name="T">1 из 4 классов: <see cref="Профиль"/>, 
+        /// <see cref="Направление"/>, <see cref="Кафедра"/> или <see cref="Институт"/></typeparam>
         /// <param name="id"></param>
         /// <returns>Вовзращает DTO <see cref="StructureDto"/> или <strong>null</strong> в случае,
         /// если был не найден объект типа <typeparamref name="T"/> или указанный 
@@ -66,6 +66,11 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
                     if (department == null) return null;
 
                     return await CreateDisplayDtoAsync(department);
+                case nameof(Институт):
+                    Институт? institute = _snapshot.Institutes.FirstOrDefault(o => o.IdИнститута == id);
+                    if (institute == null) return null;
+
+                    return new() { Институт = institute };
                 default:
                     return null;
             }

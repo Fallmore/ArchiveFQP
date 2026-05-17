@@ -45,7 +45,7 @@
                 }
                 break;
             default:
-                throw new ArgumentException("Класс должен быть 1 из 3: Институт, Кафедра, Профиль");
+                throw new ArgumentException("Класс должен быть 1 из 3: Кафедра, Направление, Профиль");
         }
     </InputSelect>
 }
@@ -85,7 +85,7 @@
     private async Task Init(IReferenceDataService refDataService)
     {
         structureFactory ??= new(refDataService);
-        Snapshot ??= await refDataService.GetAllAsync();
+        Snapshot ??= await refDataService.GetSnapshotAsync();
 
         if (structures.Count == 0)
         {
@@ -110,36 +110,23 @@
 
     public string GetStructureInfo<T>(int id) where T : class
     {
-        StructureDto? str;
-        string info = "";
+        StructureDto str;
 
         switch (typeof(T).Name)
         {
             case nameof(Кафедра):
                 str = structures.First(x => x.Кафедра.IdКафедры == id);
-                info = $"УГСН: {str.Угсн.Название}\n" +
-                        $"Стандарт УГСН: {str.УгснСтандарт.Название}\n" +
-                        $"Институт: {str.Институт.Название}\n";
                 break;
             case nameof(Направление):
                 str = structures.First(x => x.Направление.IdНаправления == id);
-                info = $"Кафедра: {str.Кафедра.Название}\n" +
-                        $"УГСН: {str.Угсн.Название}\n" +
-                        $"Стандарт УГСН: {str.УгснСтандарт.Название}\n" +
-                        $"Институт: {str.Институт.Название}";
                 break;
             case nameof(Профиль):
                 str = structures.First(x => id == (x.Профиль?.IdПрофиля ?? -1));
-                info = $"Направление: {str.Направление.Название}\n" +
-                        $"Кафедра: {str.Кафедра.Название}\n" +
-                        $"УГСН: {str.Угсн.Название}\n" +
-                        $"Стандарт УГСН: {str.УгснСтандарт.Название}\n" +
-                        $"Институт: {str.Институт.Название}";
                 break;
             default:
-                throw new ArgumentException("Класс должен быть 1 из 3: Институт, Кафедра, Профиль");
+                throw new ArgumentException("Класс должен быть 1 из 3: Кафедра, Направление, Профиль");
         }
 
-        return info;
+        return str.GetStructureInfo<T>();
     }
 }

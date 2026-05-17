@@ -1,0 +1,367 @@
+﻿@page "/admin/works"
+@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Interfaces.Work
+@using ArchiveFqp.Models
+@using ArchiveFqp.Models.DTO.Work
+@using ArchiveFqp.Models.DatabaseNotification
+@using ArchiveFqp.Models.ReferenceData
+@using ArchiveFqp.Services.FileUpload
+@using ArchiveFqp.Services.ReferenceData
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<ArchiveFqpContext> DbFactory
+@inject NavigationManager NavigationManager
+@inject WorkFileUploadService FileUploadService
+@inject IReferenceDataService RefDataService
+@inject IWorkService WorkService
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+@attribute [Authorize(Roles = "Администратор")]
+@rendermode @(new InteractiveServerRenderMode())
+
+<PageTitle>Админ-панель - Управление работами</PageTitle>
+
+@if (RendererInfo.IsInteractive)
+{
+    <div class="container-fluid mt-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-file-earmark-text me-2"></i>Управление работами
+                    </h4>
+                    <button class="btn btn-light btn-sm" @onclick="@(() => NavigationManager.NavigateTo("/admin"))">
+                        <i class="bi bi-arrow-left"></i> Назад
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Поиск -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <input type="text" class="form-control" placeholder="Поиск по теме/студенту/руководителю..." @bind="searchText" @bind:event="oninput" />
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" @bind="filterTypeId" @bind:event="onchange">
+                            <option value="">Все типы</option>
+                            @foreach (var type in snapshot.WorkTypes)
+                            {
+                                <option value="@type.IdТипаРаботы">@type.Название</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" @bind="filterStatusId" @bind:event="onchange">
+                            <option value="">Все статусы</option>
+                            @foreach (var status in snapshot.WorkStatuses)
+                            {
+                                <option value="@status.IdСтатусаРаботы">@status.Название</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" @bind="filterAccessId" @bind:event="onchange">
+                            <option value="">Все статусы</option>
+                            @foreach (var status in snapshot.WorkAccess)
+                            {
+                                <option value="@status.IdДоступаРаботы">@status.Название</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Таблица работ -->
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Тема</th>
+                                <th>Студент</th>
+                                <th>Руководитель</th>
+                                <th>Тип</th>
+                                <th>Доступ</th>
+                                <th>Статус</th>
+                                <th>Дата добавления</th>
+                                <th>Дата изменения</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (filteredWorks == null)
+                            {
+                                <tr><td colspan="8" class="text-center">Загрузка...</td></tr>
+                            }
+                            else if (filteredWorks.Count == 0)
+                            {
+                                <tr><td colspan="8" class="text-center">Нет данных</td></tr>
+                            }
+                            else
+                            {
+                                @foreach (var work in filteredWorks.Skip((currentPage - 1) * pageSize).Take(pageSize))
+                                {
+                                    <tr>
+                                        <td>@work.IdРаботы</td>
+                                        <td>@work.Тема</td>
+                                        <td>@work.Студент.Пользователь.ФИО</td>
+                                        <td>@work.Руководитель.Пользователь.ФИО</td>
+                                        <td>@work.ТипРаботы.Название</td>
+                                        <td>@work.ДоступРаботы.Название</td>
+                                        <td>@work.СтатусРаботы.Название</td>
+                                        <td>@work.ДатаДобавления.ToString("dd.MM.yyyy")</td>
+                                        <td>@(work.ДатаИзменения?.ToString("dd.MM.yyyy") ?? "-")</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-primary" @onclick="() => OpenEditModal(work)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteWork(work.IdРаботы)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Пагинация -->
+                @if (totalPages > 1)
+                {
+                    <nav>
+                        <ul class="pagination justify-content-center">
+                            @for (int i = 1; i <= totalPages; i++)
+                            {
+                                <li class="page-item @(currentPage == i ? "active" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                </li>
+                            }
+                        </ul>
+                    </nav>
+                }
+            </div>
+        </div>
+    </div>
+
+    // TODO доделать изменение работ
+    <!-- Модальное окно для редактирования -->
+    <div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Редактирование работы</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Тема</label>
+                            <input type="text" class="form-control" @bind="editingWork.Тема" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Тип работы</label>
+                            <select class="form-select" @bind="editingWork.IdТипаРаботы">
+                                @foreach (var type in snapshot.WorkTypes)
+                                {
+                                    <option value="@type.IdТипаРаботы">@type.Название</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Статус</label>
+                            <select class="form-select" @bind="editingWork.IdСтатусаРаботы">
+                                @foreach (var status in snapshot.WorkStatuses)
+                                {
+                                    <option value="@status.IdСтатусаРаботы">@status.Название</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Количество страниц</label>
+                            <input type="number" class="form-control" @bind="editingWork.КоличСтраниц" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Доступ</label>
+                            <select class="form-select" @bind="editingWork.IdДоступаРаботы">
+                                @foreach (var access in snapshot.WorkAccess)
+                                {
+                                    <option value="@access.IdДоступаРаботы">@access.Название</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Аннотация</label>
+                            <textarea class="form-control" @bind="editingWork.Аннотация" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModal">Отмена</button>
+                    <button class="btn btn-primary" @onclick="UpdateWork">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    private List<WorkDisplayDto>? works;
+    private ReferenceDataSnapshot snapshot = null!;
+    private Работа editingWork = new();
+    private int? filterTypeId;
+    private int? filterStatusId;
+    private int? filterAccessId;
+    private int currentPage = 1;
+    private int pageSize = 20;
+    private int totalPages = 1;
+    private bool showModal = false;
+
+    private string searchText = "";
+    private List<WorkDisplayDto> filteredWorks
+    {
+        get
+        {
+            return works?.Where(item =>
+            {
+                bool matchesTopic = string.IsNullOrWhiteSpace(searchText)
+                                    || item.Тема.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+                bool matchesStudent = string.IsNullOrWhiteSpace(searchText)
+                                    || item.Студент.Пользователь.ФИО.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+                bool matchesSupervisor = string.IsNullOrWhiteSpace(searchText)
+                                        || item.Руководитель.Пользователь.ФИО.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+                bool matchesType = !filterTypeId.HasValue || item.ТипРаботы.IdТипаРаботы == filterTypeId.Value;
+                bool matchesStatus = !filterStatusId.HasValue || item.СтатусРаботы.IdСтатусаРаботы == filterStatusId.Value;
+                bool matchesAccess = !filterAccessId.HasValue || item.ДоступРаботы.IdДоступаРаботы == filterAccessId.Value;
+                return (matchesTopic || matchesStudent || matchesSupervisor) && matchesType && matchesStatus && matchesAccess;
+            }).ToList() ?? [];
+        }
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        RefDataService.TablesChanged += OnTablesChanged;
+    }
+
+    private async Task LoadData()
+    {
+        works = await WorkService.GetWorkDisplayAsync(await RefDataService.GetAsync<Работа>(), []);
+        snapshot = await RefDataService.GetSnapshotAsync();
+        StateHasChanged();
+    }
+
+    private async Task ChangePage(int page)
+    {
+        currentPage = page;
+        StateHasChanged();
+    }
+
+    private void OpenEditModal(WorkDisplayDto work)
+    {
+        editingWork = new()
+        {
+            IdРаботы = work.IdРаботы,
+            Тема = work.Тема,
+            IdСтудента = work.Студент.IdСтудента,
+            IdПреподавателя = work.Руководитель.IdПреподавателя,
+            IdДолжности = work.Руководитель.Должность.IdДолжности,
+            IdТипаРаботы = work.ТипРаботы.IdТипаРаботы,
+            IdСтатусаРаботы = work.СтатусРаботы.IdСтатусаРаботы,
+            IdДоступаРаботы = work.ДоступРаботы.IdДоступаРаботы,
+            КоличСтраниц = work.КоличСтраниц,
+            Аннотация = work.Аннотация,
+            ДатаДобавления = work.ДатаДобавления,
+            ДатаИзменения = work.ДатаИзменения,
+            Эцп = work.Эцп,
+            Местоположение = work.Местоположение
+        };
+        showModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        StateHasChanged();
+    }
+
+    private async Task UpdateWork()
+    {
+        try
+        {
+            editingWork.ДатаИзменения = DateTime.Now;
+            using var context = DbFactory.CreateDbContext();
+            context.Работаs.Update(editingWork);
+            await context.SaveChangesAsync();
+            CloseModal();
+            await JSRuntime.InvokeVoidAsync("alert", "Работа обновлена");
+        }
+        catch (DbUpdateException ex)
+        {
+            string errorMessage = ex.InnerException?.Message ?? ex.Message;
+            if (errorMessage.Contains("работа_работа_студента_key"))
+                errorMessage = "У студента уже существует работа с этой темой";
+            else if (errorMessage.Contains("работа_работа_студентов_key"))
+                errorMessage = "Уже существует работа данного типа с такой темой";
+            else if (errorMessage.Contains("неправильное_дата_добавления"))
+                errorMessage = "Не допускается дата добавления в будущем";
+            else if (errorMessage.Contains("неправильное_колич_страниц"))
+                errorMessage = "Не допускается отрицательное количество страниц";
+            else if (errorMessage.Contains("местоположение"))
+                errorMessage = "Местоположение уже существует у одной из работ";
+            else if (errorMessage.Contains("ЭЦП"))
+                errorMessage = "ЭЦП уже существует у одной из работ";
+
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteWork(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Удалить работу? Это действие удалит также все файлы работы!"))
+        {
+            try
+            {
+                using var context = DbFactory.CreateDbContext();
+                var work = await context.Работаs.FindAsync(id);
+                if (work != null)
+                {
+                    FileUploadService.DirectoryDelete(work.Местоположение);
+                    context.Работаs.Remove(work);
+                    await context.SaveChangesAsync();
+                }
+            }
+            catch (DbUpdateException ex)
+            {
+                string errorMessage = ex.InnerException?.Message ?? ex.Message;
+                if (errorMessage.Contains(ReferenceDataService.GetTableName<ЗаявлениеРаботы>()))
+                    errorMessage = "Работа имеет связанные заявления";
+                
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+            }
+        }
+    }
+
+    private async void OnTablesChanged(object? sender, TableChangeEvent e)
+    {
+        if (e.TableName == nameof(Работа))
+        {
+            await InvokeAsync(async () => { await LoadData(); });
+        }
+    }
+
+    public void Dispose()
+    {
+        RefDataService.TablesChanged -= OnTablesChanged;
+    }
+}

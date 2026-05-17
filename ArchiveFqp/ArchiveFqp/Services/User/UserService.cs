@@ -1,6 +1,7 @@
 ﻿using ArchiveFqp.Factories.DisplayDto.Student;
 using ArchiveFqp.Factories.DisplayDto.Teacher;
 using ArchiveFqp.Factories.DisplayDto.User;
+using ArchiveFqp.Interfaces;
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Interfaces.User;
 using ArchiveFqp.Models.Database;
@@ -12,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ArchiveFqp.Services.User
 {
-    public class UserService : IUserService
+    public class UserService : CrudGeneric, IUserService
     {
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
         private readonly IReferenceDataService _refDataService;
@@ -117,70 +118,14 @@ namespace ArchiveFqp.Services.User
             return await GetStudentDisplayAsync(users.Select(x => x.IdПользователя).ToList());
         }
 
-        public async Task<bool> UpdateUser(Пользователь user)
+        public async Task<bool> Upsert<T>(T item) where T : class
         {
-            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
-
-            Пользователь? foundUser = context.Пользовательs.Find(user.IdПользователя);
-            if (foundUser == null) return false;
-
-            foundUser = user;
-            await context.SaveChangesAsync();
-            return true;
+            return await base.Upsert(item, _dbFactory);
         }
 
-        public async Task<Пользователь> AddUser(Пользователь user)
+        public async Task<bool> Delete<T>(int id) where T : class
         {
-            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
-
-            context.Пользовательs.Add(user);
-            await context.SaveChangesAsync();
-
-            return user;
-        }
-
-        public async Task<Студент> AddStudent(Студент student)
-        {
-            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
-
-            context.Студентs.Add(student);
-            await context.SaveChangesAsync();
-
-            return student;
-        }
-
-        public async Task<Преподаватель> AddTeacher(Преподаватель teacher)
-        {
-            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
-
-            context.Преподавательs.Add(teacher);
-            await context.SaveChangesAsync();
-
-            return teacher;
-        }
-
-        public async Task RemoveUser(Пользователь user)
-        {
-            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
-
-            context.Пользовательs.Remove(user);
-            await context.SaveChangesAsync();
-        }
-
-        public async Task RemoveStudent(Студент student)
-        {
-            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
-
-            context.Студентs.Remove(student);
-            await context.SaveChangesAsync();
-        }
-
-        public async Task RemoveTeacher(Преподаватель teacher)
-        {
-            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
-
-            context.Преподавательs.Remove(teacher);
-            await context.SaveChangesAsync();
+            return await base.Delete<T>(id, _dbFactory);
         }
     }
 }

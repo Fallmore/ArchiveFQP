@@ -1,0 +1,508 @@
+﻿@page "/admin/logs"
+@using ArchiveFqp.Models
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using System.Text
+@inject IDbContextFactory<ArchiveFqpContext> DbFactory
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@attribute [Authorize(Roles = "Администратор")]
+@rendermode @(new InteractiveServerRenderMode())
+
+<PageTitle>Админ-панель - Журнал действий</PageTitle>
+
+@if (RendererInfo.IsInteractive && logs != null)
+{
+    <div class="container-fluid mt-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-journal-bookmark me-2"></i>Журнал действий
+                    </h4>
+                    <button class="btn btn-light btn-sm" @onclick="@(() => NavigationManager.NavigateTo("/admin"))">
+                        <i class="bi bi-arrow-left"></i> Назад
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Фильтры -->
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Схема</label>
+                        <select class="form-select" @bind="filterSchema" @bind:after="ComputeStatistic" @bind:event="onchange">
+                            <option value="">Все</option>
+                            @foreach (var schema in schemas)
+                            {
+                                <option value="@schema">@schema</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Таблица</label>
+                        <select class="form-select" @bind="filterTable" @bind:after="ComputeStatistic" @bind:event="onchange">
+                            <option value="">Все</option>
+                            @foreach (var table in tables)
+                            {
+                                <option value="@table">@table</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Операция</label>
+                        <select class="form-select" @bind="filterOperation" @bind:after="ComputeStatistic" @bind:event="onchange">
+                            <option value="">Все</option>
+                            <option value="INSERT">INSERT</option>
+                            <option value="UPDATE">UPDATE</option>
+                            <option value="DELETE">DELETE</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Дата от</label>
+                        <input type="date" class="form-control" @bind="filterDateFrom" @bind:after="ComputeStatistic" @bind:event="oninput" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Дата до</label>
+                        <input type="date" class="form-control" @bind="filterDateTo" @bind:after="ComputeStatistic" @bind:event="oninput" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Поиск по данным</label>
+                        <input type="text" class="form-control" placeholder="Поиск в старых/новых данных и запросах..." 
+                               @bind="searchText" @bind:after="ComputeStatistic" @bind:event="onchange" />
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary" @onclick="ExportToExcel">
+                                <i class="bi bi-file-excel"></i> Экспорт в Excel
+                            </button>
+                            <button class="btn btn-outline-danger" @onclick="ClearFilters">
+                                <i class="bi bi-eraser"></i> Очистить фильтры
+                            </button>
+                            <button class="btn btn-outline-success" @onclick="RefreshLogs">
+                                <i class="bi bi-arrow-repeat"></i> Обновить
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Статистика -->
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Всего записей</h5>
+                                <h3>@totalCount</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">INSERT</h5>
+                                <h3>@insertCount</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">UPDATE</h5>
+                                <h3>@updateCount</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-danger text-white">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">DELETE</h5>
+                                <h3>@deleteCount</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Таблица журнала -->
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped table-sm">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Время</th>
+                                <th>Схема</th>
+                                <th>Таблица</th>
+                                <th>Операция</th>
+                                <th>Старые данные</th>
+                                <th>Новые данные</th>
+                                <th>Запрос</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (filteredLogs == null)
+                            {
+                                <tr><td colspan="8" class="text-center">Загрузка...</td></tr>
+                            }
+                            else if (filteredLogs.Count == 0)
+                            {
+                                <tr><td colspan="8" class="text-center">Нет данных</td></tr>
+                            }
+                            else
+                            {
+                                @foreach (var log in filteredLogs.OrderByDescending(l => l.Время).Skip((currentPage - 1) * pageSize).Take(pageSize))
+                                {
+                                    <tr>
+                                        <td nowrap>@log.Время!.Value.ToString("dd.MM.yyyy HH:mm:ss")</td>
+                                        <td>@log.Схема</td>
+                                        <td>@log.Таблица</td>
+                                        <td>
+                                            <span class="badge @GetOperationBadgeClass(log.Операция)">
+                                                @log.Операция
+                                            </span>
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(log.СтарыеДанные))
+                                            {
+                                                <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => ShowDataModal(log.СтарыеДанные, "Старые данные"))">
+                                                    <i class="bi bi-eye"></i> Просмотр
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(log.НовыеДанные))
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="@(() => ShowDataModal(log.НовыеДанные, "Новые данные"))">
+                                                    <i class="bi bi-eye"></i> Просмотр
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(log.Запрос) && log.Запрос.Length > 50)
+                                            {
+                                                <span>@log.Запрос.Substring(0, 50)...</span>
+                                                <button class="btn btn-sm btn-link" @onclick="() => ShowQueryModal(log.Запрос)">Подробнее</button>
+                                            }
+                                            else
+                                            {
+                                                <span>@log.Запрос</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteLog(log)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Пагинация -->
+                @if (totalPages > 1)
+                {
+                    <nav>
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(1)">Первая</button>
+                            </li>
+                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">Предыдущая</button>
+                            </li>
+                            @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                            {
+                                int index = i;
+                                <li class="page-item @(currentPage == i ? "active" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(index)">@index</button>
+                                </li>
+                            }
+                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">Следующая</button>
+                            </li>
+                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(totalPages)">Последняя</button>
+                            </li>
+                        </ul>
+                    </nav>
+                }
+
+                <!-- Информация о странице -->
+                <div class="text-center mt-2">
+                    <small class="text-muted">
+                        Страница @currentPage из @totalPages (всего записей: @totalCount)
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для просмотра данных -->
+    <div class="modal fade @(showDataModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">@dataModalTitle</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseDataModal"></button>
+                </div>
+                <div class="modal-body">
+                    <pre class="bg-light p-3 rounded" style="max-height: 500px; overflow: auto;">@dataModalContent</pre>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseDataModal">Закрыть</button>
+                    <button class="btn btn-primary" @onclick="CopyToClipboard">
+                        <i class="bi bi-clipboard"></i> Копировать
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<script>
+        window.downloadFile = (fileName, base64Content) => {
+        const link = document.createElement('a');
+        const byteCharacters = atob(base64Content);
+        const byteNumbers = new Array(byteCharacters.length);
+    
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+    
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        const url = URL.createObjectURL(blob);
+    
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+</script>
+
+@code {
+    private List<ЖурналДействий>? logs;
+    private List<string> schemas = new();
+    private List<string> tables = new();
+
+    private string filterSchema = "";
+    private string filterTable = "";
+    private string filterOperation = "";
+    private DateTime? filterDateFrom;
+    private DateTime? filterDateTo;
+    private string searchText = "";
+
+    private int currentPage = 1;
+    private int pageSize = 20;
+    private int totalCount = 0;
+    private int totalPages = 1;
+    private int insertCount = 0;
+    private int updateCount = 0;
+    private int deleteCount = 0;
+
+    private bool showDataModal = false;
+    private string dataModalTitle = "";
+    private string dataModalContent = "";
+
+    private List<ЖурналДействий> filteredLogs
+    {
+        get
+        {
+            List<ЖурналДействий> temp = logs?.Where(item =>
+            {
+                bool matchesText = string.IsNullOrWhiteSpace(searchText)
+                                || (item.СтарыеДанные != null && item.СтарыеДанные.Contains(searchText))
+                                || (item.НовыеДанные != null && item.НовыеДанные.Contains(searchText))
+                                || (item.Запрос != null && item.Запрос.Contains(searchText));
+                bool matchesSchema = string.IsNullOrWhiteSpace(filterSchema) || item.Схема == filterSchema;
+                bool matchesTables = string.IsNullOrWhiteSpace(filterTable) || item.Таблица == filterTable;
+                bool matchesDateFrom = filterDateFrom == null || item.Время! >= filterDateFrom;
+                bool matchesDateTo = filterDateTo == null || item.Время! <= filterDateTo;
+                return matchesText && matchesSchema && matchesTables && matchesDateFrom && matchesDateTo;
+            }).ToList() ?? [];
+
+            return temp;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RendererInfo.IsInteractive)
+        {
+            await LoadLogs();
+            await LoadFilters();
+        }
+    }
+
+    private async Task LoadFilters()
+    {
+        schemas = logs!.Select(l => l.Схема).Distinct().OrderBy(s => s).ToList();
+        tables = logs!.Select(l => l.Таблица).Distinct().OrderBy(t => t).ToList();
+    }
+
+    private async Task LoadLogs()
+    {
+        currentPage = 1;
+        using var context = DbFactory.CreateDbContext();
+        logs = await context.ЖурналДействийs.ToListAsync();
+        ComputeStatistic();
+    }
+
+    private void ComputeStatistic()
+    {
+        totalCount = filteredLogs.Count;
+        insertCount = filteredLogs.Count(l => l.Операция == "INSERT");
+        updateCount = filteredLogs.Count(l => l.Операция == "UPDATE");
+        deleteCount = filteredLogs.Count(l => l.Операция == "DELETE");
+        totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+        StateHasChanged();
+    }
+
+    private async Task ChangePage(int page)
+    {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        StateHasChanged();
+    }
+
+    private async Task ClearFilters()
+    {
+        filterSchema = "";
+        filterTable = "";
+        filterOperation = "";
+        filterDateFrom = null;
+        filterDateTo = null;
+        searchText = "";
+        currentPage = 1;
+    }
+
+    private async Task RefreshLogs()
+    {
+        await LoadLogs();
+    }
+
+    private string GetOperationBadgeClass(string operation)
+    {
+        return operation.ToUpper() switch
+        {
+            "INSERT" => "bg-success",
+            "UPDATE" => "bg-warning text-dark",
+            "DELETE" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private void ShowDataModal(string data, string title)
+    {
+        try
+        {
+            // Попробуем форматировать JSON для лучшего отображения
+            if (data.StartsWith("{") || data.StartsWith("["))
+            {
+                var jsonObj = System.Text.Json.JsonSerializer.Deserialize<object>(data);
+                dataModalContent = System.Text.Json.JsonSerializer.Serialize(jsonObj, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            }
+            else
+            {
+                dataModalContent = data;
+            }
+        }
+        catch
+        {
+            dataModalContent = data;
+        }
+        
+        dataModalTitle = title;
+        showDataModal = true;
+        StateHasChanged();
+    }
+
+    private void ShowQueryModal(string query)
+    {
+        dataModalContent = query;
+        dataModalTitle = "SQL Запрос";
+        showDataModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseDataModal()
+    {
+        showDataModal = false;
+        StateHasChanged();
+    }
+
+    private async Task CopyToClipboard()
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", dataModalContent);
+        await JSRuntime.InvokeVoidAsync("alert", "Скопировано в буфер обмена");
+    }
+
+    private async Task DeleteLog(ЖурналДействий log)
+    {
+        if (await JSRuntime.InvokeAsync
+        <bool>
+            ("confirm", "Удалить запись из журнала?"))
+        {
+            try
+            {
+                using var context = DbFactory.CreateDbContext();
+                var foundLog = await context.ЖурналДействийs
+                    .FirstOrDefaultAsync(l => l.Время == log.Время
+                        && l.НовыеДанные == log.НовыеДанные && l.СтарыеДанные == log.СтарыеДанные);
+                if (foundLog != null)
+                {
+                    context.ЖурналДействийs.Remove(foundLog);
+                    await context.SaveChangesAsync();
+                    await LoadLogs();
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ExportToExcel()
+    {
+        try
+        {
+            var allLogs = filteredLogs;
+            
+            // Формируем CSV
+            var csv = new System.Text.StringBuilder();
+            csv.AppendLine("Время;Схема;Таблица;Операция;Старые данные;Новые данные;Запрос");
+            
+            foreach (var log in allLogs)
+            {
+                csv.AppendLine($"{log.Время:dd.MM.yyyy HH:mm:ss};{log.Схема};{log.Таблица};{log.Операция};" +
+                $"\"{log.СтарыеДанные?.Replace("\"", "\"\"").Replace(";", "")}\";" +
+                $"\"{log.НовыеДанные?.Replace("\"", "\"\"")}\";" +
+                $"\"{log.Запрос?.Replace("\"", "\"\"")}\"");
+            }
+            
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            var windows1251 = Encoding.GetEncoding("windows-1251");
+            var utf8Bytes = Encoding.UTF8.GetBytes(csv.ToString());
+            var win1251Bytes = Encoding.Convert(Encoding.UTF8, windows1251, utf8Bytes);
+        
+            var base64 = Convert.ToBase64String(win1251Bytes);
+            await JSRuntime.InvokeVoidAsync("downloadFile", $"Журнал_действий_{DateTime.Now:yyyyMMdd_HHmmss}.csv", base64);
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка при экспорте: {ex.Message}");
+        }
+    }
+}

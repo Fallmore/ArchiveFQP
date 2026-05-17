@@ -413,7 +413,7 @@
                                     <div class="text-center p-3">
                                         <i class="bi bi-file-earmark-text display-4 text-primary"></i>
                                         <p class="small mt-2 mb-0">
-                                            @(work.ТипРаботы)
+                                            @(work.ТипРаботы.Название)
                                         </p>
                                     </div>
                                 </div>
@@ -439,8 +439,8 @@
                                             </span>
                                             @if (showWorkStatus)
                                             {
-                                                <span class="badge @GetStatusBadgeClass(work.СтатусРаботы) ms-2">
-                                                    @work.СтатусРаботы
+                                                <span class="badge @GetStatusBadgeClass(work.СтатусРаботы.Название) ms-2">
+                                                    @work.СтатусРаботы.Название
                                                 </span>
                                             }
                                         </div>
@@ -462,7 +462,7 @@
                                                 @if (filtered.Count > 3)
                                                 {
                                                     <span class="badge bg-light text-dark border">
-                                                        +@(work.Атрибуты.Count - 3)
+                                                        +@(filtered.Count - 3)
                                                     </span>
                                                 }
                                             </div>
@@ -575,7 +575,7 @@
     /// <returns></returns>
     private async Task LoadReferenceData()
     {
-        snapshot = await RefDataService.GetAllAsync();
+        snapshot = await RefDataService.GetSnapshotAsync();
         users = await RefDataService.GetAsync<Пользователь>();
         workConsultants = (await WorkService.GetConsultantsAsync()).DistinctBy(c => c.IdПреподавателя).ToList();
         workReviewers = (await WorkService.GetReviewersAsync()).DistinctBy(c => c.IdПреподавателя).ToList();
@@ -617,7 +617,7 @@
         ClaimsPrincipal? user = authState?.User;
         List<WorkDisplayDto> filtered;
 
-        filtered = works.Where(x => x.ДоступРаботы == Settings.WorkAccessAll).ToList();
+        filtered = works.Where(x => x.ДоступРаботы.Название == Settings.WorkAccessAll).ToList();
         if (user == null || !user.Identity!.IsAuthenticated) return filtered;
 
         if (user.IsInRole(Settings.RoleAdminName))
@@ -626,7 +626,7 @@
             return works;
         }
 
-        filtered.AddRange(works.Where(x => x.ДоступРаботы == Settings.WorkAccessOrganization));
+        filtered.AddRange(works.Where(x => x.ДоступРаботы.Название == Settings.WorkAccessOrganization));
 
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
 
@@ -641,19 +641,19 @@
 
             if (teacher == null) return filtered;
             // Доступ внутри института
-            temp.AddRange(works.Where(x => x.ДоступРаботы == Settings.WorkAccessInstitute
+            temp.AddRange(works.Where(x => x.ДоступРаботы.Название == Settings.WorkAccessInstitute
                                         && x.Студент.Структура.Институт.IdИнститута == teacher.IdИнститута));
 
             // Доступ внутри кафедры
-            temp.AddRange(works.Where(x => (x.ДоступРаботы == Settings.WorkAccessDepartment
-                                        || x.ДоступРаботы == Settings.WorkAccessDirection
-                                        || x.ДоступРаботы == Settings.WorkAccessProfile)
+            temp.AddRange(works.Where(x => (x.ДоступРаботы.Название == Settings.WorkAccessDepartment
+                                        || x.ДоступРаботы.Название == Settings.WorkAccessDirection
+                                        || x.ДоступРаботы.Название == Settings.WorkAccessProfile)
                                         && x.Студент.Структура.Кафедра.IdКафедры == teacher.IdКафедры));
 
             // Доступ к засекреченым внутри кафедры
             if (user.IsInRole(Settings.RoleDepartmentHeadName) || user.IsInRole(Settings.RoleDepartmentResponsibleName))
             {
-                temp.AddRange(works.Where(x => x.ДоступРаботы == Settings.WorkAccessSecret
+                temp.AddRange(works.Where(x => x.ДоступРаботы.Название == Settings.WorkAccessSecret
                                         && x.Студент.Структура.Институт.IdИнститута == teacher.IdИнститута));
             }
 
@@ -673,19 +673,19 @@
 
             if (student == null) return filtered;
 
-            temp.AddRange(works.Where(x => (x.ДоступРаботы == Settings.WorkAccessInstitute
+            temp.AddRange(works.Where(x => (x.ДоступРаботы.Название == Settings.WorkAccessInstitute
                         && x.Студент.Структура.Институт.IdИнститута == student.IdИнститута)
                         ||
-                        (x.ДоступРаботы == Settings.WorkAccessDepartment
+                        (x.ДоступРаботы.Название == Settings.WorkAccessDepartment
                         && x.Студент.Структура.Кафедра.IdКафедры == student.IdКафедры)
                         ||
-                        (x.ДоступРаботы == Settings.WorkAccessDirection
+                        (x.ДоступРаботы.Название == Settings.WorkAccessDirection
                         && x.Студент.Структура.Направление.IdНаправления == student.IdНаправления)).ToList());
 
             // Если нет профиля, то нет смысла проверять соответствие
             if (!student.IdПрофиля.HasValue) return filtered;
 
-            temp.AddRange(works.Where(x => x.ДоступРаботы == Settings.WorkAccessProfile
+            temp.AddRange(works.Where(x => x.ДоступРаботы.Название == Settings.WorkAccessProfile
                         && x.Студент.Структура?.Профиль?.IdПрофиля == null
                         || x.Студент.Структура?.Профиль?.IdПрофиля == student?.IdПрофиля).ToList());
 

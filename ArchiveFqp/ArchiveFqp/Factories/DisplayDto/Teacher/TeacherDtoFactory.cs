@@ -29,7 +29,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
 
         private async Task InitializeLists()
         {
-            _snapshot = await _refDataService.GetAllAsync();
+            _snapshot = await _refDataService.GetSnapshotAsync();
         }
 
         public async Task<TeacherDisplayDto> CreateDisplayDtoAsync(Преподаватель teacher)

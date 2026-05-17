@@ -45,7 +45,7 @@ namespace ArchiveFqp.Services.Report
             List<WorkDisplayDto>? works, ReferenceDataSnapshot? snapshot)
         {
             works ??= [];
-            snapshot ??= await _refDataService.GetAllAsync();
+            snapshot ??= await _refDataService.GetSnapshotAsync();
 
             using var memoryStream = new MemoryStream();
             using (var wordDocument = WordprocessingDocument.Create(memoryStream, WordprocessingDocumentType.Document))
@@ -265,14 +265,14 @@ namespace ArchiveFqp.Services.Report
             if (config.GroupByWorkType)
             {
                 AddStatisticsSubsection(body, "Распределение по типам работ", works.Count,
-                    works.GroupBy(w => w.ТипРаботы)
+                    works.GroupBy(w => w.ТипРаботы.Название)
                         .Select(g => new Statistic { Name = g.Key, Count = g.Count() }));
             }
 
             if (config.GroupByStatus)
             {
                 AddStatisticsSubsection(body, "Распределение по статусам", works.Count,
-                    works.GroupBy(w => w.СтатусРаботы)
+                    works.GroupBy(w => w.СтатусРаботы.Название)
                         .Select(g => new Statistic { Name = g.Key, Count = g.Count() }));
             }
 
@@ -420,9 +420,9 @@ namespace ArchiveFqp.Services.Report
                 if (config.ShowTitle) rowData.Add(work.Тема);
                 if (config.ShowStudent) rowData.Add(work.Студент.Пользователь.ФИО);
                 if (config.ShowSupervisor) rowData.Add(work.Руководитель.Пользователь.ФИО);
-                if (config.ShowType) rowData.Add(work.ТипРаботы);
-                if (config.ShowStatus) rowData.Add(work.СтатусРаботы);
-                if (config.ShowAccess) rowData.Add(work.ДоступРаботы);
+                if (config.ShowType) rowData.Add(work.ТипРаботы.Название);
+                if (config.ShowStatus) rowData.Add(work.СтатусРаботы.Название);
+                if (config.ShowAccess) rowData.Add(work.ДоступРаботы.Название);
                 if (config.ShowPages) rowData.Add(work.КоличСтраниц.ToString());
                 if (config.ShowDateAdd) rowData.Add(work.ДатаДобавления.ToString("dd.MM.yyyy"));
                 if (config.ShowDateChange) rowData.Add(work.ДатаИзменения?.ToString("dd.MM.yyyy") ?? "-");

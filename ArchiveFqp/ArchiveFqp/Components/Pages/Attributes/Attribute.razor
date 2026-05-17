@@ -101,6 +101,18 @@
                     </div>
                 }
 
+                <!-- Тип работы -->
+                <div class="row-md-6 mb-1">
+                    <label class="form-label mb-0 mx-1 fw-bold">Тип работы</label>
+                    <InputSelect class="form-select" @bind-Value="attributeApplication.IdТипаРаботы">
+                        <option value="">Все типы</option>
+                        @foreach (ТипРаботы type in snapshot.WorkTypes.OrderBy(x => x.Название))
+                        {
+                            <option value="@type.IdТипаРаботы">@type.Название</option>
+                        }
+                    </InputSelect>
+                </div>
+
                 <!-- Структуры -->
                 <h5 class="mt-4 mb-0"><strong>На какую структуру добавить атрибут</strong></h5>
                 <p class="fs-6 mt-0 mb-1 text-muted">Отсутствие выбранной структуры будет подразумевать за собой весь университет</p>
@@ -381,7 +393,7 @@
     {
         if (AttributeApplication != null) attributeApplication = AttributeApplication;
 
-        snapshot = await RefDataService.GetAllAsync();
+        snapshot = await RefDataService.GetSnapshotAsync();
         attributes = await WorkService.GetAllAttributesAsync();
         applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
         currentStatusId = attributeApplication.IdСтатуса;
@@ -551,7 +563,13 @@
             }
             else
             {
-                successMessage = "Ответ успешно отправлен!";
+                if (attributeApplication.IdСтатуса == applicationStatuses.First(w => w.Название == Settings.ApplicationsAcceptStatus).IdСтатуса)
+                {
+                    await ApplicationsService.CompleteAttributeApplication(attributeApplication);
+                    successMessage = "Атрибут успешно добавлен!";
+                }
+                else
+                    successMessage = "Ответ успешно отправлен!";
             }
 
             isAnswered = true;

@@ -108,7 +108,7 @@ else
         try
         {
             errorMessage = null;
-            await UserService.UpdateUser(currentUser!);
+            await UserService.Upsert(currentUser!);
             successMessage = "Данные успешно обновлены";
 
             User!.Фамилия = currentUser!.Фамилия;

@@ -1,0 +1,691 @@
+﻿@page "/admin/settings"
+@using ArchiveFqp.Interfaces.ReferenceData
+@using Newtonsoft.Json
+@using ArchiveFqp.Models
+@using ArchiveFqp.Models.Settings.SettingsArchive
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<ArchiveFqpContext> DbFactory
+@inject IReferenceDataService RefDataService
+@inject SettingsArchive Settings
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@attribute [Authorize(Roles = "Администратор")]
+@rendermode @(new InteractiveServerRenderMode())
+
+<PageTitle>Админ-панель - Настройки системы</PageTitle>
+
+@if (RendererInfo.IsInteractive)
+{
+    <div class="container-fluid mt-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-gear me-2"></i>Настройки системы
+                    </h4>
+                    <button class="btn btn-light btn-sm" @onclick="@(() => NavigationManager.NavigateTo("/admin"))">
+                        <i class="bi bi-arrow-left"></i> Назад
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <EditForm Model="@Settings" OnValidSubmit="@SaveSettings">
+                    <div class="row">
+                        <!-- Основные настройки -->
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0">Основные настройки</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Имя папки данных</label>
+                                        <input type="text" class="form-control" @bind="Settings.FolderDataName" />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Имя папки работ</label>
+                                        <input type="text" class="form-control" @bind="Settings.FolderWorksName" />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Корневой путь к файлам</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" @bind="filesRootPathDisplay" />
+                                            <button type="button" class="btn btn-outline-secondary z-0" @onclick="SelectFolder">
+                                                <i class="bi bi-folder2-open"></i> Обзор
+                                            </button>
+                                        </div>
+                                        <small class="text-muted">
+                                            Полный путь: @Settings.FilesRootPath
+                                        </small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Максимальный размер файла (Мбайт)</label>
+                                        <input type="number" class="form-control" min="1" max="500"
+                                               @bind="maxFileSize" @bind:after="() => Settings.MaxFileSize = (int)(maxFileSize * 1024 * 1024)" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <!-- Настройки уведомлений -->
+                            <div class="card mb-3">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0">Уведомления</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-check mb-2">
+                                        <input type="checkbox" class="form-check-input" @bind="Settings.SendNotifications" />
+                                        <label class="form-check-label">Отправлять уведомления в системе</label>
+                                    </div>
+                                    <div class="form-check mb-1">
+                                        <input type="checkbox" class="form-check-input" @bind="Settings.SendNotificationsOnEmail" />
+                                        <label class="form-check-label">Отправлять уведомления на email</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Настройки заявлений -->
+                            <div class="card mb-3">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0">Заявления</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Задержка автоматической проверки статусов заявлений (минуты   )</label>
+                                        <input type="number" min="1" class="form-control" @bind="Settings.ApplicationTimeCheckMinutes" />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Мин. дней рассмотрения заявления на просмотр работ</label>
+                                        <input type="number" min="1" max="@Settings.MaxDayWatchWorks" class="form-control" @bind="Settings.MinDayWatchWorks" />
+                                    </div>
+                                    <div class="mb-1">
+                                        <label class="form-label">Макс. дней рассмотрения заявления на просмотр работ</label>
+                                        <input type="number" min="@Settings.MinDayWatchWorks" max="100" class="form-control" @bind="Settings.MaxDayWatchWorks" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Исключенные значения атрибутов -->
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0">Исключенные значения атрибутов</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-2">
+                                        <label class="form-label">Значения (не относящиеся к данным)</label>
+                                        <div class="input-group mb-2">
+                                            <input type="text" class="form-control" @bind="newAbandonedValue"
+                                                   placeholder="Новое значение" @onkeypress="HandleAbandonedKeyPress" />
+                                            <button type="button" class="btn btn-success z-0" @onclick="AddAbandonedValue">
+                                                <i class="bi bi-plus"></i> Добавить
+                                            </button>
+                                        </div>
+                                        <div class="list-group mt-2">
+                                            @foreach (var value in Settings.AttributesAbandonedValues)
+                                            {
+                                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                    <span>@value</span>
+                                                    <button type="button" class="btn btn-sm btn-danger"
+                                                            @onclick="() => RemoveAbandonedValue(value)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Дипломные работы -->
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0">Дипломные работы</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Типы дипломных работ</label>
+                                        <div class="input-group mb-2">
+                                            <select class="form-select mb-3" @bind="newFqpWork"
+                                                    @onkeypress="HandleFqpKeyPress">
+                                                <option value="">Выберите тип</option>
+                                                @foreach (var workType in workTypesFqp)
+                                                {
+                                                    <option value="@workType.Название">@workType.Название</option>
+                                                }
+                                            </select>
+                                            <button type="button" class="btn btn-success z-0" style="height:38px"
+                                                    @onclick="AddFqpWork">
+                                                <i class="bi bi-plus"></i> Добавить
+                                            </button>
+                                        </div>
+                                        <div class="list-group">
+                                            @foreach (var work in Settings.FqpWorks)
+                                            {
+                                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                    <span>@work</span>
+                                                    <button type="button" class="btn btn-sm btn-danger"
+                                                            @onclick="() => RemoveFqpWork(work)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Работы с консультантами и рецензентами</label>
+                                        <div class="input-group mb-2">
+                                            <select class="form-select mb-3" @bind="newFqpWorkCR"
+                                                    @onkeypress="HandleFqpKeyPress">
+                                                <option value="">Выберите тип</option>
+                                                @foreach (var workType in workTypesFqpCR)
+                                                {
+                                                    <option value="@workType.Название">@workType.Название</option>
+                                                }
+                                            </select>
+                                            <button type="button" class="btn btn-success z-0" style="height:38px"
+                                                    @onclick="AddFqpWorkCR">
+                                                <i class="bi bi-plus"></i> Добавить
+                                            </button>
+                                        </div>
+                                        <div class="list-group">
+                                            @foreach (var work in Settings.FqpWorksWithCR)
+                                            {
+                                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                    <span>@work</span>
+                                                    <button type="button" class="btn btn-sm btn-danger"
+                                                            @onclick="() => RemoveFqpWorkCR(work)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Уровни образования для дипломных работ -->
+                        <div class="col-md-12">
+                            <div class="card mb-3">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0">Уровни образования по типам работ</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Выберите тип работы</label>
+                                            <select class="form-select mb-3" @bind="selectedWorkTypeForEducation">
+                                                <option value="">Выберите тип</option>
+                                                @foreach (var workType in Settings.FqpWorks)
+                                                {
+                                                    <option value="@workType">@workType</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            @if (!string.IsNullOrEmpty(selectedWorkTypeForEducation))
+                                            {
+                                                <label class="form-label">Уровни образования для @selectedWorkTypeForEducation</label>
+                                                <div class="input-group mb-2">
+                                                    <input type="text" class="form-control" @bind="newEducationLevel"
+                                                           placeholder="Новый уровень" @onkeypress="HandleEducationKeyPress" />
+                                                    <button type="button" class="btn btn-success" @onclick="AddEducationLevel">
+                                                        <i class="bi bi-plus"></i> Добавить
+                                                    </button>
+                                                </div>
+                                                <div class="list-group">
+                                                    @if (Settings.FqpWorksEducationLevels.ContainsKey(selectedWorkTypeForEducation))
+                                                    {
+                                                        foreach (var level in Settings.FqpWorksEducationLevels[selectedWorkTypeForEducation])
+                                                        {
+                                                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                                <span>@level</span>
+                                                                <button type="button" class="btn btn-sm btn-danger"
+                                                                        @onclick="() => RemoveEducationLevel(level)">
+                                                                    <i class="bi bi-trash"></i>
+                                                                </button>
+                                                            </div>
+                                                        }
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Расширения файлов -->
+                        <div class="col-md-12">
+                            <div class="card mb-3">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0">Разрешенные расширения файлов</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <label class="form-label">Word</label>
+                                            <div class="input-group input-group-sm mb-2">
+                                                <input type="text" class="form-control" @bind="newWordExt"
+                                                       placeholder=".ext" @onkeypress="HandleWordExtKeyPress" />
+                                                <button type="button" class="btn btn-success btn-sm" @onclick="AddWordExtension">
+                                                    <i class="bi bi-plus"></i>
+                                                </button>
+                                            </div>
+                                            <div class="list-group list-group-flush">
+                                                @foreach (var ext in Settings.AllowedWordExtensions)
+                                                {
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center p-1">
+                                                        <span>@ext</span>
+                                                        <button type="button" class="btn btn-sm btn-link text-danger"
+                                                                @onclick="() => RemoveWordExtension(ext)">
+                                                            <i class="bi bi-x"></i>
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">PDF</label>
+                                            <div class="input-group input-group-sm mb-2">
+                                                <input type="text" class="form-control" @bind="newPdfExt"
+                                                       placeholder=".ext" @onkeypress="HandlePdfExtKeyPress" />
+                                                <button type="button" class="btn btn-success btn-sm" @onclick="AddPdfExtension">
+                                                    <i class="bi bi-plus"></i>
+                                                </button>
+                                            </div>
+                                            <div class="list-group list-group-flush">
+                                                @foreach (var ext in Settings.AllowedPdfExtensions)
+                                                {
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center p-1">
+                                                        <span>@ext</span>
+                                                        <button type="button" class="btn btn-sm btn-link text-danger"
+                                                                @onclick="() => RemovePdfExtension(ext)">
+                                                            <i class="bi bi-x"></i>
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Презентации</label>
+                                            <div class="input-group input-group-sm mb-2">
+                                                <input type="text" class="form-control" @bind="newPresentationExt"
+                                                       placeholder=".ext" @onkeypress="HandlePresentationExtKeyPress" />
+                                                <button type="button" class="btn btn-success btn-sm" @onclick="AddPresentationExtension">
+                                                    <i class="bi bi-plus"></i>
+                                                </button>
+                                            </div>
+                                            <div class="list-group list-group-flush">
+                                                @foreach (var ext in Settings.AllowedPresentationExtensions)
+                                                {
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center p-1">
+                                                        <span>@ext</span>
+                                                        <button type="button" class="btn btn-sm btn-link text-danger"
+                                                                @onclick="() => RemovePresentationExtension(ext)">
+                                                            <i class="bi bi-x"></i>
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <label class="form-label">Исходный код</label>
+                                            <div class="input-group input-group-sm mb-2">
+                                                <input type="text" class="form-control" @bind="newSourceCodeExt"
+                                                       placeholder=".ext" @onkeypress="HandleSourceCodeExtKeyPress" />
+                                                <button type="button" class="btn btn-success btn-sm" @onclick="AddSourceCodeExtension">
+                                                    <i class="bi bi-plus"></i>
+                                                </button>
+                                            </div>
+                                            <div class="list-group list-group-flush">
+                                                @foreach (var ext in Settings.AllowedSourceCodeExtensions)
+                                                {
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center p-1">
+                                                        <span>@ext</span>
+                                                        <button type="button" class="btn btn-sm btn-link text-danger"
+                                                                @onclick="() => RemoveSourceCodeExtension(ext)">
+                                                            <i class="bi bi-x"></i>
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-3 mt-3">
+                                            <label class="form-label">Базы данных</label>
+                                            <div class="input-group input-group-sm mb-2">
+                                                <input type="text" class="form-control" @bind="newDbExt"
+                                                       placeholder=".ext" @onkeypress="HandleDbExtKeyPress" />
+                                                <button type="button" class="btn btn-success btn-sm" @onclick="AddDbExtension">
+                                                    <i class="bi bi-plus"></i>
+                                                </button>
+                                            </div>
+                                            <div class="list-group list-group-flush">
+                                                @foreach (var ext in Settings.AllowedDbExtensions)
+                                                {
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center p-1">
+                                                        <span>@ext</span>
+                                                        <button type="button" class="btn btn-sm btn-link text-danger"
+                                                                @onclick="() => RemoveDbExtension(ext)">
+                                                            <i class="bi bi-x"></i>
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-3 mt-3">
+                                            <label class="form-label">Пароли</label>
+                                            <div class="input-group input-group-sm mb-2">
+                                                <input type="text" class="form-control" @bind="newPasswordExt"
+                                                       placeholder=".ext" @onkeypress="HandlePasswordExtKeyPress" />
+                                                <button type="button" class="btn btn-success btn-sm" @onclick="AddPasswordExtension">
+                                                    <i class="bi bi-plus"></i>
+                                                </button>
+                                            </div>
+                                            <div class="list-group list-group-flush">
+                                                @foreach (var ext in Settings.AllowedPasswordExtensions)
+                                                {
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center p-1">
+                                                        <span>@ext</span>
+                                                        <button type="button" class="btn btn-sm btn-link text-danger"
+                                                                @onclick="() => RemovePasswordExtension(ext)">
+                                                            <i class="bi bi-x"></i>
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Кнопки -->
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-secondary" @onclick="Cancel">Отмена</button>
+                                <button type="submit" class="btn btn-primary">Сохранить настройки</button>
+                            </div>
+                        </div>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    private double maxFileSize;
+    private string filesRootPathDisplay = "";
+    private string newAbandonedValue = "";
+    private string newFqpWork = "";
+    private string newFqpWorkCR = "";
+    private string selectedWorkTypeForEducation = "";
+    private string newEducationLevel = "";
+    private string newWordExt = "";
+    private string newPdfExt = "";
+    private string newPresentationExt = "";
+    private string newSourceCodeExt = "";
+    private string newDbExt = "";
+    private string newPasswordExt = "";
+
+    private List<ТипРаботы> workTypesFqp = null!;
+    private List<ТипРаботы> workTypesFqpCR = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RendererInfo.IsInteractive)
+        {
+            await LoadData();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        if (!string.IsNullOrEmpty(Settings.FilesRootPath))
+        {
+            var relativePath = Settings.FilesRootPath
+                .Replace(Settings.FolderDataName, "")
+                .Replace(Settings.FolderWorksName, "")
+                .TrimEnd(Path.DirectorySeparatorChar);
+            filesRootPathDisplay = relativePath;
+        }
+        Settings.FqpWorksEducationLevels ??= new Dictionary<string, List<string>>();
+        maxFileSize = ((double)Settings.MaxFileSize / 1024) / 1024;
+
+
+        workTypesFqp = (await RefDataService.GetAsync<ТипРаботы>())
+            .Where(x => !Settings.FqpWorks.Contains(x.Название)).ToList();
+        workTypesFqpCR = (await RefDataService.GetAsync<ТипРаботы>())
+            .Where(x => !Settings.FqpWorksWithCR.Contains(x.Название)).ToList();
+
+        StateHasChanged();
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(filesRootPathDisplay))
+            {
+                Settings.FilesRootPath = Path.Combine(filesRootPathDisplay, Settings.FolderDataName, Settings.FolderWorksName);
+            }
+
+            using var context = DbFactory.CreateDbContext();
+            var settingsEntity = await context.НастройкиУчрежденияs.FirstOrDefaultAsync();
+            var settingsJson = JsonConvert.SerializeObject(Settings);
+
+            if (settingsEntity == null)
+            {
+                settingsEntity = new НастройкиУчреждения { Настройки = settingsJson };
+                context.НастройкиУчрежденияs.Add(settingsEntity);
+            }
+            else
+            {
+                settingsEntity.Настройки = settingsJson;
+                context.НастройкиУчрежденияs.Update(settingsEntity);
+            }
+
+            await context.SaveChangesAsync();
+            await JSRuntime.InvokeVoidAsync("alert", "Настройки сохранены");
+            Settings.SaveSettings();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/admin");
+    }
+
+    private async Task SelectFolder()
+    {
+        try
+        {
+            // Для Blazor Server можно использовать JSRuntime для выбора папки
+            var selectedPath = await JSRuntime.InvokeAsync<string>("window.prompt", "Введите путь к корневой папке:", filesRootPathDisplay);
+            if (!string.IsNullOrEmpty(selectedPath))
+            {
+                filesRootPathDisplay = selectedPath;
+                Settings.FilesRootPath = Path.Combine(selectedPath, Settings.FolderDataName, Settings.FolderWorksName);
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка выбора папки: {ex.Message}");
+        }
+    }
+
+    // Методы для AttributesAbandonedValues
+    private void AddAbandonedValue()
+    {
+        if (!string.IsNullOrWhiteSpace(newAbandonedValue) && !Settings.AttributesAbandonedValues.Contains(newAbandonedValue))
+        {
+            Settings.AttributesAbandonedValues.Add(newAbandonedValue);
+            newAbandonedValue = "";
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveAbandonedValue(string value)
+    {
+        Settings.AttributesAbandonedValues.Remove(value);
+        StateHasChanged();
+    }
+
+    private void HandleAbandonedKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            AddAbandonedValue();
+    }
+
+    // Методы для FqpWorks
+    private void AddFqpWork()
+    {
+        if (!string.IsNullOrWhiteSpace(newFqpWork) && !Settings.FqpWorks.Contains(newFqpWork))
+        {
+            Settings.FqpWorks.Add(newFqpWork);
+            Settings.FqpWorksEducationLevels.Add(newFqpWork, []);
+            workTypesFqp = workTypesFqp.Where(x => !Settings.FqpWorks.Contains(x.Название)).ToList();
+            newFqpWork = "";
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveFqpWork(string work)
+    {
+        Settings.FqpWorks.Remove(work);
+        if (Settings.FqpWorksEducationLevels.ContainsKey(work))
+        {
+            Settings.FqpWorksEducationLevels.Remove(work);
+        }
+        workTypesFqp = workTypesFqp.Where(x => !Settings.FqpWorks.Contains(x.Название)).ToList();
+        StateHasChanged();
+    }
+
+    private void HandleFqpKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            AddFqpWork();
+    }
+
+    // Методы для FqpWorksWithCR
+    private void AddFqpWorkCR()
+    {
+        if (!string.IsNullOrWhiteSpace(newFqpWorkCR) && !Settings.FqpWorksWithCR.Contains(newFqpWorkCR))
+        {
+            Settings.FqpWorksWithCR.Add(newFqpWorkCR);
+            newFqpWorkCR = "";
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveFqpWorkCR(string work)
+    {
+        Settings.FqpWorksWithCR.Remove(work);
+        StateHasChanged();
+    }
+
+    private void HandleFqpCRKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            AddFqpWorkCR();
+    }
+
+    // Методы для уровней образования
+    private void AddEducationLevel()
+    {
+        if (!string.IsNullOrWhiteSpace(newEducationLevel) &&
+            Settings.FqpWorksEducationLevels.ContainsKey(selectedWorkTypeForEducation) &&
+            !Settings.FqpWorksEducationLevels[selectedWorkTypeForEducation].Contains(newEducationLevel))
+        {
+            Settings.FqpWorksEducationLevels[selectedWorkTypeForEducation].Add(newEducationLevel);
+            newEducationLevel = "";
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveEducationLevel(string level)
+    {
+        if (Settings.FqpWorksEducationLevels.ContainsKey(selectedWorkTypeForEducation))
+        {
+            Settings.FqpWorksEducationLevels[selectedWorkTypeForEducation].Remove(level);
+            StateHasChanged();
+        }
+    }
+
+    private void HandleEducationKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            AddEducationLevel();
+    }
+
+    // Вспомогательные методы для расширений
+    private void AddExtension(List<string> extensions, string newExt, Action updateNewExt)
+    {
+        if (!string.IsNullOrWhiteSpace(newExt) && !newExt.StartsWith("."))
+            newExt = "." + newExt;
+    
+        if (!string.IsNullOrWhiteSpace(newExt) && !extensions.Contains(newExt))
+        {
+            extensions.Add(newExt);
+            updateNewExt();
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveExtension(List<string> extensions, string ext)
+    {
+        extensions.Remove(ext);
+        StateHasChanged();
+    }
+
+    // Word extensions
+    private void AddWordExtension() => AddExtension(Settings.AllowedWordExtensions, newWordExt, () => newWordExt = "");
+    private void RemoveWordExtension(string ext) => RemoveExtension(Settings.AllowedWordExtensions, ext);
+    private void HandleWordExtKeyPress(KeyboardEventArgs e) { if (e.Key == "Enter") AddWordExtension(); }
+
+    // PDF extensions
+    private void AddPdfExtension() => AddExtension(Settings.AllowedPdfExtensions, newPdfExt, () => newPdfExt = "");
+    private void RemovePdfExtension(string ext) => RemoveExtension(Settings.AllowedPdfExtensions, ext);
+    private void HandlePdfExtKeyPress(KeyboardEventArgs e) { if (e.Key == "Enter") AddPdfExtension(); }
+
+    // Presentation extensions
+    private void AddPresentationExtension() => AddExtension(Settings.AllowedPresentationExtensions, newPresentationExt, () => newPresentationExt = "");
+    private void RemovePresentationExtension(string ext) => RemoveExtension(Settings.AllowedPresentationExtensions, ext);
+    private void HandlePresentationExtKeyPress(KeyboardEventArgs e) { if (e.Key == "Enter") AddPresentationExtension(); }
+
+    // Source code extensions
+    private void AddSourceCodeExtension() => AddExtension(Settings.AllowedSourceCodeExtensions, newSourceCodeExt, () => newSourceCodeExt = "");
+    private void RemoveSourceCodeExtension(string ext) => RemoveExtension(Settings.AllowedSourceCodeExtensions, ext);
+    private void HandleSourceCodeExtKeyPress(KeyboardEventArgs e) { if (e.Key == "Enter") AddSourceCodeExtension(); }
+
+    // DB extensions
+    private void AddDbExtension() => AddExtension(Settings.AllowedDbExtensions, newDbExt, () => newDbExt = "");
+    private void RemoveDbExtension(string ext) => RemoveExtension(Settings.AllowedDbExtensions, ext);
+    private void HandleDbExtKeyPress(KeyboardEventArgs e) { if (e.Key == "Enter") AddDbExtension(); }
+
+    // Password extensions
+    private void AddPasswordExtension() => AddExtension(Settings.AllowedPasswordExtensions, newPasswordExt, () => newPasswordExt = "");
+    private void RemovePasswordExtension(string ext) => RemoveExtension(Settings.AllowedPasswordExtensions, ext);
+    private void HandlePasswordExtKeyPress(KeyboardEventArgs e) { if (e.Key == "Enter") AddPasswordExtension(); }
+
+}

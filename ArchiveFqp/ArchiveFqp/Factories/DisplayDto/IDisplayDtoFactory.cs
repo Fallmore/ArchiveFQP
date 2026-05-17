@@ -3,7 +3,7 @@
 namespace ArchiveFqp.Factories.DisplayDto
 {
     /// <summary>
-    /// Обеспечивает механизм создания DTO со строковыми полями для отображения
+    /// Обеспечивает механизм создания DTO для отображения
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <typeparam name="V"></typeparam>

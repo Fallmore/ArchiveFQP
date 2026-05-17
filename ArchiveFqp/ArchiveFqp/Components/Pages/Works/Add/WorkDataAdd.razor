@@ -189,20 +189,20 @@
                         else
                         {
                             
-                                <label for="surname" class="form-label mx-1 mb-0 fw-bold">Фамилия <span class="text-danger">*</span></label>
-                                <InputText @bind-Value="WorkDto.Surname" class="form-control" id="surname"
-                                           @bind-Value:after="@(async () => await SaveStateWorkDTO())" />
-                                <ValidationMessage For="() => WorkDto.Surname" />
+                            <label for="surname" class="form-label mx-1 mb-0 fw-bold">Фамилия <span class="text-danger">*</span></label>
+                            <InputText @bind-Value="WorkDto.Surname" class="form-control" id="surname"
+                                       @bind-Value:after="@(async () => await SaveStateWorkDTO())" />
+                            <ValidationMessage For="() => WorkDto.Surname" />
 
                             
-                                <label for="name" class="form-label mx-1 mb-0 fw-bold">Имя <span class="text-danger">*</span></label>
-                                <InputText @bind-Value="WorkDto.Name" class="form-control" id="name"
-                                           @bind-Value:after="@(async () => await SaveStateWorkDTO())" />
-                                <ValidationMessage For="() => WorkDto.Name" />
+                            <label for="name" class="form-label mx-1 mb-0 fw-bold">Имя <span class="text-danger">*</span></label>
+                            <InputText @bind-Value="WorkDto.Name" class="form-control" id="name"
+                                       @bind-Value:after="@(async () => await SaveStateWorkDTO())" />
+                            <ValidationMessage For="() => WorkDto.Name" />
                             
                             <label for="patronymic" class="form-label mx-1 mb-0 fw-bold">Отчество</label>
-                                <InputText @bind-Value="WorkDto.Patronymic" class="form-control" id="patronymic"
-                                           @bind-Value:after="@(async () => await SaveStateWorkDTO())" />
+                            <InputText @bind-Value="WorkDto.Patronymic" class="form-control" id="patronymic"
+                                       @bind-Value:after="@(async () => await SaveStateWorkDTO())" />
                         }
 
                         <div class="form-check mt-1">
@@ -523,6 +523,15 @@
 
         await UpdateData();
 
+        var result = await ProtectedSessionStore.GetAsync<WorkCreateDto>(SessionStoreNameWorkDTO);
+        if (result.Success)
+        {
+            WorkDto = result.Value!;
+            await OnWorkTypeChanged();
+            await WorkDTOChanged.InvokeAsync(WorkDto);
+        }
+        else WorkDto.IdСтатусаРаботы = snapshot.WorkStatuses.First(ws => ws.Название == Settings.WorkOnReviewStatus).IdСтатусаРаботы;
+
         FileUploadService.ProgressChanged += OnUploadProgressChanged;
         RefDataService.TablesChanged += OnTablesChanged;
 
@@ -533,20 +542,10 @@
 
     private async Task UpdateData()
     {
-        snapshot = await RefDataService.GetAllAsync();
+        snapshot = await RefDataService.GetSnapshotAsync();
         users = await RefDataService.GetAsync<Пользователь>();
-        filteredStudents = snapshot.Students.OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
         filteredEducationLevels = snapshot.EducationLevels;
         filteredTeachers = snapshot.Teachers.OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
-
-        var result = await ProtectedSessionStore.GetAsync<WorkCreateDto>(SessionStoreNameWorkDTO);
-        if (result.Success)
-        {
-            WorkDto = result.Value!;
-            await OnWorkTypeChanged();
-            await WorkDTOChanged.InvokeAsync(WorkDto);
-        }
-        else WorkDto.IdСтатусаРаботы = snapshot.WorkStatuses.First(ws => ws.Название == Settings.WorkOnReviewStatus).IdСтатусаРаботы;
 
         await SetStructuresByRole();
         await UpdateDependentLists();
@@ -617,13 +616,22 @@
 
     private async Task UpdateDependentLists()
     {
+        filteredStudents = snapshot.Students.OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
+
         if (!WorkDto.IdИнститута.HasValue)
             filteredDepartments = snapshot.Departments.ToList();
         else
+        {
             filteredDepartments = snapshot.Departments
-                .Where(d => d.IdИнститута == WorkDto.IdИнститута)
-                .DistinctBy(d => d.Название)
-                .ToList();
+            .Where(d => d.IdИнститута == WorkDto.IdИнститута)
+            .DistinctBy(d => d.Название)
+            .ToList();
+
+            filteredStudents = filteredStudents.Where(x => x.IdИнститута == WorkDto.IdИнститута).ToList();
+        }
+
+        if (WorkDto.IdКафедры.HasValue)
+            filteredStudents = filteredStudents.Where(x => x.IdКафедры == WorkDto.IdКафедры).ToList();
 
         if (!WorkDto.IdУгснСтандарта.HasValue)
             filteredUgsns = snapshot.Ugsns;
@@ -637,21 +645,71 @@
             filteredUgsns = snapshot.Ugsns
                 .Where(u => u.IdУгснСтандарта == WorkDto.IdУгснСтандарта && idUgsns.Contains(u.IdУгсн))
                 .ToList();
+
+            filteredStudents = filteredStudents.Where(x => x.IdНаправления == WorkDto.IdНаправления).ToList();
         }
 
         if (!WorkDto.IdУгсн.HasValue)
             filteredDirections = snapshot.Directions;
         else
+        {
             filteredDirections = snapshot.Directions
-                .Where(d => d.IdКафедры == WorkDto.IdКафедры && d.IdУгсн == WorkDto.IdУгсн)
-                .ToList();
+            .Where(d => d.IdКафедры == WorkDto.IdКафедры && d.IdУгсн == WorkDto.IdУгсн)
+            .ToList();
+
+            filteredStudents = filteredStudents.Where(x => x.IdНаправления == WorkDto.IdНаправления).ToList();
+        }
 
         if (!WorkDto.IdНаправления.HasValue)
             filteredProfiles = snapshot.Profiles;
         else
+        {
             filteredProfiles = snapshot.Profiles
             .Where(p => p.IdНаправления == WorkDto.IdНаправления)
-                .ToList();
+            .ToList();
+
+            filteredStudents = filteredStudents.Where(x => x.IdПрофиля == WorkDto.IdПрофиля).ToList();
+        }
+
+        string? workType = snapshot.WorkTypes.Find(wt => wt.IdТипаРаботы == WorkDto.IdТипаРаботы)?.Название;
+        isFqp = workType == null ? false : Settings.FqpWorks.Contains(workType);
+
+        if (isFqp)
+        {
+            // Фильтруем списки студентов и уровня образования
+            if (Settings.FqpWorksEducationLevels.TryGetValue(workType!, out List<string>? edcucationLevels))
+            {
+                filteredEducationLevels = snapshot.EducationLevels
+                    .Where(x => edcucationLevels.Contains(x.Название))
+                    .ToList();
+
+                List<int> fqps = snapshot.WorkTypes
+                    .Where(x => Settings.FqpWorks.Contains(x.Название))
+                    .Select(x => x.IdТипаРаботы).ToList();
+
+                List<Работа> works = await RefDataService.GetAsync<Работа>();
+                filteredStudents = filteredStudents
+                    .Where(x => filteredEducationLevels.Select(y => y.IdУровняОбразования).Contains(x.IdУровняОбразования))
+                    .Where(x => !works
+                        .Where(w => fqps.Contains(w.IdТипаРаботы))
+                        .Select(y => y.IdСтудента).Contains(x.IdСтудента))
+                    .OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия)
+                    .ToList();
+
+                if (WorkDto.IdСтудента != null && !WorkDto.IsNewUser
+                    && !filteredStudents.Exists(s => s.IdСтудента == WorkDto.IdСтудента))
+                {
+                    WorkDto.IdСтудента = null;
+                    await OnStudentChanged(null);
+                    StateHasChanged();
+                }
+            }
+        }
+        else
+        {
+            filteredEducationLevels = snapshot.EducationLevels;
+            filteredStudents = filteredStudents.OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
+        }
     }
 
     private async Task OnStudentChanged(int? id)
@@ -721,49 +779,13 @@
         isFqp = workType == null ? false : Settings.FqpWorks.Contains(workType);
         hasCR = workType == null ? false : Settings.FqpWorksWithCR.Contains(workType);
 
-        if (isFqp)
-        {
-            // Фильтруем списки студентов и уровня образования
-            if (Settings.FqpWorksEducationLevels.TryGetValue(workType!, out List<string>? edcucationLevels))
-            {
-                filteredEducationLevels = snapshot.EducationLevels
-                    .Where(x => edcucationLevels.Contains(x.Название))
-                    .ToList();
-
-                List<int> fqps = snapshot.WorkTypes
-                    .Where(x => Settings.FqpWorks.Contains(x.Название))
-                    .Select(x => x.IdТипаРаботы).ToList();
-
-                List<Работа> works = await RefDataService.GetAsync<Работа>();
-                filteredStudents = filteredStudents
-                    .Where(x => filteredEducationLevels.Select(y => y.IdУровняОбразования).Contains(x.IdУровняОбразования))
-                    .Where(x => !works
-                        .Where(w => fqps.Contains(w.IdТипаРаботы))
-                        .Select(y => y.IdСтудента).Contains(x.IdСтудента))
-                    .OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия)
-                    .ToList();
-
-                if (!filteredStudents.Exists(s => s.IdСтудента == WorkDto.IdСтудента) 
-                    && WorkDto.IdСтудента != null && !WorkDto.IsNewUser)
-                {
-                    WorkDto.IdСтудента = null;
-                    await OnStudentChanged(null);
-                    StateHasChanged();
-                }
-            }
-        }
-        else
-        {
-            filteredEducationLevels = snapshot.EducationLevels;
-            filteredStudents = filteredStudents.OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
-        }
-
         if (!hasCR)
         {
             WorkDto.IdКонсультантов = [-1];
             WorkDto.IdРецензентов = [-1];
         }
 
+        await UpdateDependentLists();
         await SaveStateWorkDTO();
     }
 
@@ -981,7 +1003,7 @@
 
         try
         {
-            await UserService.AddUser(newUser);
+            await UserService.Upsert(newUser);
             Студент student = new()
             {
                 IdПользователя = newUser!.IdПользователя,
@@ -994,15 +1016,15 @@
                 ГодОкончания = WorkDto.ГодВыпуска!.Value
             };
             isUserAdded = true;
-            Студент newStudent = await UserService.AddStudent(student);
-            WorkDto.IdСтудента = newStudent.IdСтудента;
+            await UserService.Upsert(student);
+            WorkDto.IdСтудента = student.IdСтудента;
             await SaveStateWorkDTO();
         }
         catch (DbUpdateException ex)
         {
             errorMessage = ex.InnerException?.Message ?? "";
             isSubmitting = false;
-            if (isUserAdded) await UserService.RemoveUser(newUser);
+            if (isUserAdded) await UserService.Delete<Пользователь>(newUser.IdПользователя);
             StateHasChanged();
             return false;
         }

@@ -22,7 +22,7 @@
                     <i class="bi bi-arrow-left"></i> Назад
                 </button>
         
-                @if (Settings.FqpWorks.Contains(displayDto.ТипРаботы))
+                @if (Settings.FqpWorks.Contains(displayDto.ТипРаботы.Название))
                 {
                     <a class="btn btn-outline-primary"
                            href="@($"/works/applications/send?w={displayDto.IdРаботы}")">
@@ -61,10 +61,10 @@
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <h4 class="mb-0">
                     <i class="bi bi-file-earmark-text me-2"></i>
-                    @displayDto.ТипРаботы
+                    @displayDto.ТипРаботы.Название
                 </h4>
-                <span class="badge @GetStatusBadgeClass(displayDto.СтатусРаботы) bg-opacity-75 fs-6">
-                    @(displayDto.СтатусРаботы)
+                <span class="badge @GetStatusBadgeClass(displayDto.СтатусРаботы.Название) bg-opacity-75 fs-6">
+                    @(displayDto.СтатусРаботы.Название)
                 </span>
             </div>
             <div class="card-body">
@@ -194,7 +194,7 @@
                                             <li class="mb-2">
                                                 <i class="bi bi-shield me-2 text-primary"></i>
                                                 <strong>Доступ работы:</strong>
-                                                @(displayDto.ДоступРаботы)
+                                                @(displayDto.ДоступРаботы.Название)
                                             </li>
                                         </ul>
                                     </div>
@@ -369,7 +369,7 @@
 
     private async Task<bool> CheckAccessAndClaims(WorkDisplayDto work)
     {
-        if (work.ДоступРаботы == Settings.WorkAccessAll) return true;
+        if (work.ДоступРаботы.Название == Settings.WorkAccessAll) return true;
         AuthenticationState? authState = await authenticationState!;
         ClaimsPrincipal? user = authState?.User;
 
@@ -377,7 +377,7 @@
 
         if (user.IsInRole(Settings.RoleAdminName)) return true;
 
-        if (work.ДоступРаботы == Settings.WorkAccessOrganization) return true;
+        if (work.ДоступРаботы.Название == Settings.WorkAccessOrganization) return true;
 
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
 
@@ -391,7 +391,7 @@
             if (teacher == null) return false;
 
             // Доступ внутри института
-            if (work.ДоступРаботы == Settings.WorkAccessInstitute
+            if (work.ДоступРаботы.Название == Settings.WorkAccessInstitute
                     && work.Студент.Структура.Институт.IdИнститута == teacher.IdИнститута) return true;
 
             // Доступ внутри кафедры
@@ -402,26 +402,26 @@
         }
         else if (user.IsInRole(Settings.RoleStudentName))
         {
-            if (work.ДоступРаботы == Settings.WorkAccessSecret) return false;
+            if (work.ДоступРаботы.Название == Settings.WorkAccessSecret) return false;
 
             Студент? student = (await RefDataService.GetAsync<Студент>())
                 .FirstOrDefault(x => x.IdПользователя == idUser);
 
             if (student == null) return false;
 
-            if ((work.ДоступРаботы == Settings.WorkAccessInstitute
+            if ((work.ДоступРаботы.Название == Settings.WorkAccessInstitute
                 && work.Студент.Структура.Институт.IdИнститута == student.IdИнститута)
                 ||
-                (work.ДоступРаботы == Settings.WorkAccessDepartment
+                (work.ДоступРаботы.Название == Settings.WorkAccessDepartment
                 && work.Студент.Структура.Кафедра.IdКафедры == student.IdКафедры)
                 ||
-                (work.ДоступРаботы == Settings.WorkAccessDirection
+                (work.ДоступРаботы.Название == Settings.WorkAccessDirection
                 && work.Студент.Структура.Направление.IdНаправления == student.IdНаправления)) return true;
             
             // Если нет профиля, то нет смысла проверять соответствие
             if (!student.IdПрофиля.HasValue) return false;
 
-            if (work.ДоступРаботы == Settings.WorkAccessProfile
+            if (work.ДоступРаботы.Название == Settings.WorkAccessProfile
                 && work.Студент.Структура?.Профиль?.IdПрофиля == null
                 || work.Студент.Структура?.Профиль?.IdПрофиля == student?.IdПрофиля) return true;
             

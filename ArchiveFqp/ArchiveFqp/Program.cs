@@ -1,5 +1,6 @@
 using ArchiveFqp.Components;
 using ArchiveFqp.Interfaces.Applications;
+using ArchiveFqp.Interfaces.Attributes;
 using ArchiveFqp.Interfaces.Auth;
 using ArchiveFqp.Interfaces.DatabaseNotification;
 using ArchiveFqp.Interfaces.FileUpload;
@@ -11,6 +12,7 @@ using ArchiveFqp.Models.Auth;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.Settings.SettingsArchive;
 using ArchiveFqp.Services.Applications;
+using ArchiveFqp.Services.Attributes;
 using ArchiveFqp.Services.Auth;
 using ArchiveFqp.Services.DatabaseNotification;
 using ArchiveFqp.Services.ExpirationCheck;
@@ -35,6 +37,13 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddControllers();
 
+// Подключение к БД
+string conString = builder.Configuration.GetConnectionString("ArchiveFqpContext") ??
+     throw new InvalidOperationException("Connection string 'ArchiveFqpContext'" +
+    " not found.");
+builder.Services.AddDbContextFactory<ArchiveFqpContext>(options =>
+    options.UseNpgsql(conString));
+
 builder.Services.AddSingleton<SettingsArchive>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IDatabaseNotificationService, DatabaseNotificationService>();
@@ -44,19 +53,12 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ReferenceDataServi
 builder.Services.AddHostedService<ExpirationCheckService>();
 
 builder.Services.AddScoped<IWorkService, WorkService>();
+builder.Services.AddScoped<IAttributeService, AttributeService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IApplicationsService, ApplicationsService>();
-//builder.Services.AddTransient<StateContainer>();
-//builder.ServicesdScoped<StateContainer>();
+
 builder.Services.AddScoped<IPdfRenderService, PdfSciaRenderService>();
 builder.Services.AddScoped<ReportService>();
-
-// Подключение к БД
-string conString = builder.Configuration.GetConnectionString("ArchiveFqpContext") ??
-     throw new InvalidOperationException("Connection string 'ArchiveFqpContext'" +
-    " not found.");
-builder.Services.AddDbContextFactory<ArchiveFqpContext>(options =>
-    options.UseNpgsql(conString));
 
 builder.Services.Configure<AuthMessageSenderOptions>(builder.Configuration);
 
@@ -93,14 +95,13 @@ builder.Services.Configure<FormOptions>(options =>
 });
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024; // 100 MB
-    // Таймауты
+    options.Limits.MaxRequestBodySize = 500 * 1024 * 1024; // 500 MB
     options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
     options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(1);
 });
 #endregion
 
-// Раскомментируйте, если приложение работает за прокси-сервером и в компоненте InspectUser.razor
+// Раскомментируйте, если приложение работает за прокси-сервером и в компоненте Components/Components/InspectUser.razor
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders =

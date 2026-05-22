@@ -2,7 +2,7 @@
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @inject SettingsArchive Settings
 
-<div class="top-row ps-3 navbar navbar-dark">
+@* <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">
             <span class="bi-mortarboard" style="font-size: 2rem; color: whitesmoke; margin-right:1rem"></span>Реестр ВКР АГТУ
@@ -74,5 +74,122 @@
             </div>
         </AuthorizeView>
     </nav>
-</div>
+</div> *@
 
+<div class="sidebar">
+    <div class="sidebar-brand">
+        <div class="d-flex align-items-center justify-content-center pt-3 pb-2">
+            <div class="brand-icon">
+                <i class="bi bi-mortarboard fs-1 text-white"></i>
+            </div>
+            <div class="brand-text ms-2">
+                <span class="text-white fw-bold">Реестр ВКР</span>
+                <small class="text-white-50 d-block">АГТУ</small>
+            </div>
+        </div>
+    </div>
+    <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+    <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()" style="height:auto">
+        <div class="nav flex-column">
+            <!-- Главная -->
+            <div class="nav-item">
+                <NavLink class="nav-link d-flex align-items-center" href="" Match="NavLinkMatch.All">
+                    <i class="bi bi-house-door-fill me-3 fs-5"></i>
+                    <span class="lh-1">Главная</span>
+                </NavLink>
+            </div>
+
+            <!-- Работы -->
+            <div class="nav-item">
+                <NavLink class="nav-link d-flex align-items-center" href="works/gallery" Match="NavLinkMatch.All">
+                    <i class="bi bi-collection-fill me-3 fs-5"></i>
+                    <span class="lh-1">Работы</span>
+                </NavLink>
+            </div>
+
+            <!-- Разделы для авторизованных пользователей -->
+            @{
+                string administrativeRoles = $"{Settings.RoleAdminName}, {Settings.RoleDepartmentHeadName}, "
+                                            + $"{Settings.RoleDepartmentResponsibleName}, {Settings.RoleInstituteResponsibleName}";
+            }
+            
+            <!-- Для преподавателей и студентов -->
+            <AuthorizeView Roles="@($"{Settings.RoleTeacherName}, {Settings.RoleStudentName}")">
+                <div class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center" href="works/applications/send">
+                        <i class="bi bi-eye-fill me-3 fs-5"></i>
+                        <span class="lh-1">Запросы на просмотр</span>
+                    </NavLink>
+                </div>
+            </AuthorizeView>
+
+            <!-- Для преподавателей -->
+            <AuthorizeView Roles="@($"{Settings.RoleTeacherName}")">
+                <hr class="sidebar-divider" />
+                <div class="sidebar-heading">
+                    <span class="text-uppercase small fw-bold lh-1">Атрибуты</span>
+                </div>
+
+                <div class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center" href="works/attributes/send">
+                        <i class="bi bi-send-fill me-3 fs-5"></i>
+                        <span class="lh-1">Заявки на атрибуты</span>
+                    </NavLink>
+                </div>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="@administrativeRoles">
+                <hr class="sidebar-divider" />
+                <div class="sidebar-heading">
+                    <span class="text-uppercase small fw-bold lh-1">Управление</span>
+                </div>
+
+                <!-- Добавить работу -->
+                <div class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center" href="works/add">
+                        <i class="bi bi-plus-circle-fill me-3 fs-5"></i>
+                        <span class="lh-1">Добавить работу</span>
+                    </NavLink>
+                </div>
+
+                <!-- Проверка заявлений работ -->
+                <div class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center" href="works/applications/review">
+                        <i class="bi bi-envelope-paper-fill me-3 fs-5"></i>
+                        <span class="lh-1">Заявления на работы</span>
+                    </NavLink>
+                </div>
+
+                <!-- Проверка заявлений атрибутов -->
+                <div class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center" href="works/attributes/review">
+                        <i class="bi bi-tags-fill me-3 fs-5"></i>
+                        <span class="lh-1">Заявления на атрибуты</span>
+                    </NavLink>
+                </div>
+            </AuthorizeView>
+
+            <!-- Только для администратора -->
+            <AuthorizeView Roles="@($"{Settings.RoleAdminName}")">
+                <hr class="sidebar-divider" />
+                <div class="sidebar-heading">
+                    <span class="text-uppercase small fw-bold lh-1">Администрирование</span>
+                </div>
+
+                <div class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center" href="admin">
+                        <i class="bi bi-shield-lock-fill me-3 fs-5"></i>
+                        <span class="lh-1">Админ-панель</span>
+                    </NavLink>
+                </div>
+            </AuthorizeView>
+        </div>
+    </div>
+
+    <div class="sidebar-footer">
+        <div class="small text-white-50 text-center py-3">
+            <i class="bi bi-c-circle"></i> 2026 АГТУ
+        </div>
+    </div>
+</div>

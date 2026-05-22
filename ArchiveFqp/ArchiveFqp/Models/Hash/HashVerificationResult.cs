@@ -1,7 +1,7 @@
 ﻿namespace ArchiveFqp.Models.Hash
 {
     /// <summary>
-    /// Результат проверки хэша
+    /// Результат проверки хеша
     /// </summary>
     public class HashVerificationResult
     {

@@ -6,7 +6,7 @@ namespace ArchiveFqp.Interfaces.Attributes
 {
     public interface IAttributeService
     {
-        /// <inheritdoc cref= "AttributeStructureDtoFactory.CreateAsync{T}(List{int})" />
+        /// <inheritdoc cref= "AttributeStructureDtoFactory.CreateAsync{T}(int)" />
         public Task<AttributeStructureDto?> CreateDtoAsync<T>(int idStructure) where T : class;
         /// <inheritdoc cref= "AttributeStructureDtoFactory.CreateAsync{T}(List{int})" />
         public Task<List<AttributeStructureDto>?> CreateDtoAsync<T>(List<int> idStructures) where T : class;

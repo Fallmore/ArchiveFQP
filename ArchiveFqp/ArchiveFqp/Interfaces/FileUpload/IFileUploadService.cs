@@ -40,28 +40,28 @@ namespace ArchiveFqp.Interfaces.FileUpload
         bool ValidateFile(IBrowserFile file, FileType fileType, out string? errorMessage);
 
         /// <summary>
-        /// Загружает файл с формированием хэша содержимого файла
+        /// Загружает файл с формированием хеша содержимого файла
         /// </summary>
         /// <param name="context"></param>
         /// <param name="cancellationToken"></param>
-        /// <returns>Результат загрузки файла с хэшем</returns>
+        /// <returns>Результат загрузки файла с хешем</returns>
         Task<FileUploadWithHashResult> UploadFileWithHashAsync(IFileUploadContext context, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Загружает файлы с формированием хэша содержимого файлов
+        /// Загружает файлы с формированием хеша содержимого файлов
         /// </summary>
         /// <param name="context"></param>
         /// <param name="cancellationToken"></param>
-        /// <returns>Результаты загрузки файлов с хэшем</returns>
+        /// <returns>Результаты загрузки файлов с хешем</returns>
         Task<FileUploadWithHashResult> UploadFilesWithHashAsync(IFileUploadContext context, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Проверка хэша загруженных файлов с заданным хэшем
+        /// Проверка хеша загруженных файлов с заданным хешем
         /// </summary>
-        /// <param name="sourceHash">Хэш, с которым будет проведена проверка</param>
+        /// <param name="sourceHash">хеш, с которым будет проведена проверка</param>
         /// <param name="relativeFolderPath">Относительный путь к файлу</param>
         /// <param name="cancellationToken"></param>
-        /// <returns>Результат проверки хэша</returns>
+        /// <returns>Результат проверки хеша</returns>
         Task<HashVerificationResult> VerifyUploadedFilesAsync(string sourceHash, string relativeFolderPath, CancellationToken cancellationToken = default);
     }
 }

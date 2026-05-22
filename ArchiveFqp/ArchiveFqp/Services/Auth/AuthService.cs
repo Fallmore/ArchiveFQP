@@ -15,7 +15,7 @@ namespace ArchiveFqp.Services.Auth
 
     public class AuthService : IAuthService
     {
-        private readonly ArchiveFqpContext _context;
+        private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
         private readonly IReferenceDataService _refDataService;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -37,10 +37,10 @@ namespace ArchiveFqp.Services.Auth
         //    }
         //}
 
-        public AuthService(ArchiveFqpContext context, IReferenceDataService refDataService,
+        public AuthService(IDbContextFactory<ArchiveFqpContext> dbFactory, IReferenceDataService refDataService,
             IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
-            _context = context;
+            _dbFactory = dbFactory;
             _refDataService = refDataService;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
@@ -48,8 +48,10 @@ namespace ArchiveFqp.Services.Auth
 
         public async Task<AuthResult> RegisterAsync(RegisterModel model)
         {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
             // Проверка существования логина
-            АккаунтПользователя? existingAccount = await _context.АккаунтПользователяs
+            АккаунтПользователя? existingAccount = await context.АккаунтПользователяs
                 .FirstOrDefaultAsync(a => a.Логин == model.Login);
 
             if (existingAccount != null)
@@ -66,8 +68,8 @@ namespace ArchiveFqp.Services.Auth
                 Email = model.Email
             };
 
-            _context.Пользовательs.Add(user);
-            await _context.SaveChangesAsync();
+            context.Пользовательs.Add(user);
+            await context.SaveChangesAsync();
 
             // Создаем аккаунт с хешированным паролем
             АккаунтПользователя account = new()
@@ -78,8 +80,8 @@ namespace ArchiveFqp.Services.Auth
                 Роли = []
             };
 
-            _context.АккаунтПользователяs.Add(account);
-            await _context.SaveChangesAsync();
+            context.АккаунтПользователяs.Add(account);
+            await context.SaveChangesAsync();
 
             return new AuthResult
             {
@@ -97,7 +99,9 @@ namespace ArchiveFqp.Services.Auth
 
         public async Task<AuthResult> LoginAsync(LoginModel model)
         {
-            АккаунтПользователя? account = await _context.АккаунтПользователяs
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
+            АккаунтПользователя? account = await context.АккаунтПользователяs
                 .Include(a => a.IdПользователяNavigation)
                 .FirstOrDefaultAsync(a => a.Логин == model.Login);
 
@@ -147,7 +151,9 @@ namespace ArchiveFqp.Services.Auth
 
         public async Task<AuthResult> ChangePasswordAsync(ChangePasswordModel model)
         {
-            АккаунтПользователя? account = await _context.АккаунтПользователяs
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
+            АккаунтПользователя? account = await context.АккаунтПользователяs
                 .FirstOrDefaultAsync(a => a.Логин == model.Login);
 
             if (account == null)
@@ -161,7 +167,7 @@ namespace ArchiveFqp.Services.Auth
             }
 
             account.Пароль = BCrypt.Net.BCrypt.HashPassword(model.NewPassword);
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             return new AuthResult
             {

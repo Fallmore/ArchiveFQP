@@ -61,7 +61,7 @@
                     </div>
                     <div class="col-md-3">
                         <select class="form-select" @bind="filterAccessId" @bind:event="onchange">
-                            <option value="">Все статусы</option>
+                            <option value="">Все доступы</option>
                             @foreach (var status in snapshot.WorkAccess)
                             {
                                 <option value="@status.IdДоступаРаботы">@status.Название</option>

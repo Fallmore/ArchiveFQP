@@ -5,6 +5,7 @@ using ArchiveFqp.Interfaces.Auth;
 using ArchiveFqp.Interfaces.DatabaseNotification;
 using ArchiveFqp.Interfaces.FileUpload;
 using ArchiveFqp.Interfaces.Hash;
+using ArchiveFqp.Interfaces.PdfRender;
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Interfaces.User;
 using ArchiveFqp.Interfaces.Work;

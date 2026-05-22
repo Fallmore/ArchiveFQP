@@ -499,7 +499,7 @@
     private List<Направление> filteredDirections = new();
     private List<Профиль> filteredProfiles = new();
     private List<Кафедра> filteredDepartments = new();
-    private bool isFqp = true;
+    private bool isFqp = false;
     private bool hasCR = false;
     private bool isSubmitting = false;
 
@@ -523,15 +523,6 @@
 
         await UpdateData();
 
-        var result = await ProtectedSessionStore.GetAsync<WorkCreateDto>(SessionStoreNameWorkDTO);
-        if (result.Success)
-        {
-            WorkDto = result.Value!;
-            await OnWorkTypeChanged();
-            await WorkDTOChanged.InvokeAsync(WorkDto);
-        }
-        else WorkDto.IdСтатусаРаботы = snapshot.WorkStatuses.First(ws => ws.Название == Settings.WorkOnReviewStatus).IdСтатусаРаботы;
-
         FileUploadService.ProgressChanged += OnUploadProgressChanged;
         RefDataService.TablesChanged += OnTablesChanged;
 
@@ -547,6 +538,15 @@
         filteredEducationLevels = snapshot.EducationLevels;
         filteredTeachers = snapshot.Teachers.OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
 
+        var result = await ProtectedSessionStore.GetAsync<WorkCreateDto>(SessionStoreNameWorkDTO);
+        if (result.Success)
+        {
+            WorkDto = result.Value!;
+            await OnWorkTypeChanged();
+        }
+        else WorkDto.IdСтатусаРаботы = snapshot.WorkStatuses.First(ws => ws.Название == Settings.WorkOnReviewStatus).IdСтатусаРаботы;
+
+
         await SetStructuresByRole();
         await UpdateDependentLists();
     }
@@ -558,6 +558,7 @@
             uploadResult = null;
             successMessage = null;
             selectedFiles = new();
+            isFqp = hasCR = false;
             WorkDto.IdСтатусаРаботы = snapshot.WorkStatuses.First(ws => ws.Название == Settings.WorkOnReviewStatus).IdСтатусаРаботы;
             await SetStructuresByRole();
         }
@@ -671,11 +672,10 @@
             filteredStudents = filteredStudents.Where(x => x.IdПрофиля == WorkDto.IdПрофиля).ToList();
         }
 
-        string? workType = snapshot.WorkTypes.Find(wt => wt.IdТипаРаботы == WorkDto.IdТипаРаботы)?.Название;
-        isFqp = workType == null ? false : Settings.FqpWorks.Contains(workType);
-
         if (isFqp)
         {
+
+            string workType = snapshot.WorkTypes.First(wt => wt.IdТипаРаботы == WorkDto.IdТипаРаботы).Название;
             // Фильтруем списки студентов и уровня образования
             if (Settings.FqpWorksEducationLevels.TryGetValue(workType!, out List<string>? edcucationLevels))
             {

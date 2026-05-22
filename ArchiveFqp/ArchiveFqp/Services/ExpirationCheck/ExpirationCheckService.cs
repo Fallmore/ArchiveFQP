@@ -40,7 +40,6 @@ namespace ArchiveFqp.Services.ExpirationCheck
 
         public override async Task StartAsync(CancellationToken cancellationToken)
         {
-            // загружаем справочные данные асинхронно при старте
             _workApplications = await _refDataService.GetAsync<ЗаявлениеРаботы>();
             await GetWorkApplicationsStatusesAsync();
             _workApplicationsActive = UpdateWorkApplicationsActive();

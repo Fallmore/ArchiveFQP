@@ -1,4 +1,5 @@
-﻿using ArchiveFqp.Interfaces.ReferenceData;
+﻿using ArchiveFqp.Interfaces.PdfRender;
+using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.Settings.SettingsArchive;
 using SkiaSharp;
@@ -17,13 +18,7 @@ namespace ArchiveFqp.Services.PdfRender
                 settings.SaveSettings();
             }
         }
-        /// <summary>
-        /// Возвращает список страниц PDF в виде base64 PNG с наложенным водяным знаком.
-        /// </summary>
-        /// <param name="pdfStream">Поток с исходным PDF-файлом.</param>
-        /// <param name="watermarkText">Текст водяного знака.</param>
-        /// <param name="scale">Масштаб рендеринга (1.0f = 72 DPI, 2.0f = 144 DPI).</param>
-        /// <returns>Список строк, где каждая строка — base64-изображение страницы.</returns>
+        
         public Task<List<string>> RenderPdfToBase64Async(Stream pdfStream, CancellationToken cancellationToken,
             string? watermarkText = "КОНФИДЕНЦИАЛЬНО", float? scale = 1.5f,
             IProgress<int>? progress = null)
@@ -118,7 +113,7 @@ namespace ArchiveFqp.Services.PdfRender
             if (work == null || work.Местоположение == null) return null;
 
             string path = Path.Combine(settings.FilesRootPath, work.Местоположение, $"{settings.FileExplanatoryNotePDF}.pdf");
-            return System.IO.File.OpenRead(path);
+            return File.OpenRead(path);
         }
     }
 }

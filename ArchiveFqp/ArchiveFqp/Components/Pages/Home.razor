@@ -1,7 +1,158 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Реестр ВКР АГТУ</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container mt-4">
+    <!-- Заголовок -->
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            <h1 class="display-4">Реестр выпускных квалификационных работ</h1>
+            <p class="lead text-muted">Астраханский государственный технический университет</p>
+            <hr class="my-4">
+        </div>
+    </div>
 
-Welcome to your new app.
+    <!-- О системе -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">О системе</h4>
+                </div>
+                <div class="card-body">
+                    <p>Реестр ВКР АГТУ представляет собой централизованную систему хранения и управления выпускными квалификационными работами студентов университета.</p>
+                    <p>Система обеспечивает:</p>
+                    <ul>
+                        <li>Хранение ВКР в электронном виде</li>
+                        <li>Поиск и фильтрацию работ по различным критериям</li>
+                        <li>Контроль доступа к работам</li>
+                        <li>Формирование отчетов</li>
+                        <li>Управление атрибутами работ</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основные функции -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h3 class="mb-3 text-center">Основные функции</h3>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-search fs-1 text-primary"></i>
+                    <h5 class="card-title mt-3">Поиск работ</h5>
+                    <p class="card-text">Поиск ВКР по теме, автору, руководителю, типу работы и другим параметрам</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-plus-circle fs-1 text-success"></i>
+                    <h5 class="card-title mt-3">Добавление работ</h5>
+                    <p class="card-text">Загрузка новых ВКР с заполнением всех необходимых метаданных</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-file-earmark-text fs-1 text-info"></i>
+                    <h5 class="card-title mt-3">Формирование отчетов</h5>
+                    <p class="card-text">Создание отчетов в формате Word со статистикой и списками работ</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-tags fs-1 text-warning"></i>
+                    <h5 class="card-title mt-3">Атрибуты работ</h5>
+                    <p class="card-text">Гибкая система атрибутов для дополнительной классификации работ</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-shield-lock fs-1 text-danger"></i>
+                    <h5 class="card-title mt-3">Управление доступом</h5>
+                    <p class="card-text">Ролевая модель доступа к работам и функциям системы</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-clock-history fs-1 text-secondary"></i>
+                    <h5 class="card-title mt-3">Журнал действий</h5>
+                    <p class="card-text">Фиксация всех изменений в системе для аудита</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Роли пользователей -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h4 class="mb-0">Роли пользователей</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Администратор</h5>
+                            <p>Полный доступ ко всем функциям системы, управление пользователями и настройками</p>
+                            
+                            <h5>Делопроизводитель</h5>
+                            <p>Добавление и редактирование работ, проверка заявлений</p>
+                            
+                            <h5>Завкафедрой / Ответственный кафедры</h5>
+                            <p>Управление работами своей кафедры, проверка заявлений</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Ответственный института</h5>
+                            <p>Управление работами своего института, проверка заявлений</p>
+                            
+                            <h5>Преподаватель</h5>
+                            <p>Просмотр работ, подача заявлений на добавление атрибутов</p>
+                            
+                            <h5>Студент</h5>
+                            <p>Просмотр своих работ, подача заявлений на просмотр других работ</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Контакты -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0">Контакты</h4>
+                </div>
+                <div class="card-body">
+                    <p><strong>Астраханский государственный технический университет</strong></p>
+                    <p>Адрес: 414025, г. Астрахань, ул. Татищева, 16</p>
+                    <p>Email: info@astu.org</p>
+                    <p>Телефон: (8512) 61-43-33</p>
+                </div>
+                <div class="card-footer text-muted">
+                    <small>© 2026 Реестр ВКР АГТУ. Все права защищены.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -27,7 +27,7 @@
 {
     #region Для делопроизводителя
 
-    <AuthorizeView Roles="@Settings.RoleDepartmentClerkName">
+    <AuthorizeView Roles="@($"{Settings.RoleDepartmentClerkName}, {Settings.RoleAdminName}")">
         <div class="container mb-2">
             <button class="btn btn-outline-secondary z-0" type="button" @onclick="() => showReportGenerator = true"
                     data-bs-toggle="modal" data-bs-target="#@modalName">
@@ -39,7 +39,7 @@
             <div class="modal-dialog modal-xl">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="workApplicationModalLabel">Информация о заявлении</h5>
+                        <h5 class="modal-title" id="workApplicationModalLabel">Настройка отчета</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">

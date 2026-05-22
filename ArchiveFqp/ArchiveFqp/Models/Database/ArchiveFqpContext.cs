@@ -1019,6 +1019,9 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.HasIndex(e => e.IdРаботы, "idx_reviewer_work");
 
+            entity.HasIndex(e => new { e.IdРаботы, e.IdПреподавателя }, "рецензент_работа_препод_key").IsUnique();
+
+
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("nextval('\"консультант_id_seq\"'::regclass)")
                 .HasColumnName("id");

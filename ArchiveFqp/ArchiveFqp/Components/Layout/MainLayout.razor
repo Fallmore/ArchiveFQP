@@ -6,27 +6,52 @@
         <NavMenu />
     </div>
 
-    <main>
-        <div class="top-row px-4">
-            @* <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a> *@
-            <AuthorizeView>
-                <Authorized>
-                    <UserNavigate/>
-                </Authorized>
-                <NotAuthorized>
-                    <a href="login">Войти</a>
-                </NotAuthorized>
-            </AuthorizeView>
+    <main class="main-content">
+        <div class="top-bar">
+            <div class="container-fluid">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <!-- Кнопка для мобильного меню можно добавить здесь -->
+                    </div>
+                    <div class="col-auto">
+                        <AuthorizeView>
+                            <Authorized>
+                                <UserNavigate />
+                            </Authorized>
+                            <NotAuthorized>
+                                <a href="login" class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-box-arrow-in-right"></i> Войти
+                                </a>
+                            </NotAuthorized>
+                        </AuthorizeView>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <article class="content px-4">
-            @Body
-        </article>
+        <div class="content-wrapper">
+            <div class="container-fluid px-4 py-3">
+                @Body
+            </div>
+        </div>
     </main>
 </div>
+
 
 <div id="blazor-error-ui" data-nosnippet>
     Произошла неожиданная ошибка.
     <a href="." class="reload">Перезагрузить страницу</a>
     <span class="dismiss">🗙</span>
 </div>
+
+<script>
+    function ChangeVisibilityPassword(name) {
+      var x = document.getElementById(name);
+      if (x.type === "password") {
+        x.type = "text";
+      } else {
+        x.type = "password";
+      }
+    }
+    
+</script>

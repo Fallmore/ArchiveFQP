@@ -1,22 +1,22 @@
 ﻿namespace ArchiveFqp.Models.Hash
 {
     /// <summary>
-    /// Информация о хэшах файлов
+    /// Информация о хешах файлов
     /// </summary>
     public class FileHashesInfo
     {
         /// <summary>
-        /// Словарь хэшей файлов (имя файла -> хэш)
+        /// Словарь хешей файлов (имя файла -> хеш)
         /// </summary>
         public Dictionary<string, string> FileHashes { get; set; } = new();
 
         /// <summary>
-        /// Составной хэш (ЭЦП) всех файлов
+        /// Составной хеш (ЭЦП) всех файлов
         /// </summary>
         public string CompositeHash { get; set; } = string.Empty;
 
         /// <summary>
-        /// Время вычисления хэшей
+        /// Время вычисления хешей
         /// </summary>
         public DateTime CalculatedAt { get; set; }
 

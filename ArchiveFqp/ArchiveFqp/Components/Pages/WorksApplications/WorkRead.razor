@@ -1,11 +1,11 @@
-﻿@page "/work/{IdWork:int}"
+﻿@page "/works/read/{IdWork:int}"
 @using System.IO
 @using ArchiveFqp.Factories.DisplayDto.Structure
+@using ArchiveFqp.Interfaces.PdfRender
 @using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Models.DTO.Structure
 @using ArchiveFqp.Models.Settings.SettingsArchive
-@using ArchiveFqp.Services.PdfRender
 @using System.Security.Claims
 @implements IDisposable
 @inject IPdfRenderService PdfRenderService

@@ -23,7 +23,7 @@
         <div class="alert alert-success">@successMessage</div>
     }
 
-    <EditForm EditContext="editContext" OnValidSubmit="@HandleValidSubmit" FormName="workApplicationAdd">
+    <EditForm EditContext="editContext" OnValidSubmit="@HandleValidSubmit" FormName="workApplicationAdd" @onkeydown="OnKeyDown">
         <DataAnnotationsValidator />
         <ValidationSummary class="alert alert-danger" />
 
@@ -175,9 +175,19 @@
                         string idModal = "workWatchModal" + workApplictaionDto.IdЗаявления;
                         string idModalLabel = "workWatchModalLabel" + workApplictaionDto.IdЗаявления;
 
-                        <button type="button" class="btn btn-primary" @onclick="@(async () => { await OpenModal(idModal); isClickedWatch = true; })">
-                            Посмотреть ПЗ
-                        </button>
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <button type="button" class="btn btn-primary" @onclick="@(async () => { await OpenModal(idModal); isClickedWatch = true; })">
+                                    Посмотреть ПЗ
+                                </button>
+                            </div>
+
+                            <div class="col-auto">
+                                <button type="button" class="btn btn-danger" @onclick="@(async () => { })">
+                                    Прекратить просмотр
+                                </button>
+                            </div>
+                        </div>
 
                         <div class="modal fade" id="@idModal" tabindex="-1" aria-labelledby="@idModalLabel" aria-hidden="true"
                              data-bs-backdrop="static" data-bs-keyboard="false">
@@ -200,37 +210,41 @@
                 }
                 else
                 {
-                    <div class="row-md-6 mb-1">
-                        <!-- Ответ -->
-                        <label class="form-label mb-0 mx-1 fw-bold">Ответ <span class="text-danger">*</span></label>
-                        <InputTextArea class="form-control " @bind-Value="workApplictaionDto.Ответ"
-                                       disabled="@(workApplictaionDto.IdРаботы == null)"
-                                       rows="3"
-                                       placeholder="Опишите причину решения" />
-                    </div>
+                    if (IsReviewMode)
+                    {
 
-                    <div class="row-md-3 mb-1">
-                        <!-- Статус выдачи -->
-                        <label class="form-label mb-0 mx-1 fw-bold">Вердикт <span class="text-danger">*</span></label>
-                        <div class="col-md-5">
-                            <InputSelect class="form-select" @bind-Value="workApplictaionDto.IdСтатуса">
-                                @{
-                                    int inReviewStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
-                                    int rejectStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsRejectStatus).IdСтатуса;
-                                    int activeStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsActiveStatus).IdСтатуса;
-                                    <option value="@inReviewStatusId">Выберите вердикт</option>
-                                    <option value="@rejectStatusId">Отклонить</option>
-                                    <option value="@activeStatusId">Одобрить</option>
-                                }
-                            </InputSelect>
+                        <div class="row-md-6 mb-1">
+                            <!-- Ответ -->
+                            <label class="form-label mb-0 mx-1 fw-bold">Ответ <span class="text-danger">*</span></label>
+                            <InputTextArea class="form-control " @bind-Value="workApplictaionDto.Ответ"
+                                           disabled="@(workApplictaionDto.IdРаботы == null)"
+                                           rows="3"
+                                           placeholder="Опишите причину решения" />
                         </div>
-                    </div>
 
-                    <div class="row-md-6">
-                        <button type="submit" class="btn btn-success mt-3" disabled="@(workApplictaionDto.IdРаботы == null)">
-                            Отправить ответ
-                        </button>
-                    </div>
+                        <div class="row-md-3 mb-1">
+                            <!-- Статус выдачи -->
+                            <label class="form-label mb-0 mx-1 fw-bold">Вердикт <span class="text-danger">*</span></label>
+                            <div class="col-md-5">
+                                <InputSelect class="form-select" @bind-Value="workApplictaionDto.IdСтатуса">
+                                    @{
+                                        int inReviewStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
+                                        int rejectStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsRejectStatus).IdСтатуса;
+                                        int activeStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsActiveStatus).IdСтатуса;
+                                        <option value="@inReviewStatusId">Выберите вердикт</option>
+                                        <option value="@rejectStatusId">Отклонить</option>
+                                        <option value="@activeStatusId">Одобрить</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        </div>
+
+                        <div class="row-md-6">
+                            <button type="submit" class="btn btn-success mt-3" disabled="@(workApplictaionDto.IdРаботы == null)">
+                                Отправить ответ
+                            </button>
+                        </div>
+                    }
                 }
             }
         </div>
@@ -389,6 +403,14 @@
         catch (Exception ex)
         {
             errorMessage = $"Ошибка при отправке: {ex.Message}";
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            return;
         }
     }
 

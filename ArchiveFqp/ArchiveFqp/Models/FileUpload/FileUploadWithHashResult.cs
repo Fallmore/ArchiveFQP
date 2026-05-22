@@ -3,7 +3,7 @@
 namespace ArchiveFqp.Models.FileUpload
 {
     /// <summary>
-    /// Результат загрузки с хэшами
+    /// Результат загрузки с хешами
     /// </summary>
     public class FileUploadWithHashResult
     {

@@ -85,7 +85,7 @@ namespace ArchiveFqp.Services.FileUpload
                 //}
                 string fullFolderPath = EnsureDirectoryExists(relativeFolderPath);
 
-                // Загружаем все файлы и собираем их для хэширования
+                // Загружаем все файлы и собираем их для хеширования
                 List<Task<FileUploadResult>> uploadTasks = new();
 
                 // Пояснительная записка Word
@@ -181,7 +181,7 @@ namespace ArchiveFqp.Services.FileUpload
                 {
                     result.HashesInfo = await _hashService.GetFileHashesInfoAsync(filesToHash, cancellationToken);
 
-                    _logger.LogDebug("Вычислен составной хэш {Hash} для {Count} файлов",
+                    _logger.LogDebug("Вычислен составной хеш {Hash} для {Count} файлов",
                         result.HashesInfo.CompositeHash, result.HashesInfo.FileCount);
                 }
 
@@ -350,7 +350,7 @@ namespace ArchiveFqp.Services.FileUpload
                 string hash = "";
                 List<string> hashes = [];
 
-                // Проверяем хэши существующих файлов
+                // Проверяем хеши существующих файлов
                 foreach (string storedFile in storedFiles)
                 {
                     string fileName = Path.GetFileName(storedFile);

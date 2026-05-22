@@ -6,7 +6,7 @@ using System.Security.Cryptography;
 namespace ArchiveFqp.Services.Hash
 {
     /// <summary>
-    /// Реализация сервиса хэширования на основе SHA-256
+    /// Реализация сервиса хеширования на основе SHA-256
     /// </summary>
     public class Sha256HashService : IHashService
     {
@@ -27,7 +27,7 @@ namespace ArchiveFqp.Services.Hash
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ошибка вычисления хэша файла");
+                _logger.LogError(ex, "Ошибка вычисления хеша файла");
                 throw;
             }
         }
@@ -41,7 +41,7 @@ namespace ArchiveFqp.Services.Hash
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ошибка вычисления хэша файла {FileName}", file.Name);
+                _logger.LogError(ex, "Ошибка вычисления хеша файла {FileName}", file.Name);
                 throw;
             }
         }
@@ -75,7 +75,7 @@ namespace ArchiveFqp.Services.Hash
 
         public string ComputeCompositeHash(IEnumerable<string> fileHashes)
         {
-            // Сортируем хэши для детерминированного результата
+            // Сортируем хеши для детерминированного результата
             List<string> sortedHashes = fileHashes.OrderBy(h => h).ToList();
             List<byte> combinedBytes = new();
 
@@ -98,7 +98,7 @@ namespace ArchiveFqp.Services.Hash
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ошибка проверки хэша файла");
+                _logger.LogError(ex, "Ошибка проверки хеша файла");
                 return false;
             }
         }
@@ -112,7 +112,7 @@ namespace ArchiveFqp.Services.Hash
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ошибка проверки хэша файла");
+                _logger.LogError(ex, "Ошибка проверки хеша файла");
                 return false;
             }
         }
@@ -126,7 +126,7 @@ namespace ArchiveFqp.Services.Hash
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ошибка проверки составного хэша");
+                _logger.LogError(ex, "Ошибка проверки составного хеша");
                 return false;
             }
         }

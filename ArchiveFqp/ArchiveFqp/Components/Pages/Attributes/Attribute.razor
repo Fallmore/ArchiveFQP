@@ -30,7 +30,7 @@
         <div class="alert alert-success">@successMessage</div>
     }
 
-    <EditForm EditContext="@editContext" OnValidSubmit="@HandleValidSubmit" FormName="attributeApplicationAdd">
+    <EditForm EditContext="@editContext" OnValidSubmit="@HandleValidSubmit" FormName="attributeApplicationAdd" @onkeydown="OnKeyDown">
         <DataAnnotationsValidator />
         <ValidationSummary class="alert alert-danger" />
 
@@ -578,6 +578,14 @@
         catch (Exception ex)
         {
             errorMessage = $"Ошибка при отправке: {ex.Message}";
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            return;
         }
     }
 

@@ -1,6 +1,8 @@
 ﻿using ArchiveFqp.Models.Database;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace ArchiveFqp.Models.Settings.SettingsArchive
 {
@@ -17,7 +19,11 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
             НастройкиУчреждения? settingsEntity = context.НастройкиУчрежденияs.FirstOrDefault();
             if (settingsEntity?.Настройки != null)
             {
-                SettingsArchive? temp = JsonConvert.DeserializeObject<SettingsArchive>(settingsEntity.Настройки);
+                JsonSerializerSettings options = new()
+                {
+                    ObjectCreationHandling = ObjectCreationHandling.Replace
+                };
+                SettingsArchive? temp = JsonConvert.DeserializeObject<SettingsArchive>(settingsEntity.Настройки, options);
                 if (temp != null)
                 {
                     Copy(temp);
@@ -83,6 +89,7 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
             FqpWorks = settings.FqpWorks;
             FqpWorksWithCR = settings.FqpWorksWithCR;
             FqpWorksEducationLevels = settings.FqpWorksEducationLevels;
+            StorageTimeWorks = settings.StorageTimeWorks;
 
             FilesRootPath = settings.FilesRootPath;
             MaxFileSize = settings.MaxFileSize;
@@ -164,6 +171,12 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
         {
             { "ВКРБ", ["Бакалавриат", "Специалитет", "Аспирантура"] },
             { "МД", ["Магистратура"] }
+        };
+
+        public Dictionary<string, int> StorageTimeWorks { get; set; } = new()
+        {
+            { "ВКРБ", 5},
+            { "МД", 5 }
         };
 
         public string FilesRootPath { get; set; } = ""; // 100 MB

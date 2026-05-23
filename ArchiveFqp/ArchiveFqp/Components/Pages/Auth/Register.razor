@@ -1,84 +1,182 @@
 ﻿@page "/register"
+@using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Models.Auth
+@using ArchiveFqp.Models.ReferenceData
 @using ArchiveFqp.Services
 @using ArchiveFqp.Interfaces.Auth
 @inject IAuthService AuthService
+@inject IReferenceDataService RefDataService
+@implements IDisposable
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@rendermode @(new InteractiveServerRenderMode())
 
 <PageTitle>Регистрация</PageTitle>
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-4">
-            <div class="card shadow">
-                <div class="card-body">
-                    <h4 class="card-title text-center mb-4">
-                        <i class="bi-mortarboard" style="font-size: 3rem; color: blue;"></i>
-                        <br />Регистрация
-                        <br /><span class="text-muted fs-6">Создайте аккаунт для доступа к системе</span>
-                    </h4>
+@if (RendererInfo.IsInteractive)
+{
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow">
+                    <div class="card-body">
+                        <h4 class="card-title text-center mb-4">
+                            <i class="bi-mortarboard" style="font-size: 3rem; color: blue;"></i>
+                            <br />Регистрация
+                            <br /><span class="text-muted fs-6">Создайте аккаунт для доступа к системе</span>
+                        </h4>
 
-                    @if (!string.IsNullOrEmpty(errorMessage))
-                    {
-                        <div class="alert alert-danger">@errorMessage</div>
-                    }
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">@errorMessage</div>
+                        }
 
-                    @if (!string.IsNullOrEmpty(successMessage))
-                    {
-                        <div class="alert alert-success">@successMessage</div>
-                    }
+                        @if (!string.IsNullOrEmpty(successMessage))
+                        {
+                            <div class="alert alert-success">@successMessage</div>
+                        }
 
-                    <EditForm Model="@registerModel" OnValidSubmit="@HandleRegister" FormName="registerForm">
-                        <DataAnnotationsValidator />
-                        <div class="mx-4">
-                            <div class="row mb-3">
-                                <label for="surname" class="form-label mb-0 fw-bold">Фамилия <span class="text-danger">*</span></label>
-                                <InputText @bind-Value="registerModel.Surname" class="form-control" id="surname" />
-                                <ValidationMessage For="() => registerModel.Surname" />
-                            </div>
+                        <EditForm EditContext="@editContext" OnValidSubmit="@HandleRegister" FormName="registerForm">
+                            <DataAnnotationsValidator />
 
-                            <div class="row mb-3">
-                                <label for="name" class="form-label mb-0 fw-bold">Имя <span class="text-danger">*</span></label>
-                                <InputText @bind-Value="registerModel.Name" class="form-control" id="name" />
-                                <ValidationMessage For="() => registerModel.Name" />
-                            </div>
-                            <div class="row mb-3">
-                                <label for="patronymic" class="form-label mb-0 fw-bold">Отчество</label>
-                                <InputText @bind-Value="registerModel.Patronymic" class="form-control" id="patronymic" />
-                            </div>
-                            <div class="row mb-3">
-                                <label for="email" class="form-label mb-0 fw-bold">Email</label>
-                                <InputText @bind-Value="registerModel.Email" type="email" class="form-control" id="email" />
-                                <ValidationMessage For="() => registerModel.Email" />
-                            </div>
-                            <div class="row mb-3">
-                                <label for="reg-login" class="form-label mb-0 fw-bold">Логин <span class="text-danger">*</span></label>
-                                <InputText @bind-Value="registerModel.Login" class="form-control" id="reg-login" />
-                                <ValidationMessage For="() => registerModel.Login" />
-                            </div>
-                            <div class="row mb-3">
-                                <label for="reg-password" class="form-label mb-0 fw-bold">Пароль <span class="text-danger">*</span></label>
-                                <div class="input-group" style="padding:0; border-right-color:transparent">
-                                    <InputText @bind-Value="registerModel.Password" type="password" class="form-control" style="border-right-color:transparent" id="reg-password" />
-                                    <div class="input-group-text" style="border-left-color:transparent; background-color:transparent;">
-                                        <input id="eye" class="form-check-input checkbox-password" style="border-color:transparent" type="checkbox" onclick="ChangeVisibilityPassword('reg-password')">
-                                        <label for="eye"></label>
+                            <div class="row">
+                                <div class="col mx-4">
+                                    <div class="row mb-3">
+                                        <label for="surname" class="form-label mb-0 fw-bold">Фамилия <span class="text-danger">*</span></label>
+                                        <InputText @bind-Value="registerModel.Surname" class="form-control" id="surname" />
+                                        <ValidationMessage For="() => registerModel.Surname" />
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label for="name" class="form-label mb-0 fw-bold">Имя <span class="text-danger">*</span></label>
+                                        <InputText @bind-Value="registerModel.Name" class="form-control" id="name" />
+                                        <ValidationMessage For="() => registerModel.Name" />
+                                    </div>
+                                    <div class="row mb-3">
+                                        <label for="patronymic" class="form-label mb-0 fw-bold">Отчество</label>
+                                        <InputText @bind-Value="registerModel.Patronymic" class="form-control" id="patronymic" />
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label for="email" class="form-label mb-0 fw-bold">Email</label>
+                                        <InputText @bind-Value="registerModel.Email" type="email" class="form-control" id="email" />
+                                        <ValidationMessage For="() => registerModel.Email" />
+                                    </div>
+                                    <div class="row mb-3">
+                                        <label for="reg-login" class="form-label mb-0 fw-bold">Логин <span class="text-danger">*</span></label>
+                                        <InputText @bind-Value="registerModel.Login" class="form-control" id="reg-login" />
+                                        <ValidationMessage For="() => registerModel.Login" />
+                                    </div>
+                                    <div class="row mb-3">
+                                        <label for="reg-password" class="form-label mb-0 fw-bold">Пароль <span class="text-danger">*</span></label>
+                                        <div class="input-group" style="padding:0; border-right-color:transparent">
+                                            <InputText @bind-Value="registerModel.Password" type="password" class="form-control" style="border-right-color:transparent" id="reg-password" />
+                                            <div class="input-group-text" style="border-left-color:transparent; background-color:transparent;">
+                                                <input id="eye" class="form-check-input checkbox-password" style="border-color:transparent" type="checkbox" onclick="ChangeVisibilityPassword('reg-password')">
+                                                <label for="eye"></label>
+                                            </div>
+                                        </div>
+                                        <ValidationMessage For="() => registerModel.Password" />
+                                    </div>
+                                    <div class="row mb-3">
+                                        <label for="reg-confirm-password" class="form-label mb-0 fw-bold">Повторите пароль <span class="text-danger">*</span></label>
+                                        <div class="input-group" style="padding:0; border-right-color:transparent">
+                                            <InputText @bind-Value="registerModel.ConfirmPassword" type="password" class="form-control" style="border-right-color:transparent" id="reg-confirm-password" />
+                                            <div class="input-group-text" style="border-left-color:transparent; background-color:transparent;">
+                                                <input id="eye-confirm" class="form-check-input checkbox-password" style="border-color:transparent" type="checkbox" onclick="ChangeVisibilityPassword('reg-confirm-password')">
+                                                <label for="eye-confirm"></label>
+                                            </div>
+                                        </div>
+                                        <ValidationMessage For="() => registerModel.ConfirmPassword" />
+                                    </div>
+                                    <div class="row mb-3">
                                     </div>
                                 </div>
-                                <ValidationMessage For="() => registerModel.Password" />
-                            </div>
-                            <div class="row mb-3">
-                                <label for="reg-confirm-password" class="form-label mb-0 fw-bold">Повторите пароль <span class="text-danger">*</span></label>
-                                <div class="input-group" style="padding:0; border-right-color:transparent">
-                                    <InputText @bind-Value="registerModel.ConfirmPassword" type="password" class="form-control" style="border-right-color:transparent" id="reg-confirm-password" />
-                                    <div class="input-group-text" style="border-left-color:transparent; background-color:transparent;">
-                                        <input id="eye-confirm" class="form-check-input checkbox-password" style="border-color:transparent" type="checkbox" onclick="ChangeVisibilityPassword('reg-confirm-password')">
-                                        <label for="eye-confirm"></label>
+                                <div class="col mx-4">
+                                    <div class="row mb-3">
+                                        <label class="form-label mb-0 fw-bold">Кто Вы?</label>
+                                        <select class="form-select" @bind="registerModel.IsStudent">
+                                            <option value="@true">Я студент</option>
+                                            <option value="@false">Я преподаватель</option>
+                                            <option value="">Я просто хочу зарегистрироваться</option>
+                                        </select>
                                     </div>
+
+                                    <div class="row mb-3">
+                                        <label class="form-label mb-0 fw-bold">Институт <span class="text-danger">*</span></label>
+                                        <select class="form-select" @bind="registerModel.IdInstitute">
+                                            <option value="">Выберите институт</option>
+                                            @foreach (var institute in snapshot.Institutes)
+                                            {
+                                                <option value="@institute.IdИнститута">@institute.Название</option>
+                                            }
+                                        </select>
+                                        <ValidationMessage For="() => registerModel.IdInstitute" />
+                                    </div>
+                                    <div class="row mb-3">
+                                        <label class="form-label mb-0 fw-bold">Кафедра <span class="text-danger">*</span></label>
+                                        <select class="form-select" @bind="registerModel.IdDepartment"
+                                                disabled="@(registerModel.IdInstitute == null)">
+                                            <option value="">Выберите кафедру</option>
+                                            @foreach (var department in snapshot.Departments.Where(x => x.IdИнститута == registerModel.IdInstitute).OrderBy(x => x.Название))
+                                            {
+                                                <option value="@department.IdКафедры">@department.Название</option>
+                                            }
+                                        </select>
+                                        <ValidationMessage For="() => registerModel.IdDepartment" />
+                                    </div>
+
+                                    @if (registerModel.IsStudent != null && registerModel.IsStudent == true)
+                                    {
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label mb-0 fw-bold">Стандарт УГСН <span class="text-danger">*</span></label>
+                                                <InputSelect class="form-select" @bind-Value="idUgsnStandard"
+                                                             disabled="@(registerModel.IdDepartment == null)">
+                                                    <option value="0"></option>
+                                                    @foreach (var standard in snapshot.UgsnStandards.OrderBy(x => x.Название))
+                                                    {
+                                                        <option value="@standard.IdУгснСтандарта">@standard.Название</option>
+                                                    }
+                                                </InputSelect>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label mb-0 fw-bold">УГСН <span class="text-danger">*</span></label>
+                                                <InputSelect class="form-select" @bind-Value="idUgsn"
+                                                             disabled="@(idUgsnStandard == 0)">
+                                                    <option value="0"></option>
+                                                    @foreach (var ugsn in snapshot.Ugsns.Where(x => x.IdУгснСтандарта == idUgsnStandard).OrderBy(x => x.Название))
+                                                    {
+                                                        <option value="@ugsn.IdУгсн">@ugsn.Название</option>
+                                                    }
+                                                </InputSelect>
+                                            </div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <label class="form-label mb-0 fw-bold">Направление <span class="text-danger">*</span></label>
+                                            <select class="form-select" @bind="registerModel.IdDirection"
+                                                    disabled="@(idUgsn == 0)">
+                                                <option value="">Выберите направление</option>
+                                                @foreach (var direction in snapshot.Directions.Where(x => x.IdКафедры == registerModel.IdDepartment && x.IdУгсн == idUgsn).OrderBy(x => x.Название))
+                                                {
+                                                    <option value="@direction.IdНаправления">@direction.Название</option>
+                                                }
+                                            </select>
+                                            <ValidationMessage For="() => registerModel.IdDirection" />
+                                        </div>
+                                        <div class="row mb-3">
+                                            <label class="form-label mb-0 fw-bold">Профиль</label>
+                                            <select class="form-select" @bind="registerModel.IdProfile"
+                                                    disabled="@(registerModel.IdDirection == null)">
+                                                <option value="">Выберите профиль</option>
+                                                @foreach (var profile in snapshot.Profiles.Where(x => x.IdНаправления == registerModel.IdDirection).OrderBy(x => x.Название))
+                                                {
+                                                    <option value="@profile.IdПрофиля">@profile.Название</option>
+                                                }
+                                            </select>
+                                        </div>
+                                    }
                                 </div>
-                                <ValidationMessage For="() => registerModel.ConfirmPassword" />
-                            </div>
-                            <div class="row mb-3">
                             </div>
 
                             <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
@@ -91,36 +189,45 @@
                             <div class="mt-3 text-center">
                                 <p>Уже есть аккаунт? <a href="/login">Войти</a></p>
                             </div>
-                        </div>
-                    </EditForm>
+                        </EditForm>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
+}
 
-<script>
-    function ChangeVisibilityPassword(name) {
-      var x = document.getElementById(name);
-      if (x.type === "password") {
-        x.type = "text";
-      } else {
-        x.type = "password";
-      }
-    }
-    
-</script>
+
 
 @code {
-    [SupplyParameterFromForm]
     private RegisterModel registerModel { get; set; } = null!;
     private string? errorMessage;
     private string? successMessage;
     private bool isLoading;
 
-    protected override void OnInitialized()
+    private ReferenceDataSnapshot snapshot = new();
+    private int idUgsnStandard;
+    private int idUgsn;
+
+    EditContext? editContext;
+    ValidationMessageStore? messageStore;
+
+    protected override async Task OnInitializedAsync()
     {
-        registerModel ??= new RegisterModel();
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+
+        if (RendererInfo.IsInteractive)
+        {
+            snapshot = await RefDataService.GetSnapshotAsync();
+            registerModel ??= new RegisterModel();
+            editContext = new(registerModel);
+            messageStore = new(editContext);
+            editContext.OnValidationStateChanged += HandleValidationRequested;
+        }
     }
 
     private async Task HandleRegister()
@@ -135,20 +242,21 @@
 
             if (result.Success)
             {
+                Navigation.NavigateTo("/login");
                 successMessage = result.Message;
-                // Автоматически входим после регистрации
-                var loginResult = await AuthService.LoginAsync(new LoginModel
-                {
-                    Login = registerModel.Login,
-                    Password = registerModel.Password
-                });
+                // // Автоматически входим после регистрации
+                // var loginResult = await AuthService.LoginAsync(new LoginModel
+                // {
+                //     Login = registerModel.Login,
+                //     Password = registerModel.Password
+                // });
                 
-                if (loginResult.Success)
-                {
-                    // await AuthStateProvider.SetTokenAsync(loginResult.Token!);
-                    await Task.Delay(1000);
-                    Navigation.NavigateTo("/");
-                }
+                // if (loginResult.Success)
+                // {
+                //     // await AuthStateProvider.SetTokenAsync(loginResult.Token!);
+                //     await Task.Delay(1000);
+                //     Navigation.NavigateTo("/");
+                // }
             }
             else
             {
@@ -163,5 +271,26 @@
         {
             isLoading = false;
         }
+    }
+
+    private void HandleValidationRequested(object? sender, ValidationStateChangedEventArgs args)
+    {
+        successMessage = null;
+        messageStore?.Clear();
+
+#pragma warning disable CS8603 // Возможно, возврат ссылки, допускающей значение NULL.
+        if (registerModel.IsStudent != null && registerModel.IsStudent == true && registerModel.IdDirection == null)
+        {
+            messageStore?.Add(() => registerModel.IdDirection, "Выберите направление");
+        }
+    
+    
+#pragma warning restore CS8603
+    }
+
+    public void Dispose()
+    {
+        if (editContext != null)
+            editContext.OnValidationStateChanged -= HandleValidationRequested;
     }
 }

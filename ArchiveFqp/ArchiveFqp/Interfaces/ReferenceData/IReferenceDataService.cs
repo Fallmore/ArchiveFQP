@@ -1,6 +1,7 @@
 ﻿using ArchiveFqp.Models.DatabaseNotification;
 using ArchiveFqp.Models.ReferenceData;
 using ArchiveFqp.Models.DTO.Attribute;
+using ArchiveFqp.Models.DTO.User;
 
 namespace ArchiveFqp.Interfaces.ReferenceData
 {
@@ -14,7 +15,8 @@ namespace ArchiveFqp.Interfaces.ReferenceData
         /// </summary>
         /// <remarks>
         /// T может быть одним из классов пространства <see cref="Models.Database"/>
-        /// или класс <see cref="AttributeValuesDto"/>
+        /// или такие DTO объекты как <see cref="AttributeValuesDto"/>
+        /// и <see cref="UserDisplayDto"/> (вместо <see cref="АккаунтПользователя"/>)
         /// </remarks>
         /// <typeparam name="T">Класс таблицы или <see cref="AttributeValuesDto"/></typeparam>
         /// <param name="forceRefresh">Принудительно ли обновлять общий кэш</param>

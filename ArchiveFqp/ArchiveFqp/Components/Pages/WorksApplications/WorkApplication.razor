@@ -1,13 +1,20 @@
 ﻿@using ArchiveFqp.Components.Components
+@using ArchiveFqp.Interfaces.Settings
+@using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Models.DTO.WorkApplication
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Interfaces.Applications
 @using ArchiveFqp.Interfaces.Work
+@using ArchiveFqp.Models.Settings.User
+@using ArchiveFqp.Services.Notifications
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @inject SettingsArchive Settings
+@inject ISettingsService SettingsService
 @inject IWorkService WorkService
+@inject IUserService UserService
 @inject IApplicationsService ApplicationsService
+@inject NotificationService NotificationService
 @inject IJSRuntime JS
 @implements IDisposable
 @rendermode @(new InteractiveServerRenderMode())
@@ -72,10 +79,10 @@
                                    placeholder="Укажите цель получения работы (изучение, научное исследование и т.д.)..." />
                 </div>
 
-                <div class="row-md-2">
+                <div class="row">
                     <!-- Дата возврата по заявлению -->
                     <label class="form-label mb-0 mx-1 fw-bold">Дата окончания просмотра <span class="text-danger">*</span></label>
-                    <div class="col-3">
+                    <div class="col-auto">
                         <input type="date" class="form-control" @bind="workApplictaionDto.ДатаВозврПоЗаявл"
                                disabled="@(workApplictaionDto.IdРаботы == null)"
                                placeholder="Выберите дату"
@@ -374,6 +381,8 @@
 
             await ApplicationsService.AddWorkApplication(workApplictaionDto);
 
+            await SendNotificationToReviewersAsync();
+
             successMessage = "Заявление успешно отправлено!";
             workApplictaionDto.IdРаботы = IdWork = null;
             StateHasChanged();
@@ -395,6 +404,7 @@
             else
             {
                 successMessage = "Ответ успешно отправлен!";
+                await SendNotificationToSenderAsync();
             }
 
             isAnswered = true;
@@ -408,10 +418,57 @@
 
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Escape")
+        if (e.Key == "Enter")
         {
             return;
         }
+    }
+
+    private async Task Send(int id, string title, string message, string url)
+    {
+        НастройкиПользователя? userSettings = await SettingsService.GetSettings<НастройкиПользователя>(id);
+        if (userSettings != null)
+        {
+            SettingsUser? settings = await SettingsService.GetSettingsJson<SettingsUser>(userSettings?.Настройки ?? "");
+            if (settings != null)
+            {
+                if (settings.ReceiveEmailNotifications)
+                {
+
+                }
+            }
+        }
+        await NotificationService.SendToUserAsync(id.ToString(), title, message, url);
+    }
+
+    private async Task SendNotificationToSenderAsync()
+    {
+        string title = "Заявления на просмотр работ";
+        СтатусЗаявления status = (await ApplicationsService.GetApplicationsStatusesAsync()).First(x => x.IdСтатуса == workApplictaionDto.IdСтатуса);
+        string message = $"Ваше заявление на получение работы \"{workApplictaionDto.Работа.Тема}\" было "
+            + (status.Название == Settings.ApplicationsActiveStatus
+            ? "одобрено."
+            : "отклонено.");
+
+        await Send(WorkApplictaionDto!.IdПользователя, title, message, "works/applications/send");
+    }
+
+    private async Task SendNotificationToReviewersAsync()
+    {
+        string title = "Заявления на просмотр работ";
+        string message = $"Было добавлено заявление на получение работы \"{workApplictaionDto.Работа.Тема}\"";
+        List<string> rolesReviewers = [Settings.RoleDepartmentResponsibleName];
+        List<int> appReviewers = (await UserService.GetUsersByRolesAsync(rolesReviewers))
+            .Select(x => x.Пользователь.IdПользователя)
+            .ToList();
+
+        appReviewers = (await UserService.GetTeacherDisplayAsync(appReviewers))
+            .Where(x => x.Структура.Кафедра == workApplictaionDto.Работа.Студент.Структура.Кафедра)
+            .Select(x => x.Пользователь.Пользователь.IdПользователя)
+            .ToList();
+
+        IEnumerable<Task> tasks = appReviewers.Select(x => Send(x, title, message, "works/applications/review"));
+        await Task.WhenAll(tasks);
     }
 
     public void Dispose()

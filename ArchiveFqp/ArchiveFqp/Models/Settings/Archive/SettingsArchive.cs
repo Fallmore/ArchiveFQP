@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 
 namespace ArchiveFqp.Models.Settings.SettingsArchive
 {
-    public class SettingsArchive
+    public class SettingsArchive : BaseSettings
     {
         public SettingsArchive()
         {

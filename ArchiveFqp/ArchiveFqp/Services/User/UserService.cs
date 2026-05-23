@@ -35,7 +35,18 @@ namespace ArchiveFqp.Services.User
 
         public async Task<Пользователь?> GetUserAsync(int idUser)
         {
-            return (await _refDataService.GetAsync<Пользователь>()).FirstOrDefault(x => x.IdПользователя == idUser);
+            return (await GetUsersAsync()).FirstOrDefault(x => x.IdПользователя == idUser);
+        }
+
+        public async Task<List<Пользователь>> GetUsersAsync()
+        {
+            return await _refDataService.GetAsync<Пользователь>();
+        }
+
+        public async Task<List<UserDisplayDto>> GetUsersByRolesAsync(List<string> roles)
+        {
+            return (await _refDataService.GetAsync<UserDisplayDto>())
+                .Where(x => roles.Any(r => x.Роли.Contains(r))).ToList();
         }
 
         public async Task<АккаунтПользователя?> GetUserAccountAsync(Пользователь user)
@@ -47,25 +58,23 @@ namespace ArchiveFqp.Services.User
 
         public async Task<UserDisplayDto?> GetUserDisplayAsync(int idUser)
         {
-            return await _factoryUser.CreateDisplayDtoAsync(idUser);
+            return (await _refDataService.GetAsync<UserDisplayDto>()).FirstOrDefault(x => x.Пользователь.IdПользователя == idUser);
         }
 
         public async Task<UserDisplayDto> GetUserDisplayAsync(Пользователь user)
         {
-            return await _factoryUser.CreateDisplayDtoAsync(user);
+            return (await GetUserDisplayAsync(user.IdПользователя))!;
         }
 
         public async Task<List<UserDisplayDto>> GetUserDisplayAsync(List<int> idUsers)
         {
-            List<Пользователь> users = (await _refDataService.GetAsync<Пользователь>())
-                .Where(x => idUsers.Contains(x.IdПользователя))
-                .ToList();
-            return await GetUserDisplayAsync(users);
+            return (await _refDataService.GetAsync<UserDisplayDto>()).Where(x => idUsers.Contains(x.Пользователь.IdПользователя)).ToList();
         }
 
         public async Task<List<UserDisplayDto>> GetUserDisplayAsync(List<Пользователь> users)
         {
-            return await _factoryUser.CreateDisplayDtoAsync(users);
+            List<int> ids = users.Select(x => x.IdПользователя).ToList();
+            return await GetUserDisplayAsync(ids);
         }
 
         public async Task<TeacherDisplayDto?> GetTeacherDisplayAsync(int idUser)

@@ -216,15 +216,6 @@ namespace ArchiveFqp.Services.ReferenceData
             return await context.Set<T>().AsNoTracking().ToListAsync();
         }
 
-        /// <summary>
-        /// <inheritdoc cref="IReferenceDataService.GetAsync{T}(bool, bool)"/>
-        /// </summary>
-        /// <remarks>Также поддерживает такие DTO объекты как <see cref="AttributeValuesDto"/>
-        /// и <see cref="UserDisplayDto"/> (вместо <see cref="АккаунтПользователя"/>)</remarks>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="forceRefresh"></param>
-        /// <param name="onlyParentData"></param>
-        /// <returns><inheritdoc cref="IReferenceDataService.GetAsync{T}(bool, bool)"/></returns>
         public async Task<List<T>> GetAsync<T>(bool forceRefresh = false, bool onlyParentData = true) where T : class
         {
             string tableName = GetTableName<T>();
@@ -248,8 +239,17 @@ namespace ArchiveFqp.Services.ReferenceData
                 {
                     return av!;
                 }
-                await UpdateAttributeValuesAsync();
+                if (forceRefresh) await UpdateAttributeValuesAsync();
                 return _cache.Get<List<T>>(s_cacheAttributeValues)!;
+            }
+            else if (typeof(T).Name == typeof(UserDisplayDto).Name)
+            {
+                if (_cache.TryGetValue(s_cacheUserAccounts, out List<T>? av))
+                {
+                    return av!;
+                }
+                if (forceRefresh) await UpdateUserAccountAsync();
+                return _cache.Get<List<T>>(s_cacheUserAccounts)!;
             }
 
             cacheKey = GetCacheKey(tableName);
@@ -263,11 +263,6 @@ namespace ArchiveFqp.Services.ReferenceData
             return _cache.Get<List<T>>(cacheKey) ?? [];
         }
 
-        /// <summary>
-        /// <inheritdoc cref="IReferenceDataService.GetSnapshotAsync(bool)"/>
-        /// </summary>
-        /// <param name="forceRefresh"></param>
-        /// <returns></returns>
         public async Task<ReferenceDataSnapshot> GetSnapshotAsync(bool forceRefresh = false)
         {
             if (!forceRefresh && _cache.TryGetValue(s_cacheAllDataName, out ReferenceDataSnapshot? snapshot))

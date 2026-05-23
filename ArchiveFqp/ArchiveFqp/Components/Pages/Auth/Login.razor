@@ -2,8 +2,10 @@
 @using ArchiveFqp.Interfaces.Auth
 @using ArchiveFqp.Models.Auth
 @using ArchiveFqp.Services
+@using Microsoft.AspNetCore.Authorization
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Вход в систему</PageTitle>
 
@@ -45,6 +47,10 @@
                         <button type="submit" class="btn btn-primary w-100">
                             Войти
                         </button>
+
+                        <a href="/login-3kl" class="btn btn-primary w-100 mt-3">
+                            Авторизоваться через портал АГТУ
+                        </a>
                     </EditForm>
 
                     <div class="mt-3 text-center">
@@ -56,26 +62,21 @@
     </div>
 </div>
 
-<script>
-    function ChangeVisibilityPassword(name) {
-      var x = document.getElementById(name);
-      if (x.type === "password") {
-        x.type = "text";
-      } else {
-        x.type = "password";
-      }
-    }
-    
-</script>
-
 @code {
     [SupplyParameterFromForm]
     private LoginModel loginModel { get; set; } = null!;
-    private string? errorMessage;
 
-    protected override void OnInitialized()
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? errorMessage {get; set;}
+
+    protected override async Task OnInitializedAsync()
     {
         loginModel ??= new();
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
     }
 
     private async Task HandleLogin()

@@ -1,0 +1,100 @@
+﻿@page "/signin-3kl"
+@using ArchiveFqp.Services.Auth.ThreeKL
+@inject ThreeKlAuthService ThreeKlAuthService
+@inject NavigationManager Navigation
+@inject ILogger<SignIn> Logger
+@inject IHttpContextAccessor HttpContextAccessor
+
+@if (isProcessing)
+{
+    <div>Выполняется вход через 3KL...</div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@code {
+    private bool isProcessing = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            
+            var code = queryParams["code"];
+            var state = queryParams["state"];
+            var error = queryParams["error"];
+
+            // 1. Проверяем, не вернул ли 3KL ошибку
+            if (!string.IsNullOrEmpty(error))
+            {
+                Logger.LogError("3KL вернул ошибку: {Error}", error);
+                Navigation.NavigateTo($"/login?error=3kl_error_{error}", forceLoad: true);
+                return;
+            }
+
+            // 2. Проверяем state
+            var savedState = await GetSessionStateAsync();
+            if (state != savedState)
+            {
+                Logger.LogWarning("Несовпадение state. Ожидалось: {Expected}, получено: {Actual}", savedState, state);
+                Navigation.NavigateTo("/login?error=invalid_state", forceLoad: true);
+                return;
+            }
+
+            // 3. Проверяем код
+            if (string.IsNullOrEmpty(code))
+            {
+                Logger.LogError("3KL не вернул authorization code");
+                Navigation.NavigateTo("/login?error=no_code", forceLoad: true);
+                return;
+            }
+
+            // 4. Обмениваем код на токен
+            var tokens = await ThreeKlAuthService.ExchangeCodeForTokensAsync(code);
+            if (tokens == null || string.IsNullOrEmpty(tokens.AccessToken))
+            {
+                Logger.LogError("Не удалось получить access token");
+                Navigation.NavigateTo("/login?error=token_exchange_failed", forceLoad: true);
+                return;
+            }
+
+            // 5. Получаем данные пользователя
+            var userInfo = await ThreeKlAuthService.GetUserInfoAsync(tokens.AccessToken);
+            if (userInfo == null)
+            {
+                Logger.LogError("Не удалось получить данные пользователя из 3KL");
+                Navigation.NavigateTo("/login?error=userinfo_failed", forceLoad: true);
+                return;
+            }
+
+            // 6. Выполняем вход
+            var success = await ThreeKlAuthService.SignInWithThreeKlAsync(userInfo);
+            if (!success)
+            {
+                Logger.LogError("Не удалось выполнить вход для пользователя 3KL с ID: {UserId}", userInfo.Id);
+                Navigation.NavigateTo("/login?error=signin_failed", forceLoad: true);
+                return;
+            }
+
+            Logger.LogInformation("Успешный вход через 3KL для пользователя: {Email}", userInfo.Email);
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Ошибка при обработке ответа от 3KL");
+            Navigation.NavigateTo("/login?error=internal_error", forceLoad: true);
+        }
+    }
+
+    private async Task<string?> GetSessionStateAsync()
+    {
+        // Используем IHttpContextAccessor для доступа к сессии
+        var httpContextAccessor = HttpContextAccessor;
+        return httpContextAccessor.HttpContext?.Request.Cookies["OAuthState"];
+    }
+}

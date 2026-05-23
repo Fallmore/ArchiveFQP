@@ -1,0 +1,70 @@
+﻿@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Interfaces.Settings
+@using Microsoft.AspNetCore.SignalR.Client
+@using System.Security.Claims
+@implements IAsyncDisposable
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthProvider
+@rendermode @(new InteractiveServerRenderMode())
+
+@* Этот компонент должен быть добавлен в App.razor или MainLayout.razor *@
+
+@code {
+    private HubConnection? hubConnection;
+    private string currentUserId = "Unknown";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RendererInfo.IsInteractive)
+        {
+            // Инициализируем SignalR соединение
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri("/notificationHub"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            // Подписываемся на получение уведомлений
+            hubConnection.On<string, string, string>("ReceiveNotification", async (title, message, url) =>
+            {
+                // Дополнительно можно обновить состояние в Blazor
+                await JS.InvokeVoidAsync("notifications.showNotification", title, message, url);
+                await InvokeAsync(StateHasChanged);
+            });
+
+            // Дополнительный обработчик для системных сообщений
+            hubConnection.On<string, string, string>("Notification", async (title, message, url) =>
+            {
+                await JS.InvokeVoidAsync("notifications.showSystemNotification", title, message, url);
+                await InvokeAsync(StateHasChanged);
+            });
+
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            currentUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
+                            user.Identity?.Name ??
+                            "anonymous";
+
+            try
+            {
+                await hubConnection.StartAsync();
+                await hubConnection.InvokeAsync("SetUserId", currentUserId);
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine($"SignalR Error: {ex.Message}");
+            }
+
+            // Запрашиваем разрешение на уведомления
+            await JS.InvokeVoidAsync("notifications.requestNotificationPermission");
+        }
+    }
+    
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

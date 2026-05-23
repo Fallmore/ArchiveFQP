@@ -2,7 +2,7 @@
 
 namespace ArchiveFqp.Models.Settings.Institute
 {
-    public class SettingsInstitute
+    public class SettingsInstitute : BaseSettings
     {
         public List<SettingsDepartment> SettingsDepartments { get; set; } = new();
     }

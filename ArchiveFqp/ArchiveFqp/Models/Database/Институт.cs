@@ -12,7 +12,7 @@ public partial class Институт
 
     public virtual ICollection<Кафедра> Кафедраs { get; set; } = new List<Кафедра>();
 
-    public virtual ICollection<НастройкиИнститута> НастройкиИнститутаs { get; set; } = new List<НастройкиИнститута>();
+    public virtual НастройкиИнститута? НастройкиИнститута { get; set; }
 
     public virtual ICollection<Преподаватель> Преподавательs { get; set; } = new List<Преподаватель>();
 

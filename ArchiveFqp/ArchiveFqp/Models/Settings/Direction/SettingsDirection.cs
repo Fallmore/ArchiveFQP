@@ -2,7 +2,7 @@
 
 namespace ArchiveFqp.Models.Settings.Direction
 {
-    public class SettingsDirection
+    public class SettingsDirection : BaseSettings
     {
         public List<SettingsProfile> SettingsProfiles { get; set; } = new();
     }

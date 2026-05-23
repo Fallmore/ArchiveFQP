@@ -1,4 +1,6 @@
+using ArchiveFqp;
 using ArchiveFqp.Components;
+using ArchiveFqp.Hubs;
 using ArchiveFqp.Interfaces.Applications;
 using ArchiveFqp.Interfaces.Attributes;
 using ArchiveFqp.Interfaces.Auth;
@@ -7,6 +9,7 @@ using ArchiveFqp.Interfaces.FileUpload;
 using ArchiveFqp.Interfaces.Hash;
 using ArchiveFqp.Interfaces.PdfRender;
 using ArchiveFqp.Interfaces.ReferenceData;
+using ArchiveFqp.Interfaces.Settings;
 using ArchiveFqp.Interfaces.User;
 using ArchiveFqp.Interfaces.Work;
 using ArchiveFqp.Models.Auth;
@@ -15,16 +18,20 @@ using ArchiveFqp.Models.Settings.SettingsArchive;
 using ArchiveFqp.Services.Applications;
 using ArchiveFqp.Services.Attributes;
 using ArchiveFqp.Services.Auth;
+using ArchiveFqp.Services.Auth.ThreeKL;
 using ArchiveFqp.Services.DatabaseNotification;
 using ArchiveFqp.Services.ExpirationCheck;
 using ArchiveFqp.Services.FileUpload;
 using ArchiveFqp.Services.Hash;
+using ArchiveFqp.Services.Notifications;
 using ArchiveFqp.Services.PdfRender;
 using ArchiveFqp.Services.ReferenceData;
 using ArchiveFqp.Services.Report;
+using ArchiveFqp.Services.Settings;
 using ArchiveFqp.Services.User;
 using ArchiveFqp.Services.Work;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -36,6 +43,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
 
+builder.Services.AddSignalR();
 builder.Services.AddControllers();
 
 // Подключение к БД
@@ -53,6 +61,7 @@ builder.Services.AddSingleton<IReferenceDataService>(sp => sp.GetRequiredService
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ReferenceDataService>());
 builder.Services.AddHostedService<ExpirationCheckService>();
 
+builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IWorkService, WorkService>();
 builder.Services.AddScoped<IAttributeService, AttributeService>();
 builder.Services.AddScoped<IUserService, UserService>();
@@ -81,7 +90,22 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.AddHttpClient<ThreeKlAuthService>();
+builder.Services.AddScoped<ThreeKlAuthService>();
+
+builder.Services.AddDistributedMemoryCache();
+
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(20);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
 #endregion
+
+builder.Services.AddSingleton<UserConnectionManager>();
+builder.Services.AddScoped<NotificationService>();
 
 #region Загрузка файлов
 builder.Services.AddScoped<IHashService, Sha256HashService>();
@@ -131,12 +155,16 @@ else
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseSession();
+
+app.MapHub<NotificationHub>("/notificationHub");
 app.MapStaticAssets();
 app.MapControllers();
 app.MapRazorComponents<App>()

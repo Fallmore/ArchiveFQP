@@ -8,6 +8,19 @@ namespace ArchiveFqp.Interfaces.User
     public interface IUserService
     {
         /// <summary>
+        /// Получение пользователей
+        /// </summary>
+        /// <returns>Список пользователей</returns>
+        Task<List<Пользователь>> GetUsersAsync();
+
+        /// <summary>
+        /// Получение пользователя типа <see cref="UserDisplayDto"/> по фильтру по ролям
+        /// </summary>
+        /// <param name="roles">Список ролей</param>
+        /// <returns>Список пользователей</returns>
+        Task<List<UserDisplayDto>> GetUsersByRolesAsync(List<string> roles);
+
+        /// <summary>
         /// Получение пользователя
         /// </summary>
         /// <param name="idUser"></param>

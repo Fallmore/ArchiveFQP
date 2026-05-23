@@ -16,7 +16,7 @@ public partial class Кафедра
 
     public virtual ICollection<ЗаявлениеАтрибута> ЗаявлениеАтрибутаs { get; set; } = new List<ЗаявлениеАтрибута>();
 
-    public virtual ICollection<НастройкиКафедры> НастройкиКафедрыs { get; set; } = new List<НастройкиКафедры>();
+    public virtual НастройкиКафедры? НастройкиКафедры { get; set; }
 
     public virtual ICollection<Направление> Направлениеs { get; set; } = new List<Направление>();
 

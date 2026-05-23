@@ -149,22 +149,25 @@
 
     protected override async Task OnInitializedAsync()
     {
-        result = new()
+        if (RendererInfo.IsInteractive)
         {
-            PageSize = 5,
-            CurrentPage = 1
-        };
-        settings = new JsonSerializerSettings
-        {
-            ContractResolver = new DefaultContractResolver
+            result = new()
             {
-                NamingStrategy = new SnakeCaseNamingStrategy()
-            }
-        };
-        applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
-        await GetAttributeApplications();
-        _tablesChangedHandler = (s, e) => InvokeAsync(() => GetAttributeApplications(s, e));
-        RefDataService.TablesChanged += _tablesChangedHandler;
+                PageSize = 5,
+                CurrentPage = 1
+            };
+            settings = new JsonSerializerSettings
+            {
+                ContractResolver = new DefaultContractResolver
+                {
+                    NamingStrategy = new SnakeCaseNamingStrategy()
+                }
+            };
+            applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
+            await GetAttributeApplications();
+            _tablesChangedHandler = (s, e) => InvokeAsync(() => GetAttributeApplications(s, e));
+            RefDataService.TablesChanged += _tablesChangedHandler;
+        }
     }
 
     private async Task GetAttributeApplications()
@@ -188,7 +191,7 @@
 
             if (e.ChangeType == TableChangeType.Update)
             {
-                ЗаявлениеАтрибута? app = JsonConvert.DeserializeObject<ЗаявлениеАтрибута>(e.New!.ToString(), 
+                ЗаявлениеАтрибута? app = JsonConvert.DeserializeObject<ЗаявлениеАтрибута>(e.New!.ToString(),
                     new JsonSerializerSettings
                     { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } });
                 if (app == null) return;

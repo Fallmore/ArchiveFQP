@@ -561,10 +561,13 @@
             await GetTimeOperation("Загрузка справочников", LoadReferenceData);
             await GetTimeOperation("Поиск работ", SearchWorks);
 
-            minPage = FilteredResult?.Items?.Min(w => w.КоличСтраниц) ?? 1;
-            maxPage = FilteredResult?.Items?.Max(w => w.КоличСтраниц) ?? 200;
-            minYear = FilteredResult?.Items?.Min(w => WorkService.PickDateWork(w)) ?? 2000;
-            maxYear = FilteredResult?.Items?.Max(w => WorkService.PickDateWork(w)) ?? 2050;
+            if (FilteredResult?.Items != null && FilteredResult.Items.Count > 0)
+            {
+                minPage = FilteredResult?.Items.Min(w => w.КоличСтраниц) ?? 1;
+                maxPage = FilteredResult?.Items.Max(w => w.КоличСтраниц) ?? 200;
+                minYear = FilteredResult?.Items.Min(w => WorkService.PickDateWork(w)) ?? 2000;
+                maxYear = FilteredResult?.Items.Max(w => WorkService.PickDateWork(w)) ?? 2050;
+            }
         }
 
     }

@@ -99,9 +99,7 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("аккаунт_пользователя");
 
-            entity.HasIndex(e => e.Логин, "idx_account_login");
-
-            entity.HasIndex(e => e.IdПользователя, "idx_account_user");
+            entity.HasIndex(e => e.Логин, "аккаунт_пользователя_логин_key").IsUnique();
 
             entity.HasIndex(e => e.IdПользователя, "аккаунт_пользова_id_пользователя_key").IsUnique();
 
@@ -710,7 +708,7 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("настройки_института");
 
-            entity.HasIndex(e => e.IdИнститута, "idx_settings_inst_inst");
+            entity.HasIndex(e => e.IdИнститута, "настройки_института_id_института_key").IsUnique();
 
             entity.Property(e => e.IdНастройки).HasColumnName("id_настройки");
             entity.Property(e => e.IdИнститута).HasColumnName("id_института");
@@ -718,8 +716,9 @@ public partial class ArchiveFqpContext : DbContext
                 .HasColumnType("json")
                 .HasColumnName("настройки");
 
-            entity.HasOne(d => d.IdИнститутаNavigation).WithMany(p => p.НастройкиИнститутаs)
-                .HasForeignKey(d => d.IdИнститута)
+            entity.HasOne(d => d.IdИнститутаNavigation).WithOne(p => p.НастройкиИнститута)
+                .HasForeignKey<НастройкиИнститута>(d => d.IdИнститута)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("настройки_институт_id_института_fkey");
         });
 
@@ -729,7 +728,7 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("настройки_кафедры");
 
-            entity.HasIndex(e => e.IdКафедры, "idx_settings_dep_dep");
+            entity.HasIndex(e => e.IdКафедры, "настройки_кафедры_id_кафедры_key").IsUnique();
 
             entity.Property(e => e.IdНастройки).HasColumnName("id_настройки");
             entity.Property(e => e.IdКафедры).HasColumnName("id_кафедры");
@@ -737,8 +736,9 @@ public partial class ArchiveFqpContext : DbContext
                 .HasColumnType("json")
                 .HasColumnName("настройки");
 
-            entity.HasOne(d => d.IdКафедрыNavigation).WithMany(p => p.НастройкиКафедрыs)
-                .HasForeignKey(d => d.IdКафедры)
+            entity.HasOne(d => d.IdКафедрыNavigation).WithOne(p => p.НастройкиКафедры)
+                .HasForeignKey<НастройкиКафедры>(d => d.IdКафедры)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("настройки_кафедры_id_кафедры_fkey");
         });
 
@@ -748,7 +748,7 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.ToTable("настройки_пользователя");
 
-            entity.HasIndex(e => e.IdПользователя, "idx_settings_user_user");
+            entity.HasIndex(e => e.IdПользователя, "настройки_польз_id_пользователя_key").IsUnique();
 
             entity.Property(e => e.IdНастройки).HasColumnName("id_настройки");
             entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
@@ -756,8 +756,9 @@ public partial class ArchiveFqpContext : DbContext
                 .HasColumnType("json")
                 .HasColumnName("настройки");
 
-            entity.HasOne(d => d.IdПользователяNavigation).WithMany(p => p.НастройкиПользователяs)
-                .HasForeignKey(d => d.IdПользователя)
+            entity.HasOne(d => d.IdПользователяNavigation).WithOne(p => p.НастройкиПользователя)
+                .HasForeignKey<НастройкиПользователя>(d => d.IdПользователя)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("настройки_польз_id_пользователя_fkey");
         });
 

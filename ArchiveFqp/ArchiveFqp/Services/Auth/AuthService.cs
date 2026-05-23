@@ -118,7 +118,7 @@ namespace ArchiveFqp.Services.Auth
             List<Claim> claims = [
                 new Claim(ClaimTypes.NameIdentifier, account.IdПользователя.ToString()),
                 new Claim(ClaimTypes.Name, $"{account.IdПользователяNavigation.Фамилия} {account.IdПользователяNavigation.Имя}"),
-                new Claim("login", model.Login)];
+                ];
 
             // Добавляем роли в claims
             foreach (string role in roleNames)

@@ -1,0 +1,19 @@
+﻿@page "/login-3kl"
+@using ArchiveFqp.Services.Auth.ThreeKL
+@inject ThreeKlAuthService ThreeKlAuthService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+
+        var authUrl = ThreeKlAuthService.GetAuthorizationUrl();
+        Navigation.NavigateTo(authUrl, forceLoad: true);
+    }
+}

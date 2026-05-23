@@ -151,7 +151,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        @if (RendererInfo.IsInteractive)
+        if (RendererInfo.IsInteractive)
         {
             result = new()
             {
@@ -206,10 +206,7 @@
             if (user.IsInRole(Settings.RoleInstituteResponsibleName))
             {
                 return filtered
-                    .Where(x =>
-                        (x.ПользовательСтудент != null
-                        ? x.ПользовательСтудент.Структура.Институт.IdИнститута == teacher.IdИнститута
-                        : x.ПользовательПреподаватель!.Структура.Институт.IdИнститута == teacher.IdИнститута)
+                    .Where(x => x.Работа.Студент.Структура.Институт.IdИнститута == teacher.IdИнститута
                         && // Даем проверять заявления, доступные для всех или выше кафедры
                         (x.Работа.ДоступРаботы.Название == Settings.WorkAccessOrganization
                         || x.Работа.ДоступРаботы.Название == Settings.WorkAccessInstitute
@@ -220,11 +217,7 @@
             if (user.IsInRole(Settings.RoleDepartmentHeadName) || user.IsInRole(Settings.RoleDepartmentResponsibleName))
             {
                 return filtered
-                    .Where(x =>
-                        x.ПользовательСтудент != null
-                        ? x.ПользовательСтудент.Структура.Кафедра.IdКафедры == teacher.IdКафедры
-                        : x.ПользовательПреподаватель!.Структура.Кафедра.IdКафедры == teacher.IdКафедры
-                    ).ToList();
+                    .Where(x => x.Работа.Студент.Структура.Кафедра.IdКафедры == teacher.IdКафедры).ToList();
             }
 
             return [];

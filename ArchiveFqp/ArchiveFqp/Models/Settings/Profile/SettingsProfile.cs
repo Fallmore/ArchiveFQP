@@ -1,6 +1,6 @@
 ﻿namespace ArchiveFqp.Models.Settings.Profile
 {
-    public class SettingsProfile
+    public class SettingsProfile : BaseSettings
     {
     }
 }

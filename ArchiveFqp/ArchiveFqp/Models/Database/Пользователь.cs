@@ -18,7 +18,7 @@ public partial class Пользователь
 
     public virtual АккаунтПользователя? АккаунтПользователя { get; set; }
 
-    public virtual ICollection<НастройкиПользователя> НастройкиПользователяs { get; set; } = new List<НастройкиПользователя>();
+    public virtual НастройкиПользователя? НастройкиПользователя { get; set; }
 
     public virtual ICollection<СеансПользователя> СеансПользователяs { get; set; } = new List<СеансПользователя>();
 

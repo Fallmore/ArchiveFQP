@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Components.Forms;
+﻿using ArchiveFqp.Models.DTO.Structure;
+using Microsoft.AspNetCore.Components.Forms;
 
 namespace ArchiveFqp.Interfaces.FileUpload
 {
@@ -7,11 +8,7 @@ namespace ArchiveFqp.Interfaces.FileUpload
     /// </summary>
     public interface IFileUploadContext
     {
-        string Institute { get; }
-        string Department { get; }
-        string UgsnStandard { get; }
-        string Direction { get; }
-        string? Profile { get; }
+        StructureDto Structure { get; }
         string WorkType { get; }
         int Year { get; }
         string StudentName { get; }

@@ -3,12 +3,14 @@ using ArchiveFqp.Interfaces;
 using ArchiveFqp.Interfaces.Applications;
 using ArchiveFqp.Interfaces.Attributes;
 using ArchiveFqp.Interfaces.ReferenceData;
+using ArchiveFqp.Interfaces.User;
 using ArchiveFqp.Interfaces.Work;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Work;
 using ArchiveFqp.Models.DTO.WorkApplication;
 using ArchiveFqp.Models.Settings.SettingsArchive;
 using ArchiveFqp.Services.Attributes;
+using ArchiveFqp.Services.User;
 using DocumentFormat.OpenXml.Drawing;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,16 +21,18 @@ namespace ArchiveFqp.Services.Applications
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
         private readonly IAttributeService _attributeService;
         private readonly IReferenceDataService _refDataService;
+        private readonly IUserService _userService;
         private readonly IWorkService _workService;
         private SettingsArchive _settings;
 
         public ApplicationsService(IDbContextFactory<ArchiveFqpContext> dbFactory, IAttributeService attributeService,
-            IReferenceDataService referenceDataService, IWorkService workService,
+            IReferenceDataService referenceDataService, IUserService userService, IWorkService workService,
             SettingsArchive settings)
         {
             _dbFactory = dbFactory;
             _refDataService = referenceDataService;
             _attributeService = attributeService;
+            _userService = userService;
             _workService = workService;
             _settings = settings;
             _settings.SettingsChanged += SettingsChanged;
@@ -57,7 +61,7 @@ namespace ArchiveFqp.Services.Applications
         public async Task<WorkApplicationDto> GetWorkApplicationAsync(ЗаявлениеРаботы app, List<Консультант>? consultants = null, List<Рецензент>? reviewers = null)
         {
             WorkDisplayDto work = await _workService.GetWorkDisplayAsync(app.IdРаботы, consultants, reviewers);
-            WorkApplicationDtoFactory factory = new(_dbFactory, _refDataService);
+            WorkApplicationDtoFactory factory = new(_dbFactory, _userService, _refDataService);
             return await factory.CreateDisplayDtoAsync(app, work);
         }
 

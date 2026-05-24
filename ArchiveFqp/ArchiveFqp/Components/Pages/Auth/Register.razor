@@ -40,34 +40,34 @@
                             <DataAnnotationsValidator />
 
                             <div class="row">
-                                <div class="col mx-4">
-                                    <div class="row mb-3">
+                                <div class="col-md-4 mx-4">
+                                    <div class="row mb-1">
                                         <label for="surname" class="form-label mb-0 fw-bold">Фамилия <span class="text-danger">*</span></label>
                                         <InputText @bind-Value="registerModel.Surname" class="form-control" id="surname" />
                                         <ValidationMessage For="() => registerModel.Surname" />
                                     </div>
 
-                                    <div class="row mb-3">
+                                    <div class="row mb-1">
                                         <label for="name" class="form-label mb-0 fw-bold">Имя <span class="text-danger">*</span></label>
                                         <InputText @bind-Value="registerModel.Name" class="form-control" id="name" />
                                         <ValidationMessage For="() => registerModel.Name" />
                                     </div>
-                                    <div class="row mb-3">
+                                    <div class="row mb-1">
                                         <label for="patronymic" class="form-label mb-0 fw-bold">Отчество</label>
                                         <InputText @bind-Value="registerModel.Patronymic" class="form-control" id="patronymic" />
                                     </div>
 
-                                    <div class="row mb-3">
+                                    <div class="row mb-1">
                                         <label for="email" class="form-label mb-0 fw-bold">Email</label>
                                         <InputText @bind-Value="registerModel.Email" type="email" class="form-control" id="email" />
                                         <ValidationMessage For="() => registerModel.Email" />
                                     </div>
-                                    <div class="row mb-3">
+                                    <div class="row mb-1">
                                         <label for="reg-login" class="form-label mb-0 fw-bold">Логин <span class="text-danger">*</span></label>
                                         <InputText @bind-Value="registerModel.Login" class="form-control" id="reg-login" />
                                         <ValidationMessage For="() => registerModel.Login" />
                                     </div>
-                                    <div class="row mb-3">
+                                    <div class="row mb-1">
                                         <label for="reg-password" class="form-label mb-0 fw-bold">Пароль <span class="text-danger">*</span></label>
                                         <div class="input-group" style="padding:0; border-right-color:transparent">
                                             <InputText @bind-Value="registerModel.Password" type="password" class="form-control" style="border-right-color:transparent" id="reg-password" />
@@ -89,92 +89,155 @@
                                         </div>
                                         <ValidationMessage For="() => registerModel.ConfirmPassword" />
                                     </div>
-                                    <div class="row mb-3">
-                                    </div>
                                 </div>
-                                <div class="col mx-4">
-                                    <div class="row mb-3">
-                                        <label class="form-label mb-0 fw-bold">Кто Вы?</label>
-                                        <select class="form-select" @bind="registerModel.IsStudent">
-                                            <option value="@true">Я студент</option>
-                                            <option value="@false">Я преподаватель</option>
-                                            <option value="">Я просто хочу зарегистрироваться</option>
-                                        </select>
+                                <div class="col-md-7 mx-2">
+                                    <div class="row mb-1">
+                                        <div class="col-md-8" style="padding-left:0px">
+                                            <label class="form-label mb-0 fw-bold mx-2">Кто Вы?</label>
+                                            <select class="form-select" @bind="registerModel.UserType">
+                                                <option value="@UserType.Student">Я студент</option>
+                                                <option value="@UserType.Teacher">Я преподаватель</option>
+                                                <option value="@UserType.None">Я просто хочу зарегистрироваться</option>
+                                            </select>
+                                        </div>
+                                        @if (registerModel.UserType == UserType.Student)
+                                        {
+                                            <div class="col-md-4" style="padding-right:0px">
+                                                <label class="form-label mb-0 fw-bold mx-2">Год выпуска <span class="text-danger">*</span></label>
+                                                <InputSelect class="form-select" @bind-Value="registerModel.YearGraduation">
+                                                    <option value=""></option>
+                                                    @for (int year = DateTime.Now.Year+15; year >= DateTime.Now.Year - 50; year--)
+                                                    {
+                                                        <option value="@year">@year</option>
+                                                    }
+                                                </InputSelect>
+                                                <ValidationMessage For="() => registerModel.YearGraduation" />
+                                            </div>
+                                        }
                                     </div>
 
-                                    <div class="row mb-3">
-                                        <label class="form-label mb-0 fw-bold">Институт <span class="text-danger">*</span></label>
-                                        <select class="form-select" @bind="registerModel.IdInstitute">
-                                            <option value="">Выберите институт</option>
-                                            @foreach (var institute in snapshot.Institutes)
-                                            {
-                                                <option value="@institute.IdИнститута">@institute.Название</option>
-                                            }
-                                        </select>
-                                        <ValidationMessage For="() => registerModel.IdInstitute" />
-                                    </div>
-                                    <div class="row mb-3">
-                                        <label class="form-label mb-0 fw-bold">Кафедра <span class="text-danger">*</span></label>
-                                        <select class="form-select" @bind="registerModel.IdDepartment"
-                                                disabled="@(registerModel.IdInstitute == null)">
-                                            <option value="">Выберите кафедру</option>
-                                            @foreach (var department in snapshot.Departments.Where(x => x.IdИнститута == registerModel.IdInstitute).OrderBy(x => x.Название))
-                                            {
-                                                <option value="@department.IdКафедры">@department.Название</option>
-                                            }
-                                        </select>
-                                        <ValidationMessage For="() => registerModel.IdDepartment" />
-                                    </div>
-
-                                    @if (registerModel.IsStudent != null && registerModel.IsStudent == true)
+                                    @if (registerModel.UserType != UserType.None)
                                     {
-                                        <div class="row mb-3">
-                                            <div class="col-md-6">
-                                                <label class="form-label mb-0 fw-bold">Стандарт УГСН <span class="text-danger">*</span></label>
-                                                <InputSelect class="form-select" @bind-Value="idUgsnStandard"
-                                                             disabled="@(registerModel.IdDepartment == null)">
-                                                    <option value="0"></option>
-                                                    @foreach (var standard in snapshot.UgsnStandards.OrderBy(x => x.Название))
-                                                    {
-                                                        <option value="@standard.IdУгснСтандарта">@standard.Название</option>
-                                                    }
-                                                </InputSelect>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label mb-0 fw-bold">УГСН <span class="text-danger">*</span></label>
-                                                <InputSelect class="form-select" @bind-Value="idUgsn"
-                                                             disabled="@(idUgsnStandard == 0)">
-                                                    <option value="0"></option>
-                                                    @foreach (var ugsn in snapshot.Ugsns.Where(x => x.IdУгснСтандарта == idUgsnStandard).OrderBy(x => x.Название))
-                                                    {
-                                                        <option value="@ugsn.IdУгсн">@ugsn.Название</option>
-                                                    }
-                                                </InputSelect>
-                                            </div>
-                                        </div>
-                                        <div class="row mb-3">
-                                            <label class="form-label mb-0 fw-bold">Направление <span class="text-danger">*</span></label>
-                                            <select class="form-select" @bind="registerModel.IdDirection"
-                                                    disabled="@(idUgsn == 0)">
-                                                <option value="">Выберите направление</option>
-                                                @foreach (var direction in snapshot.Directions.Where(x => x.IdКафедры == registerModel.IdDepartment && x.IdУгсн == idUgsn).OrderBy(x => x.Название))
+                                        <div class="row mb-1">
+                                            <label class="form-label mb-0 fw-bold">Институт <span class="text-danger">*</span></label>
+                                            <select class="form-select" @bind="registerModel.IdInstitute">
+                                                <option value="">Выберите институт</option>
+                                                @foreach (var institute in snapshot.Institutes)
                                                 {
-                                                    <option value="@direction.IdНаправления">@direction.Название</option>
+                                                    <option value="@institute.IdИнститута">@institute.Название</option>
                                                 }
                                             </select>
-                                            <ValidationMessage For="() => registerModel.IdDirection" />
+                                            <ValidationMessage For="() => registerModel.IdInstitute" />
                                         </div>
-                                        <div class="row mb-3">
-                                            <label class="form-label mb-0 fw-bold">Профиль</label>
-                                            <select class="form-select" @bind="registerModel.IdProfile"
-                                                    disabled="@(registerModel.IdDirection == null)">
-                                                <option value="">Выберите профиль</option>
-                                                @foreach (var profile in snapshot.Profiles.Where(x => x.IdНаправления == registerModel.IdDirection).OrderBy(x => x.Название))
+                                        <div class="row mb-1">
+                                            <label class="form-label mb-0 fw-bold">Кафедра <span class="text-danger">*</span></label>
+                                            <select class="form-select" @bind="registerModel.IdDepartment"
+                                                    disabled="@(registerModel.IdInstitute == null)">
+                                                <option value="">Выберите кафедру</option>
+                                                @foreach (var department in snapshot.Departments.Where(x => x.IdИнститута == registerModel.IdInstitute).OrderBy(x => x.Название))
                                                 {
-                                                    <option value="@profile.IdПрофиля">@profile.Название</option>
+                                                    <option value="@department.IdКафедры">@department.Название</option>
                                                 }
                                             </select>
+                                            <ValidationMessage For="() => registerModel.IdDepartment" />
                                         </div>
+                                        
+                                        if (registerModel.UserType == UserType.Teacher)
+                                        {
+                                            <div class="row mb-1">
+                                                <div class="col-md-6" style="padding-left:0px">
+                                                    <label class="form-label mb-0 fw-bold mx-2">Должность <span class="text-danger">*</span></label>
+                                                    <InputSelect class="form-select" @bind-Value="registerModel.IdPost">
+                                                        <option value="0"></option>
+                                                        @foreach (var post in snapshot.Posts.OrderBy(x => x.Название))
+                                                        {
+                                                            <option value="@post.IdДолжности">@post.Название</option>
+                                                        }
+                                                    </InputSelect>
+                                                    <ValidationMessage For="() => registerModel.IdPost" />
+                                                </div>
+                                            </div>
+                                        }
+                                        else if (registerModel.UserType == UserType.Student)
+                                        {
+                                            <div class="row mb-1">
+                                                <div class="col-md-6" style="padding-left:0px">
+                                                    <label class="form-label mb-0 fw-bold mx-2">Стандарт УГСН <span class="text-danger">*</span></label>
+                                                    <InputSelect class="form-select" @bind-Value="idUgsnStandard"
+                                                                 disabled="@(registerModel.IdDepartment == null)">
+                                                        <option value="0"></option>
+                                                        @foreach (var standard in snapshot.UgsnStandards.OrderBy(x => x.Название))
+                                                        {
+                                                            <option value="@standard.IdУгснСтандарта">@standard.Название</option>
+                                                        }
+                                                    </InputSelect>
+                                                </div>
+                                                <div class="col-md-6" style="padding-right:0px">
+                                                    <label class="form-label mb-0 fw-bold mx-2">УГСН <span class="text-danger">*</span></label>
+                                                    <InputSelect class="form-select" @bind-Value="idUgsn"
+                                                                 disabled="@(idUgsnStandard == 0)">
+                                                        <option value="0"></option>
+                                                        @{
+                                                            List<int> idUgsns = snapshot.Directions
+                                                                .Where(d => d.IdКафедры == registerModel.IdDepartment)
+                                                                .Select(x => x.IdУгсн).ToList();
+                                                            var filteredUgsns = snapshot.Ugsns.Where(x => x.IdУгснСтандарта == idUgsnStandard && idUgsns.Contains(x.IdУгсн)).OrderBy(x => x.Название);
+                                                            foreach (var ugsn in filteredUgsns)
+                                                            {
+                                                                <option value="@ugsn.IdУгсн">@ugsn.Название</option>
+                                                            }
+                                                        }
+                                                    </InputSelect>
+                                                </div>
+                                            </div>
+                                            <div class="row mb-1">
+                                                <label class="form-label mb-0 fw-bold">Направление <span class="text-danger">*</span></label>
+                                                <select class="form-select" @bind="registerModel.IdDirection"
+                                                        disabled="@(idUgsn == 0)">
+                                                    <option value="">Выберите направление</option>
+                                                    @foreach (var direction in snapshot.Directions.Where(x => x.IdКафедры == registerModel.IdDepartment && x.IdУгсн == idUgsn).OrderBy(x => x.Название))
+                                                    {
+                                                        <option value="@direction.IdНаправления">@direction.Название</option>
+                                                    }
+                                                </select>
+                                                <ValidationMessage For="() => registerModel.IdDirection" />
+                                            </div>
+                                            <div class="row mb-1">
+                                                <label class="form-label mb-0 fw-bold">Профиль</label>
+                                                <select class="form-select" @bind="registerModel.IdProfile"
+                                                        disabled="@(registerModel.IdDirection == null)">
+                                                    <option value="">Выберите профиль</option>
+                                                    @foreach (var profile in snapshot.Profiles.Where(x => x.IdНаправления == registerModel.IdDirection).OrderBy(x => x.Название))
+                                                    {
+                                                        <option value="@profile.IdПрофиля">@profile.Название</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <div class="col-md-6" style="padding-left:0px">
+                                                    <label class="form-label mb-0 fw-bold mx-2">Уровень образования <span class="text-danger">*</span></label>
+                                                    <InputSelect class="form-select" @bind-Value="registerModel.IdEducationLevel">
+                                                        <option value=""></option>
+                                                        @foreach (var level in snapshot.EducationLevels.OrderBy(x => x.Название))
+                                                        {
+                                                            <option value="@level.IdУровняОбразования">@level.Название</option>
+                                                        }
+                                                    </InputSelect>
+                                                    <ValidationMessage For="() => registerModel.IdEducationLevel" />
+                                                </div>
+                                                <div class="col-md-6" style="padding-right:0px">
+                                                    <label class="form-label mb-0 fw-bold mx-2">Форма обучения <span class="text-danger">*</span></label>
+                                                    <InputSelect class="form-select" @bind-Value="registerModel.IdEducationForm">
+                                                        <option value=""></option>
+                                                        @foreach (var form in snapshot.EducationForms.OrderBy(x => x.Название))
+                                                        {
+                                                            <option value="@form.IdФормыОбучения">@form.Название</option>
+                                                        }
+                                                    </InputSelect>
+                                                    <ValidationMessage For="() => registerModel.IdEducationForm" />
+                                                </div>
+                                            </div>
+                                        }
                                     }
                                 </div>
                             </div>
@@ -244,19 +307,6 @@
             {
                 Navigation.NavigateTo("/login");
                 successMessage = result.Message;
-                // // Автоматически входим после регистрации
-                // var loginResult = await AuthService.LoginAsync(new LoginModel
-                // {
-                //     Login = registerModel.Login,
-                //     Password = registerModel.Password
-                // });
-                
-                // if (loginResult.Success)
-                // {
-                //     // await AuthStateProvider.SetTokenAsync(loginResult.Token!);
-                //     await Task.Delay(1000);
-                //     Navigation.NavigateTo("/");
-                // }
             }
             else
             {
@@ -279,12 +329,25 @@
         messageStore?.Clear();
 
 #pragma warning disable CS8603 // Возможно, возврат ссылки, допускающей значение NULL.
-        if (registerModel.IsStudent != null && registerModel.IsStudent == true && registerModel.IdDirection == null)
+        if (registerModel.UserType == UserType.Student)
         {
-            messageStore?.Add(() => registerModel.IdDirection, "Выберите направление");
+            if (registerModel.IdDirection == null)
+                messageStore?.Add(() => registerModel.IdDirection, "Выберите направление");
+
+            if (registerModel.IdEducationForm == null)
+                messageStore?.Add(() => registerModel.IdEducationForm, "Выберите форму обучения");
+
+            if (registerModel.IdEducationLevel == null)
+                messageStore?.Add(() => registerModel.IdEducationLevel, "Выберите уровень образования");
+
+            if (registerModel.YearGraduation == null)
+                messageStore?.Add(() => registerModel.YearGraduation, "Выберите год выпуска");
         }
-    
-    
+        else if (registerModel.UserType == UserType.Teacher)
+        {
+            if (registerModel.IdPost == null)
+                messageStore?.Add(() => registerModel.IdPost, "Выберите должность");
+        }
 #pragma warning restore CS8603
     }
 

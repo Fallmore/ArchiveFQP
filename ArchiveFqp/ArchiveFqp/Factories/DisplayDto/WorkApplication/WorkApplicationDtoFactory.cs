@@ -2,6 +2,7 @@
 using ArchiveFqp.Factories.DisplayDto.Teacher;
 using ArchiveFqp.Factories.DisplayDto.Work;
 using ArchiveFqp.Interfaces.ReferenceData;
+using ArchiveFqp.Interfaces.User;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Work;
 using ArchiveFqp.Models.DTO.WorkApplication;
@@ -14,6 +15,7 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
     {
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
         private readonly IReferenceDataService _refDataService;
+        private readonly IUserService _userService;
         private readonly WorkDtoFactory _workDtoFactory;
         private readonly StudentDtoFactory _studentDtoFactory;
         private readonly TeacherDtoFactory _teacherDtoFactory;
@@ -25,9 +27,10 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
         private Task _init;
 
         public WorkApplicationDtoFactory(IDbContextFactory<ArchiveFqpContext> dbFactory,
-            IReferenceDataService refDataService)
+            IUserService userService, IReferenceDataService refDataService)
         {
             _dbFactory = dbFactory;
+            _userService = userService;
             _refDataService = refDataService;
             _studentDtoFactory = new(refDataService);
             _teacherDtoFactory = new(refDataService);
@@ -58,8 +61,8 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
         public async Task<WorkApplicationDto> CreateDisplayDtoAsync(ЗаявлениеРаботы wApps, WorkDisplayDto work)
         {
             _init.Wait();
-            Студент? student = _snapshot.Students.FirstOrDefault(o => o.IdПользователя == wApps.IdПользователя);
-            Преподаватель? teacher = _snapshot.Teachers.FirstOrDefault(o => o.IdПользователя == wApps.IdПользователя);
+            Студент? student = await _userService.GetStudentAsync(wApps.IdПользователя);
+            Преподаватель? teacher = await _userService.GetTeacherAsync(wApps.IdПользователя);
             return new()
             {
                 IdЗаявления = wApps.IdЗаявления,

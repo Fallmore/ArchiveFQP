@@ -39,5 +39,12 @@ namespace ArchiveFqp.Models.DTO.Structure
                 _ => throw new ArgumentException("Класс должен быть 1 из Институт, Кафедра, Направление, Профиль"),
             };
         }
+
+        public static string Abbreviate(string input, bool withAnd = false)
+                => string.Join(string.Empty, input.Split([' ', '-'], StringSplitOptions.RemoveEmptyEntries)
+                                // Убираем частицы и, в, во, или если withAnd, то допускаем и
+                                .Where(s => (withAnd && s == "и") || s.Length > 2)
+                                // Оставляем код направления, если это направление, а в остальных случаях пишем аббревиатуры
+                                .Select(s => (s.Length == 8 && s.Contains('.')) ? s + " " : s[..1])).ToUpper();
     }
 }

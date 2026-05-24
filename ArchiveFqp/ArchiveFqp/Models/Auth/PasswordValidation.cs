@@ -27,22 +27,22 @@ namespace ArchiveFqp.Models.Auth
             if (string.IsNullOrWhiteSpace(password))
                 errMessage = "Пароль не может быть пустым";
 
-            if (password.Trim() != password)
+            else if (password.Trim() != password)
                 errMessage = "Пароль должен быть без пробелов";
 
-            if (password.Length < _minLength)
+            else if (password.Length < _minLength)
                 errMessage = $"Пароль должен иметь больше {_minLength} символов";
 
-            if (_requireDigit && !password.Any(char.IsDigit))
+            else if (_requireDigit && !password.Any(char.IsDigit))
                 errMessage = "Пароль должен иметь хотя бы одну цифру";
 
-            if (_requireLowercase && !password.Any(char.IsLower))
+            else if (_requireLowercase && !password.Any(char.IsLower))
                 errMessage = "Пароль должен иметь хотя бы одну прописную букву";
 
-            if (_requireUppercase && !password.Any(char.IsUpper))
+            else if (_requireUppercase && !password.Any(char.IsUpper))
                 errMessage = "Пароль должен иметь хотя бы одну заглавную букву";
 
-            if (_requireNonAlphanumeric && !password.Any(c => !char.IsLetterOrDigit(c)))
+            else if (_requireNonAlphanumeric && !password.Any(c => !char.IsLetterOrDigit(c)))
                 errMessage = "Пароль должен иметь хотя бы один сторонний символ (не алфавита и не цифры)";
 
             if (errMessage != null)

@@ -1,4 +1,9 @@
 ﻿using ArchiveFqp.Hubs;
+using ArchiveFqp.Interfaces.Settings;
+using ArchiveFqp.Models.Database;
+using ArchiveFqp.Models.Settings.User;
+using ArchiveFqp.Services.Settings;
+using DocumentFormat.OpenXml.Office2010.Excel;
 using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
 
@@ -8,17 +13,20 @@ namespace ArchiveFqp.Services.Notifications
     {
         private readonly IHubContext<NotificationHub> _hubContext;
         private readonly UserConnectionManager _connectionManager;
+        private readonly ISettingsService _settingsService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<NotificationService> _logger;
 
         public NotificationService(
             IHubContext<NotificationHub> hubContext,
             UserConnectionManager connectionManager,
+            ISettingsService settingsService,
             IHttpContextAccessor httpContextAccessor,
             ILogger<NotificationService> logger)
         {
             _hubContext = hubContext;
             _connectionManager = connectionManager;
+            _settingsService = settingsService;
             _httpContextAccessor = httpContextAccessor;
             _logger = logger;
         }
@@ -37,10 +45,24 @@ namespace ArchiveFqp.Services.Notifications
                 }
                 //_logger.LogInformation($"Уведомление отправлено пользователю {userId} через {connectionIds.Count} соединений");
             }
-            else
+            else // Отправка письма, если пользователь не на сайте
             {
-                _logger.LogWarning("Пользователь {userId} не найден в активных соединениях", userId);
-                throw new Exception($"User {userId} is not connected");
+                НастройкиПользователя? userSettings = await _settingsService.GetSettings<НастройкиПользователя>(int.Parse(userId));
+                if (userSettings != null)
+                {
+                    SettingsUser? settings = await _settingsService.GetSettingsJson<SettingsUser>(userSettings?.Настройки ?? "");
+                    if (settings != null)
+                    {
+                        if (settings.ReceiveEmailNotifications)
+                        {
+                            //TODO отправка письма на почту
+                        }
+                    }
+                    else
+                    {
+                        //TODO отправка письма на почту
+                    }
+                }
             }
         }
 

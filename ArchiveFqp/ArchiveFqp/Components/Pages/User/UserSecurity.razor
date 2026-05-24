@@ -1,6 +1,8 @@
 ﻿@using ArchiveFqp.Models.Auth
 @using ArchiveFqp.Interfaces.Auth
+@using System.Security.Claims
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
 @inject IAuthService AuthService
 
 @if (User == null)
@@ -18,54 +20,63 @@ else
         <div class="alert alert-success">@successMessage</div>
     }
 
-    <EditForm EditContext="editContext" OnValidSubmit="@HandleValidSubmit" FormName="userSecurityEdit">
-        <DataAnnotationsValidator />
-
-        <div class="row mb-1">
-            <!-- Старый пароль -->
-            <div class="col">
-                <label class="form-label mb-0 mx-1 fw-bold">Старый пароль</label>
-                <div class="input-group" style="padding:0; border-right-color:transparent">
-                    <InputText @bind-Value="model.OldPassword" type="password" class="form-control input-password" style="border-right-color:transparent" id="old-password" />
-                    <div class="input-group-text" style="border-left-color:transparent; background-color:transparent;">
-                        <input id="eye" class="form-check-input checkbox-password" style="border-color:transparent" type="checkbox" onclick="ChangeVisibilityPassword('old-password')">
-                        <label for="eye"></label>
-                    </div>
-                </div>
-                <ValidationMessage For="() => model.OldPassword" />
-            </div>
-            <div class="col">
-                <!-- Новый пароль -->
-                <label class="form-label mb-0 mx-1 fw-bold">Новый пароль</label>
-                <div class="input-group" style="padding:0; border-right-color:transparent">
-                    <InputText @bind-Value="model.NewPassword" type="password" class="form-control input-password" style="border-right-color:transparent" id="new-password" />
-                    <div class="input-group-text" style="border-left-color:transparent; background-color:transparent;">
-                        <input id="eye-new" class="form-check-input checkbox-password" style="border-color:transparent" type="checkbox" onclick="ChangeVisibilityPassword('new-password')">
-                        <label for="eye-new"></label>
-                    </div>
-                </div>
-                <ValidationMessage For="() => model.NewPassword" />
-            </div>
-            <div class="col">
-                <!-- Подтвердите пароль -->
-                <label class="form-label mb-0 mx-1 fw-bold">Подтвердите пароль</label>
-                <div class="input-group" style="padding:0; border-right-color:transparent">
-                    <InputText @bind-Value="model.ConfirmPassword" type="password" class="form-control input-password" style="border-right-color:transparent" id="confirm-password" />
-                    <div class="input-group-text" style="border-left-color:transparent; background-color:transparent;">
-                        <input id="eye-confirm" class="form-check-input checkbox-password" style="border-color:transparent" type="checkbox" onclick="ChangeVisibilityPassword('confirm-password')">
-                        <label for="eye-confirm"></label>
-                    </div>
-                </div>
-                <ValidationMessage For="() => model.ConfirmPassword" />
-            </div>
+    if (isAuthorizedByServices)
+    {
+        <div class="col-md-4 mb-1">
+            <p class="text-muted mt-4 mx-1">Изменить данные вы можете на портале АГТУ</p>
         </div>
+    }
+    if (!isAuthorizedByServices)
+    {
+        <EditForm EditContext="editContext" OnValidSubmit="@HandleValidSubmit" FormName="userSecurityEdit">
+            <DataAnnotationsValidator />
 
-        <div class="row-md-6">
-            <button type="submit" class="btn btn-success mt-3" disabled="@disable">
-                Сохранить изменения
-            </button>
-        </div>
-    </EditForm>
+            <div class="row mb-1">
+                <!-- Старый пароль -->
+                <div class="col">
+                    <label class="form-label mb-0 mx-1 fw-bold">Старый пароль</label>
+                    <div class="input-group" style="padding:0; border-right-color:transparent">
+                        <InputText @bind-Value="model.OldPassword" type="password" class="form-control input-password" style="border-right-color:transparent" id="old-password" />
+                        <div class="input-group-text" style="border-left-color:transparent; background-color:transparent;">
+                            <input id="eye" class="form-check-input checkbox-password" style="border-color:transparent" type="checkbox" onclick="ChangeVisibilityPassword('old-password')">
+                            <label for="eye"></label>
+                        </div>
+                    </div>
+                    <ValidationMessage For="() => model.OldPassword" />
+                </div>
+                <div class="col">
+                    <!-- Новый пароль -->
+                    <label class="form-label mb-0 mx-1 fw-bold">Новый пароль</label>
+                    <div class="input-group" style="padding:0; border-right-color:transparent">
+                        <InputText @bind-Value="model.NewPassword" type="password" class="form-control input-password" style="border-right-color:transparent" id="new-password" />
+                        <div class="input-group-text" style="border-left-color:transparent; background-color:transparent;">
+                            <input id="eye-new" class="form-check-input checkbox-password" style="border-color:transparent" type="checkbox" onclick="ChangeVisibilityPassword('new-password')">
+                            <label for="eye-new"></label>
+                        </div>
+                    </div>
+                    <ValidationMessage For="() => model.NewPassword" />
+                </div>
+                <div class="col">
+                    <!-- Подтвердите пароль -->
+                    <label class="form-label mb-0 mx-1 fw-bold">Подтвердите пароль</label>
+                    <div class="input-group" style="padding:0; border-right-color:transparent">
+                        <InputText @bind-Value="model.ConfirmPassword" type="password" class="form-control input-password" style="border-right-color:transparent" id="confirm-password" />
+                        <div class="input-group-text" style="border-left-color:transparent; background-color:transparent;">
+                            <input id="eye-confirm" class="form-check-input checkbox-password" style="border-color:transparent" type="checkbox" onclick="ChangeVisibilityPassword('confirm-password')">
+                            <label for="eye-confirm"></label>
+                        </div>
+                    </div>
+                    <ValidationMessage For="() => model.ConfirmPassword" />
+                </div>
+            </div>
+
+            <div class="row-md-6">
+                <button type="submit" class="btn btn-success mt-3" disabled="@disable">
+                    Сохранить изменения
+                </button>
+            </div>
+        </EditForm>
+    }
 }
 
 <script>
@@ -83,6 +94,7 @@ else
 @code {
     [Parameter] public АккаунтПользователя? User { get; set; }
     private ChangePasswordModel model = new();
+    private bool isAuthorizedByServices = false;
 
     EditContext? editContext;
     ValidationMessageStore? messageStore;
@@ -98,6 +110,15 @@ else
         if (User != null)
         {
             model.Login = User.Логин;
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            ClaimsPrincipal user = authState!.User;
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                string? provider = user.Claims.FirstOrDefault(x => x.Type == "AuthProvider")?.Value;
+                isAuthorizedByServices = !string.IsNullOrWhiteSpace(provider);
+            }
+
             editContext = new(model);
             messageStore = new(editContext);
             editContext.OnValidationStateChanged += HandleValidationRequested;

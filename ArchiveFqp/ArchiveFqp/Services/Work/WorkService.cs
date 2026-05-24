@@ -112,14 +112,12 @@ namespace ArchiveFqp.Services.Work
 
         public async Task<List<Студент>> GetStudentsAsync()
         {
-            return [..(await _refDataService.GetAsync<Студент>())
-                .DistinctBy(s => s.IdСтудента)];
+            return [..(await _refDataService.GetAsync<Студент>())];
         }
 
         public async Task<List<Преподаватель>> GetTeachersAsync()
         {
-            return [..(await _refDataService.GetAsync<Преподаватель>())
-                .DistinctBy(s => s.IdПреподавателя)];
+            return [..(await _refDataService.GetAsync<Преподаватель>())];
         }
 
         public async Task<List<Консультант>> GetConsultantsAsync()

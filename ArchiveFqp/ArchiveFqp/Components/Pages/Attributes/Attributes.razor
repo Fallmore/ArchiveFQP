@@ -1,5 +1,6 @@
 ﻿@using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Interfaces.Applications
+@using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.Search
 @using ArchiveFqp.Models.Settings.SettingsArchive
@@ -9,6 +10,7 @@
 @using Newtonsoft.Json.Serialization
 @inject SettingsArchive Settings
 @inject IReferenceDataService RefDataService
+@inject IUserService UserService
 @inject IApplicationsService ApplicationsService
 @inject IJSRuntime JS
 @implements IDisposable
@@ -232,8 +234,7 @@
                 return filtered.DistinctBy(x => x.IdЗаявления).OrderBy(x => x.Новый).ToList();
             }
 
-            Преподаватель? teacher = (await RefDataService.GetAsync<Преподаватель>())
-                .FirstOrDefault(x => x.IdПользователя == idUser);
+            Преподаватель? teacher = await UserService.GetTeacherAsync(idUser);
 
             if (teacher == null)
             {

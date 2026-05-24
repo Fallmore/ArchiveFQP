@@ -1,4 +1,5 @@
 ﻿@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Models.DTO.Attribute
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.Work
@@ -8,6 +9,7 @@
 @using System.Security.Claims
 @inject SettingsArchive Settings
 @inject IReferenceDataService RefDataService
+@inject IUserService UserService
 @inject IWorkService WorkService
 
 <PageTitle>АГТУ - @(work?.Тема ?? "Детали работы")</PageTitle>
@@ -385,8 +387,7 @@
             || user.IsInRole(Settings.RoleDepartmentResponsibleName) || user.IsInRole(Settings.RoleTeacherName))
         {
 
-            Преподаватель? teacher = (await RefDataService.GetAsync<Преподаватель>())
-                .FirstOrDefault(x => x.IdПользователя == idUser);
+            Преподаватель? teacher = await UserService.GetTeacherAsync(idUser);
 
             if (teacher == null) return false;
 
@@ -404,8 +405,7 @@
         {
             if (work.ДоступРаботы.Название == Settings.WorkAccessSecret) return false;
 
-            Студент? student = (await RefDataService.GetAsync<Студент>())
-                .FirstOrDefault(x => x.IdПользователя == idUser);
+            Студент? student = await UserService.GetStudentAsync(idUser);
 
             if (student == null) return false;
 

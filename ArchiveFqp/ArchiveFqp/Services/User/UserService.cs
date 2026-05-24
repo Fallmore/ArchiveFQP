@@ -5,9 +5,12 @@ using ArchiveFqp.Interfaces;
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Interfaces.User;
 using ArchiveFqp.Models.Database;
+using ArchiveFqp.Models.DTO.Structure;
 using ArchiveFqp.Models.DTO.Student;
 using ArchiveFqp.Models.DTO.Teacher;
 using ArchiveFqp.Models.DTO.User;
+using ArchiveFqp.Models.Settings.SettingsArchive;
+using BCrypt.Net;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,18 +20,18 @@ namespace ArchiveFqp.Services.User
     {
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
         private readonly IReferenceDataService _refDataService;
-        private UserDtoFactory _factoryUser;
+        private readonly SettingsArchive _settings;
         private TeacherDtoFactory _factoryTeacher;
         private StudentDtoFactory _factoryStudent;
 
         public UserService(IDbContextFactory<ArchiveFqpContext> dbFactory,
-            IReferenceDataService refDataService, UserDtoFactory? factoryUser = null,
+            IReferenceDataService refDataService, SettingsArchive settings,
             TeacherDtoFactory? factoryTeacher = null, StudentDtoFactory? factoryStudent = null
             )
         {
             _dbFactory = dbFactory;
             _refDataService = refDataService;
-            _factoryUser = factoryUser ?? new(refDataService);
+            _settings = settings;
             _factoryTeacher = factoryTeacher ?? new(refDataService);
             _factoryStudent = factoryStudent ?? new(refDataService);
         }
@@ -52,7 +55,7 @@ namespace ArchiveFqp.Services.User
         public async Task<АккаунтПользователя?> GetUserAccountAsync(Пользователь user)
         {
             using ArchiveFqpContext context = _dbFactory.CreateDbContext();
-            АккаунтПользователя? account = await context.АккаунтПользователяs.FindAsync(user.IdПользователя);
+            АккаунтПользователя? account = await context.АккаунтПользователяs.FirstOrDefaultAsync(x => x.IdПользователя == user.IdПользователя);
             return account;
         }
 
@@ -75,6 +78,38 @@ namespace ArchiveFqp.Services.User
         {
             List<int> ids = users.Select(x => x.IdПользователя).ToList();
             return await GetUserDisplayAsync(ids);
+        }
+
+
+        public async Task<Преподаватель?> GetTeacherAsync(int idUser)
+        {
+            return (await GetTeachersAsync([idUser])).FirstOrDefault();
+        }
+
+        public async Task<List<Преподаватель>> GetTeachersAsync(List<int> idUsers)
+        {
+            List<Преподаватель> teachers = await _refDataService.GetAsync<Преподаватель>();
+            List<Преподаватель> result = [];
+
+            foreach (int idUser in idUsers)
+            {
+                List<Преподаватель> temp = teachers
+                    .Where(x => x.IdПользователя == idUser).ToList();
+                if (temp.Count == 0) continue;
+
+                // Если пользователь на проверке смены своей работы, то берем предпоследнюю запись преподавателя
+                if ((await GetUserDisplayAsync(idUser))!.Роли.Contains(_settings.RoleTeacherOnVerifyName))
+                {
+                    if (temp.Count == 1) continue;
+
+                    result.Add(temp.ElementAt(Math.Max(0, temp.Count - 2)));
+                }
+
+                // Иначе берем последнюю
+                result.Add(temp.Last());
+            }
+
+            return result;
         }
 
         public async Task<TeacherDisplayDto?> GetTeacherDisplayAsync(int idUser)
@@ -102,9 +137,42 @@ namespace ArchiveFqp.Services.User
             return await GetTeacherDisplayAsync(users.Select(x => x.IdПользователя).ToList());
         }
 
+
+
+        public async Task<Студент?> GetStudentAsync(int idUser)
+        {
+            return (await GetStudentsAsync([idUser])).FirstOrDefault();
+        }
+
+        public async Task<List<Студент>> GetStudentsAsync(List<int> idUsers)
+        {
+            List<Студент> students = await _refDataService.GetAsync<Студент>();
+            List<Студент> result = [];
+
+            foreach (int idUser in idUsers)
+            {
+                List<Студент> temp = students
+                    .Where(x => x.IdПользователя == idUser).ToList();
+                if (temp.Count == 0) continue;
+
+                // Если пользователь на проверке смены своего обучения, то берем предпоследнюю запись студента
+                if ((await GetUserDisplayAsync(idUser))!.Роли.Contains(_settings.RoleStudentOnVerifyName))
+                {
+                    if (temp.Count == 1) continue;
+
+                    result.Add(temp.ElementAt(Math.Max(0, temp.Count - 2)));
+                }
+
+                // Иначе берем последнюю
+                result.Add(temp.Last());
+            }
+
+            return result;
+        }
+
         public async Task<StudentDisplayDto?> GetStudentDisplayAsync(int idUser)
         {
-            Студент? student = (await _refDataService.GetAsync<Студент>()).FirstOrDefault(x => x.IdПользователя == idUser);
+            Студент? student = await GetStudentAsync(idUser);
             if (student == null) return null;
             return await _factoryStudent.CreateDisplayDtoAsync(student);
         }
@@ -116,9 +184,7 @@ namespace ArchiveFqp.Services.User
 
         public async Task<List<StudentDisplayDto>> GetStudentDisplayAsync(List<int> idUsers)
         {
-            List<Студент> students = (await _refDataService.GetAsync<Студент>())
-                .Where(x => idUsers.Contains(x.IdПользователя))
-                .ToList();
+            List<Студент> students = await GetStudentsAsync(idUsers);
             return await _factoryStudent.CreateDisplayDtoAsync(students);
         }
 
@@ -135,6 +201,20 @@ namespace ArchiveFqp.Services.User
         public async Task<bool> Delete<T>(int id) where T : class
         {
             return await base.Delete<T>(id, _dbFactory);
+        }
+
+        public async Task<АккаунтПользователя> AddAccountStudentDefault(StudentDisplayDto student)
+        {
+            АккаунтПользователя account = new()
+            {
+                IdПользователя = student.Пользователь.Пользователь.IdПользователя,
+                Логин = string.Join(" ", student.Пользователь.ФИОИнициалы, student.ГодОкончания),
+                Пароль = BCrypt.Net.BCrypt.HashPassword(string.Join("", student.Пользователь.ФИОИнициалы, StructureDto.Abbreviate(student.Структура.Кафедра.Название), student.ГодОкончания)),
+                Роли = [(await _refDataService.GetAsync<РольПользователя>()).First(x => x.Название == _settings.RoleStudentName).IdРоли]
+            };
+
+            await Upsert(account);
+            return account;
         }
     }
 }

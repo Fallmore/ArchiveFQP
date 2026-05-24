@@ -192,8 +192,7 @@
         {
             if (user.IsInRole(Settings.RoleAdminName)) return app;
 
-            Преподаватель? teacher = (await RefDataService.GetAsync<Преподаватель>())
-                .FirstOrDefault(x => x.IdПользователя == idUser);
+            Преподаватель? teacher = await UserService.GetTeacherAsync(idUser);
 
             if (teacher == null)
             {

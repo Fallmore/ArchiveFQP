@@ -1,4 +1,5 @@
 ﻿using ArchiveFqp.Interfaces.FileUpload;
+using ArchiveFqp.Models.DTO.Structure;
 using ArchiveFqp.Models.FileUpload;
 using ArchiveFqp.Models.Hash;
 using Microsoft.AspNetCore.Components.Forms;
@@ -42,21 +43,16 @@ namespace ArchiveFqp.Services.FileUpload
         {
             // Очищаем строки от недопустимых символов
             string Sanitize(string input) => string.Join("_", input.Split(Path.GetInvalidFileNameChars()));
-            string Abbreviate(string input, bool withAnd = false)
-                => string.Join(string.Empty, input.Split([' ', '-'], StringSplitOptions.RemoveEmptyEntries)
-                                // Убираем частицы и, в, во, или если withAnd, то допускаем и
-                                .Where(s => (withAnd && s == "и") || s.Length > 2)
-                                // Оставляем код направления, если это направление, а в остальных случаях пишем аббревиатуры
-                                .Select(s => (s.Length == 8 && s.Contains('.')) ? s + " " : s[..1])).ToUpper();
-
 
             string[] pathParts =
             [
-                Abbreviate(Sanitize(context.Institute), true),
-                Abbreviate(Sanitize(context.Department)),
-                Sanitize(context.UgsnStandard),
-                Abbreviate(Sanitize(context.Direction)),
-                context.Profile != null ? Abbreviate(Sanitize(context.Profile)) : "Без профиля",
+                StructureDto.Abbreviate(Sanitize(context.Structure.Институт.Название), true),
+                StructureDto.Abbreviate(Sanitize(context.Structure.Кафедра.Название)),
+                Sanitize(context.Structure.УгснСтандарт.Название),
+                StructureDto.Abbreviate(Sanitize(context.Structure.Направление.Название)),
+                context.Structure.Профиль != null 
+                    ? StructureDto.Abbreviate(Sanitize(context.Structure.Профиль.Название)) 
+                    : "Без профиля",
                 Sanitize(context.WorkType),
                 context.Year.ToString(),
                 Sanitize(context.StudentName),

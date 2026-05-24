@@ -10,7 +10,6 @@
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @inject SettingsArchive Settings
-@inject ISettingsService SettingsService
 @inject IWorkService WorkService
 @inject IUserService UserService
 @inject IApplicationsService ApplicationsService
@@ -424,23 +423,6 @@
         }
     }
 
-    private async Task Send(int id, string title, string message, string url)
-    {
-        НастройкиПользователя? userSettings = await SettingsService.GetSettings<НастройкиПользователя>(id);
-        if (userSettings != null)
-        {
-            SettingsUser? settings = await SettingsService.GetSettingsJson<SettingsUser>(userSettings?.Настройки ?? "");
-            if (settings != null)
-            {
-                if (settings.ReceiveEmailNotifications)
-                {
-
-                }
-            }
-        }
-        await NotificationService.SendToUserAsync(id.ToString(), title, message, url);
-    }
-
     private async Task SendNotificationToSenderAsync()
     {
         string title = "Заявления на просмотр работ";
@@ -450,7 +432,7 @@
             ? "одобрено."
             : "отклонено.");
 
-        await Send(WorkApplictaionDto!.IdПользователя, title, message, "works/applications/send");
+        await NotificationService.SendToUserAsync(WorkApplictaionDto!.IdПользователя.ToString(), title, message, "works/applications/send");
     }
 
     private async Task SendNotificationToReviewersAsync()
@@ -467,7 +449,7 @@
             .Select(x => x.Пользователь.Пользователь.IdПользователя)
             .ToList();
 
-        IEnumerable<Task> tasks = appReviewers.Select(x => Send(x, title, message, "works/applications/review"));
+        IEnumerable<Task> tasks = appReviewers.Select(x => NotificationService.SendToUserAsync(x.ToString(), title, message, "works/applications/review"));
         await Task.WhenAll(tasks);
     }
 

@@ -595,11 +595,6 @@
         }
     }
 
-    private async Task Send(int id, string title, string message, string url)
-    {
-        await NotificationService.SendToUserAsync(id.ToString(), title, message, url);
-    }
-
     private async Task SendNotificationToSenderAsync()
     {
         string title = "Заявления на добавление атрибута";
@@ -609,7 +604,7 @@
             ? "одобрено."
             : "отклонено.");
 
-        await Send(attributeApplication!.IdПользователя, title, message, "works/applications/send");
+        await NotificationService.SendToUserAsync(attributeApplication!.IdПользователя.ToString(), title, message, "works/applications/send");
     }
 
     private async Task SendNotificationToReviewersAsync()
@@ -656,7 +651,7 @@
             .ToList());
         }
         
-        IEnumerable<Task> tasks = appReviewers.Select(x => Send(x.Пользователь.IdПользователя, title, message, "works/applications/review"));
+        IEnumerable<Task> tasks = appReviewers.Select(x => NotificationService.SendToUserAsync(x.Пользователь.IdПользователя.ToString(), title, message, "works/applications/review"));
         await Task.WhenAll(tasks);
     }
 

@@ -115,7 +115,7 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.HasOne(d => d.IdПользователяNavigation).WithOne(p => p.АккаунтПользователя)
                 .HasForeignKey<АккаунтПользователя>(d => d.IdПользователя)
-                .OnDelete(DeleteBehavior.Restrict)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("аккаунт_пользов_id_пользователя_fkey");
         });
 

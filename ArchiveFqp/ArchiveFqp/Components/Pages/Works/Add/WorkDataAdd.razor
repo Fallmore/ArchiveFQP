@@ -583,8 +583,7 @@
         if (user.IsInRole(Settings.RoleAdminName)) return;
 
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        Преподаватель? teacher = (await RefDataService.GetAsync<Преподаватель>())
-            .FirstOrDefault(x => x.IdПользователя == idUser);
+        Преподаватель? teacher = await UserService.GetTeacherAsync(idUser);
 
         if (teacher == null)
         {
@@ -1093,11 +1092,14 @@
 
             WorkUploadContext uploadContext = new()
             {
-                Institute = institute.Название,
-                Department = department.Название,
-                UgsnStandard = ugsnStandard.Название,
-                Direction = direction.Название,
-                Profile = profile?.Название ?? null,
+                Structure = new()
+                {
+                    Институт = institute,
+                    Кафедра = department,
+                    УгснСтандарт = ugsnStandard,
+                    Направление = direction,
+                    Профиль = profile
+                },
                 WorkType = workType.Название,
                 Year = WorkDto.ГодВыпуска ?? DateTime.Now.Year,
                 StudentName = studentDtoFactory!.CreateDisplayDtoAsync(student).Result.Пользователь.ФИО,

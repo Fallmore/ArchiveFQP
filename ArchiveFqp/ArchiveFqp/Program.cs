@@ -62,9 +62,9 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ReferenceDataServi
 builder.Services.AddHostedService<ExpirationCheckService>();
 
 builder.Services.AddScoped<ISettingsService, SettingsService>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IWorkService, WorkService>();
 builder.Services.AddScoped<IAttributeService, AttributeService>();
-builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IApplicationsService, ApplicationsService>();
 
 builder.Services.AddScoped<IPdfRenderService, PdfSciaRenderService>();

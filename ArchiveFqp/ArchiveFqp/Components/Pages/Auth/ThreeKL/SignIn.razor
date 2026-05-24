@@ -9,14 +9,14 @@
 {
     <div>Выполняется вход через 3KL...</div>
 }
-else if (!string.IsNullOrEmpty(errorMessage))
+@* else if (!string.IsNullOrEmpty(errorMessage))
 {
     <div class="alert alert-danger">@errorMessage</div>
-}
+} *@
 
 @code {
     private bool isProcessing = true;
-    private string? errorMessage;
+    // private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {

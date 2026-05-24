@@ -33,6 +33,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Folder Include="Components\Pages\Settings\Department\Head\" />
+		<Folder Include="Components\Pages\Settings\Department\Responsible\" />
 		<Folder Include="Interfaces\ExpirationCheck\" />
 		<Folder Include="Models\ExpirationCheck\" />
 	</ItemGroup>

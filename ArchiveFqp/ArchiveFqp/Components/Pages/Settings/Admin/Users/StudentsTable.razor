@@ -324,11 +324,12 @@
 
     private async Task DeleteStudent(int id)
     {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "Удалить пользователя?"))
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Удалить студента?"))
         {
             try
             {
                 await UserService.Delete<Студент>(id);
+                await JSRuntime.InvokeVoidAsync("alert", "Студент удален успешно");
             }
             catch (DbUpdateException ex)
             {

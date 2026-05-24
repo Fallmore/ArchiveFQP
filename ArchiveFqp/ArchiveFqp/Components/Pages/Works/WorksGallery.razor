@@ -5,6 +5,7 @@
 @using ArchiveFqp.Components.Pages.Report
 @using ArchiveFqp.Factories.DisplayDto.Student
 @using ArchiveFqp.Factories.DisplayDto.Teacher
+@using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Models.DTO.Attribute
 @using ArchiveFqp.Models.DTO.Work
 @using ArchiveFqp.Models.ReferenceData
@@ -17,6 +18,7 @@
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @inject NavigationManager Navigation
 @inject SettingsArchive Settings
+@inject IUserService UserService
 @inject IWorkService WorkService
 @inject IReferenceDataService RefDataService;
 @rendermode @(new InteractiveServerRenderMode())
@@ -622,7 +624,7 @@
 
         filtered = works.Where(x => x.ДоступРаботы.Название == Settings.WorkAccessAll).ToList();
         if (user == null || !user.Identity!.IsAuthenticated) return filtered;
-
+        
         if (user.IsInRole(Settings.RoleAdminName))
         {
             showWorkStatus = showWorkAccess = showAllDates = showWorkDateChanged = true;
@@ -639,8 +641,7 @@
         {
             showWorkStatus = showWorkAccess = true;
 
-            Преподаватель? teacher = (await RefDataService.GetAsync<Преподаватель>())
-                .FirstOrDefault(x => x.IdПользователя == idUser);
+            Преподаватель? teacher = await UserService.GetTeacherAsync(idUser);
 
             if (teacher == null) return filtered;
             // Доступ внутри института
@@ -671,8 +672,7 @@
         {
             showWorkAccess = true;
 
-            Студент? student = (await RefDataService.GetAsync<Студент>())
-                .FirstOrDefault(x => x.IdПользователя == idUser);
+            Студент? student = await UserService.GetStudentAsync(idUser);
 
             if (student == null) return filtered;
 

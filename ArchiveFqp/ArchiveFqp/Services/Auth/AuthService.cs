@@ -59,6 +59,18 @@ namespace ArchiveFqp.Services.Auth
                 return new AuthResult { Success = false, Message = "Пользователь с таким логином уже существует" };
             }
 
+            if (!string.IsNullOrEmpty(model.Email))
+            {
+                // Проверка существования почты
+                Пользователь? existingUser = await context.Пользовательs
+                    .FirstOrDefaultAsync(a => a.Email == model.Email);
+
+                if (existingUser != null)
+                {
+                    return new AuthResult { Success = false, Message = "Пользователь с такой почтой уже существует" };
+                }
+            }
+
             // Создаем пользователя
             Пользователь user = new()
             {
@@ -82,6 +94,37 @@ namespace ArchiveFqp.Services.Auth
 
             context.АккаунтПользователяs.Add(account);
             await context.SaveChangesAsync();
+
+            if (model.UserType == UserType.Student)
+            {
+                Студент student = new()
+                {
+                    IdПользователя = user.IdПользователя,
+                    IdИнститута = model.IdInstitute!.Value,
+                    IdКафедры = model.IdDepartment!.Value,
+                    IdНаправления = model.IdDirection!.Value,
+                    IdПрофиля = model.IdProfile,
+                    IdУровняОбразования = model.IdEducationLevel!.Value,
+                    IdФормыОбучения = model.IdEducationForm!.Value,
+                    ГодОкончания = model.YearGraduation!.Value
+                };
+
+                context.Студентs.Add(student);
+                await context.SaveChangesAsync();
+            }
+            else if (model.UserType == UserType.Teacher)
+            {
+                Преподаватель teacher = new()
+                {
+                    IdПользователя = user.IdПользователя,
+                    IdИнститута = model.IdInstitute!.Value,
+                    IdКафедры = model.IdDepartment!.Value,
+                    IdДолжности = model.IdPost!.Value
+                };
+
+                context.Преподавательs.Add(teacher);
+                await context.SaveChangesAsync();
+            }
 
             return new AuthResult
             {

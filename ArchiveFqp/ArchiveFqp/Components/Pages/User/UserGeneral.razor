@@ -1,6 +1,8 @@
 ﻿@using ArchiveFqp.Models.DTO.User
 @using ArchiveFqp.Interfaces.User
+@using System.Security.Claims
 @inject IUserService UserService
+@inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
 
 @if (currentUser == null)
@@ -26,17 +28,20 @@ else
             <!-- Фамилия -->
             <div class="col">
                 <label class="form-label mb-0 mx-1 fw-bold">Фамилия</label>
-                <InputText class="form-control" @bind-Value="currentUser.Фамилия" disabled style="cursor:not-allowed"/>
+                <InputText class="form-control" @bind-Value="currentUser.Фамилия"
+                           disabled="@isAuthorizedByServices" style="@(isAuthorizedByServices ? "cursor:not-allowed" : "")" />
             </div>
             <div class="col">
                 <!-- Имя -->
                 <label class="form-label mb-0 mx-1 fw-bold">Имя</label>
-                <InputText class="form-control" @bind-Value="currentUser.Имя" disabled style="cursor:not-allowed"/>
+                <InputText class="form-control" @bind-Value="currentUser.Имя"
+                           disabled="@isAuthorizedByServices" style="@(isAuthorizedByServices ? "cursor:not-allowed" : "")" />
             </div>
             <div class="col">
                 <!-- Отчество -->
                 <label class="form-label mb-0 mx-1 fw-bold">Отчество</label>
-                <InputText class="form-control" @bind-Value="currentUser.Отчество" disabled style="cursor:not-allowed" />
+                <InputText class="form-control" @bind-Value="currentUser.Отчество"
+                           disabled="@isAuthorizedByServices" style="@(isAuthorizedByServices ? "cursor:not-allowed" : "")" />
             </div>
         </div>
 
@@ -44,13 +49,17 @@ else
             <div class="col-md-4 mb-1">
                 <!-- Email -->
                 <label class="form-label mb-0 mx-1 fw-bold">Email</label>
-                <InputText class="form-control" @bind-Value="currentUser.Email" />
+                <InputText class="form-control" @bind-Value="currentUser.Email"
+                           disabled="@isAuthorizedByServices" style="@(isAuthorizedByServices ? "cursor:not-allowed" : "")" />
             </div>
 
-            <div class="col-md-4 mb-1">
-                <!-- Информация -->
-                <p class="text-muted mt-4 mx-1">Изменить ФИО вы можете на портале АГТУ</p>
-            </div>
+            @if (isAuthorizedByServices)
+            {
+                <div class="col-md-4 mb-1">
+                    <!-- Информация -->
+                    <p class="text-muted mt-4 mx-1">Изменить данные вы можете на портале АГТУ</p>
+                </div>
+            }
         </div>
 
         <div class="row-md-6">
@@ -64,6 +73,7 @@ else
 @code {
     [Parameter] public Пользователь? User { get; set; }
     private Пользователь? currentUser;
+    private bool isAuthorizedByServices = false;
 
     EditContext? editContext;
     ValidationMessageStore? messageStore;
@@ -81,6 +91,15 @@ else
                 Отчество = User.Отчество,
                 Email = User.Email
             };
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            ClaimsPrincipal user = authState!.User;
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                string? provider = user.Claims.FirstOrDefault(x => x.Type == "AuthProvider")?.Value;
+                isAuthorizedByServices = !string.IsNullOrWhiteSpace(provider);
+            }
+
             editContext = new(currentUser);
             messageStore = new(editContext);
             editContext.OnValidationStateChanged += HandleValidationRequested;

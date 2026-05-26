@@ -158,6 +158,7 @@ namespace ArchiveFqp.Services.User
                 // Если пользователь на проверке смены своего обучения, то берем предпоследнюю запись студента
                 if ((await GetUserDisplayAsync(idUser))!.Роли.Contains(_settings.RoleStudentOnVerifyName))
                 {
+                    // Если это единичная запись, то пропускаем
                     if (temp.Count == 1) continue;
 
                     result.Add(temp.ElementAt(Math.Max(0, temp.Count - 2)));

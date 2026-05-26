@@ -251,7 +251,7 @@
                 {
                     <div class="table-responsive">
                         <div class="mb-3">
-                            <button class="btn btn-success btn-sm" @onclick="() => OpenAttributesDepartmentModal()">
+                            <button class="btn btn-success btn-sm" @onclick="() => OpenAttributesDirectionModal()">
                                 <i class="bi bi-plus-circle"></i> Добавить атрибут направления
                             </button>
                         </div>
@@ -664,9 +664,15 @@
                             <InputSelect class="form-select" @bind-Value="idUgsn"
                                          disabled="@(idUgsnStandard == 0)">
                                 <option value="0"></option>
-                                @foreach (Угсн ugsn in snapshot.Ugsns.Where(x => x.IdУгснСтандарта == idUgsnStandard).OrderBy(x => x.Название))
-                                {
-                                    <option value="@ugsn.IdУгсн">@ugsn.Название</option>
+                                @{
+                                    List<int> idUgsns = snapshot.Directions
+                                        .Where(d => d.IdКафедры == idDepartment)
+                                        .Select(x => x.IdУгсн).ToList();
+                                    var filteredUgsns = snapshot.Ugsns.Where(x => x.IdУгснСтандарта == idUgsnStandard && idUgsns.Contains(x.IdУгсн)).OrderBy(x => x.Название);
+                                    foreach (var ugsn in filteredUgsns)
+                                    {
+                                        <option value="@ugsn.IdУгсн">@ugsn.Название</option>
+                                    }
                                 }
                             </InputSelect>
                         </div>
@@ -768,9 +774,15 @@
                             <InputSelect class="form-select" @bind-Value="idUgsn"
                                          disabled="@(idUgsnStandard == 0)">
                                 <option value="0"></option>
-                                @foreach (var ugsn in snapshot.Ugsns.Where(x => x.IdУгснСтандарта == idUgsnStandard).OrderBy(x => x.Название))
-                                {
-                                    <option value="@ugsn.IdУгсн">@ugsn.Название</option>
+                                @{
+                                    List<int> idUgsns = snapshot.Directions
+                                        .Where(d => d.IdКафедры == idDepartment)
+                                        .Select(x => x.IdУгсн).ToList();
+                                    var filteredUgsns = snapshot.Ugsns.Where(x => x.IdУгснСтандарта == idUgsnStandard && idUgsns.Contains(x.IdУгсн)).OrderBy(x => x.Название);
+                                    foreach (var ugsn in filteredUgsns)
+                                    {
+                                        <option value="@ugsn.IdУгсн">@ugsn.Название</option>
+                                    }
                                 }
                             </InputSelect>
                         </div>

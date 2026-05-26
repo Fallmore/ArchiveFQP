@@ -1,6 +1,7 @@
 ﻿@using ArchiveFqp.Components.Components
 @using ArchiveFqp.Factories.DisplayDto.Student
 @using ArchiveFqp.Factories.DisplayDto.Teacher
+@using ArchiveFqp.Interfaces.Settings
 @using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Models.DTO
 @using ArchiveFqp.Models.DTO.Teacher
@@ -8,6 +9,11 @@
 @using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.FileUpload
 @using ArchiveFqp.Models.ReferenceData
+@using ArchiveFqp.Models.Settings
+@using ArchiveFqp.Models.Settings.Department
+@using ArchiveFqp.Models.Settings.Direction
+@using ArchiveFqp.Models.Settings.Institute
+@using ArchiveFqp.Models.Settings.Profile
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Services.FileUpload
 @using ArchiveFqp.Interfaces.ReferenceData
@@ -15,6 +21,8 @@
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @using System.Security.Claims
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Serialization
 @inject NavigationManager Navigation
 @inject ProtectedLocalStorage ProtectedSessionStore
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
@@ -23,7 +31,8 @@
 @inject IWorkService WorkService
 @inject IUserService UserService
 @inject IReferenceDataService RefDataService
-@inject SettingsArchive Settings
+@inject SettingsArchive SettingsArchive
+@inject ISettingsService SettingsService
 @implements IDisposable
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
@@ -181,7 +190,7 @@
                                               Placeholder="@(WorkDto.IdТипаРаботы == null ? "Сначала выберите тип работы" : (filteredStudents.Count == 0 ? "Нет учащихся студентов" : "Выберите или введите студента..."))"
                                               IsInvalid="@(WorkDto.IdСтудента == null)"
                                               @bind-SelectedValue="@WorkDto.IdСтудента"
-                                              @bind-SelectedValue:after="@(() => OnStudentChanged(WorkDto.IdСтудента))"
+                                              @bind-SelectedValue:after="@(() => {OnStudentChanged(WorkDto.IdСтудента);HandleValidationRequested(editContext, new());})"
                                               OnCustomValue="@(() => WorkDto.IdСтудента = null)"
                                               Disabled="@(disabled || WorkDto.IdТипаРаботы == null)" />
                             <ValidationMessage For="() => WorkDto.IdСтудента" />
@@ -362,7 +371,10 @@
         <!-- Загрузка файлов с папки -->
         <div class="row mb-1 mt-4">
             <div class="col-12">
-                <FolderFileSelector OnFilesConfirmed="@OnFilesConfirmed" Disabled="@disabled" />
+                <FolderFileSelector OnFilesConfirmed="@OnFilesConfirmed"
+                                    Disabled="@(disabled || WorkDto.IdТипаРаботы == null)"
+                                    SettingsFiles="@(SettingsFiles)"
+                                    WorkType="@workType" />
             </div>
         </div>
 
@@ -414,34 +426,31 @@
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td>@GetFileTypeName(result.FileType)</td>
+                                            <td>@result.FileTypeName</td>
                                         </tr>
                                     }
                                 }
                                 else
                                 {
-                                    foreach (KeyValuePair<FileType, List<IBrowserFile>> files in selectedFiles)
+                                    foreach (var file in selectedFiles)
                                     {
-                                        @foreach (IBrowserFile file in files.Value)
-                                        {
-                                            <tr>
-                                                <td>
-                                                    <div class="d-flex align-items-center">
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div>
                                                         <div>
-                                                            <div>
-                                                                @file.Name
-                                                                @if (isUploading)
-                                                                    @if (uploadingFile.ContainsKey(file.Name))
-                                                                    {
-                                                                        <span>@string.Format(" {0:P0}", uploadingFile[file.Name])</span>
-                                                                    }
-                                                            </div>
+                                                            @file.Name
+                                                            @if (isUploading)
+                                                                @if (uploadingFile.ContainsKey(file.Name))
+                                                                {
+                                                                    <span>@string.Format(" {0:P0}", uploadingFile[file.Name])</span>
+                                                                }
                                                         </div>
                                                     </div>
-                                                </td>
-                                                <td>@GetFileTypeName(files.Key)</td>
-                                            </tr>
-                                        }
+                                                </div>
+                                            </td>
+                                            <td>@file.DisplaySelectedType</td>
+                                        </tr>
                                     }
                                 }
                             </tbody>
@@ -489,6 +498,7 @@
     private bool disableDepartment = false;
 
     private ReferenceDataSnapshot snapshot = null!;
+    private BaseSettings SettingsFiles = null!;
 
     private TeacherDisplayDto? selectedTeacher;
     private List<Пользователь> users = null!;
@@ -499,14 +509,16 @@
     private List<Направление> filteredDirections = new();
     private List<Профиль> filteredProfiles = new();
     private List<Кафедра> filteredDepartments = new();
+    private string workType = "";
     private bool isFqp = false;
     private bool hasCR = false;
     private bool isSubmitting = false;
+    private bool waitAddWork = false;
 
     private bool isUploading;
     private Dictionary<string, decimal> uploadingFile = new();
     private FileUploadWithHashResult? uploadResult;
-    private Dictionary<FileType, List<IBrowserFile>> selectedFiles = new();
+    private List<FolderFileSelector.SelectedFileInfo> selectedFiles = new();
 
     EditContext? editContext;
     ValidationMessageStore? messageStore;
@@ -544,7 +556,7 @@
             WorkDto = result.Value!;
             await OnWorkTypeChanged();
         }
-        else WorkDto.IdСтатусаРаботы = snapshot.WorkStatuses.First(ws => ws.Название == Settings.WorkOnReviewStatus).IdСтатусаРаботы;
+        else WorkDto.IdСтатусаРаботы = snapshot.WorkStatuses.First(ws => ws.Название == SettingsArchive.WorkOnReviewStatus).IdСтатусаРаботы;
 
 
         await SetStructuresByRole();
@@ -559,9 +571,10 @@
             successMessage = null;
             selectedFiles = new();
             isFqp = hasCR = false;
-            WorkDto.IdСтатусаРаботы = snapshot.WorkStatuses.First(ws => ws.Название == Settings.WorkOnReviewStatus).IdСтатусаРаботы;
+            WorkDto.IdСтатусаРаботы = snapshot.WorkStatuses.First(ws => ws.Название == SettingsArchive.WorkOnReviewStatus).IdСтатусаРаботы;
             await SetStructuresByRole();
         }
+        StateHasChanged();
     }
 
     private string GetFio(Пользователь p)
@@ -580,7 +593,7 @@
         AuthenticationState? authState = await authenticationState!;
         ClaimsPrincipal user = authState!.User;
 
-        if (user.IsInRole(Settings.RoleAdminName)) return;
+        if (user.IsInRole(SettingsArchive.RoleAdminName)) return;
 
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
         Преподаватель? teacher = await UserService.GetTeacherAsync(idUser);
@@ -593,16 +606,18 @@
 
         WorkDto.IdИнститута = teacher.IdИнститута;
         disableInstitute = true;
-        if (user.IsInRole(Settings.RoleInstituteResponsibleName))
+        if (user.IsInRole(SettingsArchive.RoleInstituteResponsibleName))
         {
             await UpdateDependentLists();
             await SaveStateWorkDTO();
             filteredStudents = filteredStudents
                 .Where(x => x.IdИнститута == teacher.IdИнститута).ToList();
+
+            await SetSettingsFiles();
             return;
         }
 
-        if (user.IsInRole(Settings.RoleDepartmentHeadName) || user.IsInRole(Settings.RoleDepartmentResponsibleName))
+        if (user.IsInRole(SettingsArchive.RoleDepartmentHeadName) || user.IsInRole(SettingsArchive.RoleDepartmentResponsibleName))
         {
             WorkDto.IdКафедры = teacher.IdКафедры;
             await UpdateDependentLists();
@@ -610,6 +625,8 @@
             disableDepartment = true;
             filteredStudents = filteredStudents
                 .Where(x => x.IdИнститута == teacher.IdИнститута && x.IdКафедры == teacher.IdКафедры).ToList();
+
+            await SetSettingsFiles();
             return;
         }
     }
@@ -673,17 +690,15 @@
 
         if (isFqp)
         {
-
-            string workType = snapshot.WorkTypes.First(wt => wt.IdТипаРаботы == WorkDto.IdТипаРаботы).Название;
             // Фильтруем списки студентов и уровня образования
-            if (Settings.FqpWorksEducationLevels.TryGetValue(workType!, out List<string>? edcucationLevels))
+            if (SettingsArchive.FqpWorksEducationLevels.TryGetValue(workType, out List<string>? edcucationLevels))
             {
                 filteredEducationLevels = snapshot.EducationLevels
                     .Where(x => edcucationLevels.Contains(x.Название))
                     .ToList();
 
                 List<int> fqps = snapshot.WorkTypes
-                    .Where(x => Settings.FqpWorks.Contains(x.Название))
+                    .Where(x => SettingsArchive.FqpWorks.Contains(x.Название))
                     .Select(x => x.IdТипаРаботы).ToList();
 
                 List<Работа> works = await RefDataService.GetAsync<Работа>();
@@ -695,9 +710,13 @@
                     .OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия)
                     .ToList();
 
+                // Если указан существующий студент, но него не оказалось в списке,
+                // то очищаем и обновляем список
                 if (WorkDto.IdСтудента != null && !WorkDto.IsNewUser
                     && !filteredStudents.Exists(s => s.IdСтудента == WorkDto.IdСтудента))
                 {
+                    if (isSubmitting) Cancel();
+
                     WorkDto.IdСтудента = null;
                     await OnStudentChanged(null);
                     StateHasChanged();
@@ -708,6 +727,50 @@
         {
             filteredEducationLevels = snapshot.EducationLevels;
             filteredStudents = filteredStudents.OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Задаем настройки файлов по нисходящей
+    /// если есть настройки в низшей цепи (профиле/направлении),
+    /// то ставим их, если нет - предыдущую найденную
+    /// </summary>
+    /// <returns></returns>
+    private async Task SetSettingsFiles()
+    {
+        SettingsFiles = SettingsArchive;
+
+        НастройкиИнститута? instituteOrg = snapshot.SettingsInstitute.FirstOrDefault(x => x.IdИнститута == WorkDto.IdИнститута);
+        if (instituteOrg != null && instituteOrg.Настройки != null)
+        {
+            SettingsFiles = (BaseSettings?)(await SettingsService.GetSettingsJson<SettingsInstitute>(instituteOrg.Настройки!)) ?? SettingsArchive;
+        }
+
+        if (WorkDto.IdКафедры != null)
+        {
+            НастройкиКафедры? departmentOrg = snapshot.SettingsDepartment.FirstOrDefault(x => x.IdКафедры == WorkDto.IdКафедры);
+
+            if (departmentOrg != null && departmentOrg.Настройки != null)
+            {
+                SettingsDepartment? department = await SettingsService.GetSettingsJson<SettingsDepartment>(departmentOrg.Настройки!);
+                if (department == null) return;
+
+                SettingsFiles = (BaseSettings)department;
+
+                if (WorkDto.IdНаправления != null)
+                {
+                    SettingsDirection? direction = department.SettingsDirections.FirstOrDefault(x => x.Direction.IdНаправления == WorkDto.IdНаправления);
+                    if (direction == null) return;
+                    SettingsFiles = (BaseSettings)direction;
+
+                    if (WorkDto.IdПрофиля != null)
+                    {
+                        SettingsProfile? profile = direction.SettingsProfiles.FirstOrDefault(x => x.Profile.IdПрофиля == WorkDto.IdПрофиля);
+                        if (profile == null) return;
+                        SettingsFiles = (BaseSettings)profile;
+                    }
+                }
+            }
         }
     }
 
@@ -766,6 +829,7 @@
 
     private async Task OnProfileChanged()
     {
+        await SetSettingsFiles();
         await UpdateDependentLists();
         await SaveStateWorkDTO();
     }
@@ -774,81 +838,31 @@
 
     private async Task OnWorkTypeChanged()
     {
-        string? workType = snapshot.WorkTypes.Find(wt => wt.IdТипаРаботы == WorkDto.IdТипаРаботы)?.Название;
-        isFqp = workType == null ? false : Settings.FqpWorks.Contains(workType);
-        hasCR = workType == null ? false : Settings.FqpWorksWithCR.Contains(workType);
-
-        if (!hasCR)
+        string temp = snapshot.WorkTypes.Find(wt => wt.IdТипаРаботы == WorkDto.IdТипаРаботы)?.Название ?? "";
+        if (workType != temp)
         {
-            WorkDto.IdКонсультантов = [-1];
-            WorkDto.IdРецензентов = [-1];
-        }
+            workType = temp;
+            isFqp = SettingsArchive.FqpWorks.Contains(workType);
+            hasCR = SettingsArchive.FqpWorksWithCR.Contains(workType);
 
-        await UpdateDependentLists();
-        await SaveStateWorkDTO();
+            if (!hasCR)
+            {
+                WorkDto.IdКонсультантов = [-1];
+                WorkDto.IdРецензентов = [-1];
+            }
+
+            selectedFiles.Clear();
+            await UpdateDependentLists();
+            await SaveStateWorkDTO();
+        }
     }
 
     private async Task OnFilesConfirmed(List<FolderFileSelector.SelectedFileInfo> selectedFiles)
     {
-        try
-        {
-            if (!ValidateTypeFiles(selectedFiles, out string? errorMessage))
-            {
-                this.errorMessage = errorMessage;
-                return;
-            }
-            this.errorMessage = null;
+        this.selectedFiles = new(selectedFiles);
+        selectedFiles.Clear();
 
-            // Очищаем предыдущий словарь
-            this.selectedFiles.Clear();
-
-            // Группируем файлы по выбранному типу
-            foreach (var file in selectedFiles)
-            {
-                if (!this.selectedFiles.ContainsKey(file.FileType))
-                {
-                    this.selectedFiles[file.FileType] = new List<IBrowserFile>();
-                }
-
-                if (file.BrowserFile != null)
-                {
-                    this.selectedFiles[file.FileType].Add(file.BrowserFile);
-                }
-            }
-            selectedFiles.Clear();
-
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error processing selected files");
-            errorMessage = $"Ошибка при обработке файлов: {ex.Message}";
-        }
-    }
-
-    private bool ValidateTypeFiles(List<FolderFileSelector.SelectedFileInfo> selectedFiles, out string? errorMessage)
-    {
-        errorMessage = null;
-
-        List<FileType> fileTypes = isFqp
-            ? [FileType.ExplanatoryNoteWord, FileType.ExplanatoryNotePdf, FileType.Presentation]
-            : [FileType.Report];
-        //TODO: в настройках кафедр настраивается перечень нужных файлов
-
-        foreach (var file in selectedFiles)
-        {
-            fileTypes.Remove(file.FileType);
-            if (fileTypes.Count == 0) break;
-        }
-
-        if (fileTypes.Count == 0) return true;
-        else
-        {
-            string filesRus = string.Join(";\n", fileTypes.Select(f => GetFileTypeName(f)));
-            errorMessage = $"Не хватает следующих файлов:\n{filesRus}";
-            return false;
-        }
-
+        StateHasChanged();
     }
 
     private void HandleValidationRequested(object? sender, ValidationStateChangedEventArgs args)
@@ -879,21 +893,6 @@
 #pragma warning restore CS8603
     }
 
-
-    private string GetFileTypeName(FileType fileType)
-    {
-        return fileType switch
-        {
-            FileType.ExplanatoryNoteWord => "Пояснительная записка (Word)",
-            FileType.ExplanatoryNotePdf => "Пояснительная записка (PDF)",
-            FileType.Presentation => "Презентация",
-            FileType.SourceCode => "Исходный код",
-            FileType.DatabaseBackup => "База данных",
-            FileType.PasswordFile => "Файл с паролями",
-            FileType.Other => "Другие файлы",
-            _ => fileType.ToString()
-        };
-    }
 
     private async Task HandleValidSubmit()
     {
@@ -945,11 +944,12 @@
 
                     if (hasCR) await AddConsultantsAndReviewers(context, work.IdРаботы);
 
-                    errorMessage = null;
-                    successMessage = "Работа успешно добавлена!";
                     WorkDto.IdРаботы = work.IdРаботы;
-                    await SaveStateWorkDTO();
-                    StateHasChanged();
+                    waitAddWork = true;
+                    while (waitAddWork)
+                    {
+                        await Task.Delay(300);
+                    }
                 }
             }
             else
@@ -1083,7 +1083,6 @@
             else
                 student = filteredStudents.First(s => s.IdСтудента == WorkDto.IdСтудента);
             Преподаватель teacher = snapshot.Teachers.First(t => t.IdПреподавателя == WorkDto.IdПреподавателя);
-            ТипРаботы workType = snapshot.WorkTypes.First(w => w.IdТипаРаботы == WorkDto.IdТипаРаботы);
             Институт institute = snapshot.Institutes.First(i => i.IdИнститута == WorkDto.IdИнститута);
             Кафедра department = filteredDepartments.First(d => d.IdКафедры == WorkDto.IdКафедры);
             УгснСтандарт ugsnStandard = snapshot.UgsnStandards.First(d => d.IdУгснСтандарта == WorkDto.IdУгснСтандарта);
@@ -1100,18 +1099,18 @@
                     Направление = direction,
                     Профиль = profile
                 },
-                WorkType = workType.Название,
+                WorkType = workType,
                 Year = WorkDto.ГодВыпуска ?? DateTime.Now.Year,
                 StudentName = studentDtoFactory!.CreateDisplayDtoAsync(student).Result.Пользователь.ФИО,
-                WorkTitle = WorkDto.Тема,
-
-                ExplanatoryNoteWord = selectedFiles.GetValueOrDefault(FileType.ExplanatoryNoteWord)?.FirstOrDefault(),
-                ExplanatoryNotePdf = selectedFiles.GetValueOrDefault(FileType.ExplanatoryNotePdf)?.FirstOrDefault(),
-                Presentation = selectedFiles.GetValueOrDefault(FileType.Presentation)?.FirstOrDefault(),
-                SourceCodeFiles = selectedFiles.GetValueOrDefault(FileType.SourceCode) ?? Enumerable.Empty<IBrowserFile>(),
-                DatabaseBackup = selectedFiles.GetValueOrDefault(FileType.DatabaseBackup)?.FirstOrDefault(),
-                PasswordFile = selectedFiles.GetValueOrDefault(FileType.PasswordFile)?.FirstOrDefault()
+                WorkTitle = WorkDto.Тема
             };
+
+            foreach (var file in selectedFiles)
+            {
+                uploadContext.AddFile(file.DisplaySelectedType, file.BrowserFile!);
+            }
+
+            FileUploadService.InitializeFileTypeConfigs(SettingsFiles, workType);
 
             uploadResult = await FileUploadService.UploadFilesWithHashAsync(uploadContext, token);
 
@@ -1166,36 +1165,46 @@
 
     private async void OnTablesChanged(object? sender, TableChangeEvent e)
     {
-        if (WorkDto.IdРаботы != 0) return;
-
-        if (ReferenceDataSnapshot.GetTablesName().Contains(e.TableName))
-        {
-            await InvokeAsync(async () =>
+        await InvokeAsync(async () =>
             {
-                await UpdateData();
-                StateHasChanged();
-            });
-        }
-        else if (e.TableName == nameof(Пользователь) || e.TableName == nameof(Работа) || e.TableName == nameof(Студент))
-        {
-            if (e.TableName == nameof(Пользователь) || e.TableName == nameof(Студент))
-            {
-                await InvokeAsync(async () =>
+                // При добавлении работы ждём, когда в кэше появится добавленная работа
+                if (waitAddWork && e.TableName == nameof(Работа) && e.ChangeType == TableChangeType.Insert)
                 {
-                    users = await RefDataService.GetAsync<Пользователь>();
-                    filteredStudents = snapshot.Students.OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
-                    filteredEducationLevels = snapshot.EducationLevels;
-                    filteredTeachers = snapshot.Teachers.OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
-                    StateHasChanged();
-                });
-            }
+                    Работа? work = JsonConvert.DeserializeObject<Работа>(e.New!.ToString(),
+                                new JsonSerializerSettings { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } });
+                    if (work != null && work.IdРаботы == WorkDto.IdРаботы)
+                    {
+                        errorMessage = null;
+                        successMessage = "Работа успешно добавлена!";
+                        await SaveStateWorkDTO();
+                        waitAddWork = false;
+                        StateHasChanged();
+                    }
+                }
 
-            await InvokeAsync(async () =>
-            {
-                await OnWorkTypeChanged();
-                StateHasChanged();
+                if (WorkDto.IdРаботы != 0) return;
+
+                // Обновляем данные при изменении студентов, работ, пользователей и справочников
+                if (ReferenceDataSnapshot.GetTablesName().Contains(e.TableName))
+                {
+                    await UpdateData();
+                    StateHasChanged();
+                }
+                else if (e.TableName == nameof(Пользователь) || e.TableName == nameof(Работа) || e.TableName == nameof(Студент))
+                {
+                    if (e.TableName == nameof(Пользователь) || e.TableName == nameof(Студент))
+                    {
+                        users = await RefDataService.GetAsync<Пользователь>();
+                        filteredStudents = snapshot.Students.OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
+                        filteredEducationLevels = snapshot.EducationLevels;
+                        filteredTeachers = snapshot.Teachers.OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
+                        StateHasChanged();
+                    }
+
+                    await OnWorkTypeChanged();
+                    StateHasChanged();
+                }
             });
-        }
     }
 
     private void Cancel()

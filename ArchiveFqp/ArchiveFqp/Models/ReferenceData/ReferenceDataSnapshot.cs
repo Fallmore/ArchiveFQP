@@ -1,4 +1,5 @@
 ﻿using ArchiveFqp.Models.Database;
+using ArchiveFqp.Services.ReferenceData;
 
 namespace ArchiveFqp.Models.ReferenceData
 {
@@ -31,6 +32,8 @@ namespace ArchiveFqp.Models.ReferenceData
         public List<УгснСтандарт> UgsnStandards { get; set; } = [];
         public List<УровеньОбразования> EducationLevels { get; set; } = [];
         public List<ФормаОбучения> EducationForms { get; set; } = [];
+        public List<НастройкиИнститута> SettingsInstitute { get; set; } = [];
+        public List<НастройкиКафедры> SettingsDepartment { get; set; } = [];
 
         public DateTime LastUpdated { get; set; }
 
@@ -44,8 +47,8 @@ namespace ArchiveFqp.Models.ReferenceData
                 .ToList();
         }
 
-        // Не забудьте обновлять этот метод при добавлении новых таблиц в ReferenceDataSnapshot,
-        // а также в ReferenceDataService.cs:RefreshReferenceDataSnapshot() !!!!!!!!!!!!!!!!!
+        /// Не забудьте обновлять этот метод при добавлении новых таблиц в ReferenceDataSnapshot,
+        /// а также в <see cref="ReferenceDataService.RefreshSnapshotAsync"/> !!!!!!!!!!!!!!!!!
         public List<T> GetTable<T>() where T : class
         {
             return typeof(T).Name switch
@@ -74,12 +77,14 @@ namespace ArchiveFqp.Models.ReferenceData
                 nameof(УгснСтандарт) => (UgsnStandards as List<T>)!,
                 nameof(УровеньОбразования) => (EducationLevels as List<T>)!,
                 nameof(ФормаОбучения) => (EducationForms as List<T>)!,
+                nameof(НастройкиИнститута) => (SettingsInstitute as List<T>)!,
+                nameof(НастройкиКафедры) => (SettingsDepartment as List<T>)!,
                 _ => throw new ArgumentException($"Неизвестная таблица: {typeof(T).Name}")
             };
         }
 
-        // Не забудьте обновлять этот метод при добавлении новых таблиц в ReferenceDataSnapshot
-        // а также в ReferenceDataService.cs:RefreshReferenceDataSnapshot() !!!!!!!!!!!!!!!!!
+        /// Не забудьте обновлять этот метод при добавлении новых таблиц в ReferenceDataSnapshot,
+        /// а также в <see cref="ReferenceDataService.RefreshSnapshotAsync"/> !!!!!!!!!!!!!!!!!
         public void SetTable<T>(List<T> table) where T : class
         {
             switch (typeof(T).Name)
@@ -108,6 +113,8 @@ namespace ArchiveFqp.Models.ReferenceData
                 case nameof(УгснСтандарт): UgsnStandards = (table as List<УгснСтандарт>)!; break;
                 case nameof(УровеньОбразования): EducationLevels = (table as List<УровеньОбразования>)!; break;
                 case nameof(ФормаОбучения): EducationForms = (table as List<ФормаОбучения>)!; break;
+                case nameof(НастройкиИнститута): SettingsInstitute = (table as List<НастройкиИнститута>)!; break;
+                case nameof(НастройкиКафедры): SettingsDepartment = (table as List<НастройкиКафедры>)!; break;
                 default: throw new ArgumentException($"Unknown type: {typeof(T).Name}");
             }
             ;

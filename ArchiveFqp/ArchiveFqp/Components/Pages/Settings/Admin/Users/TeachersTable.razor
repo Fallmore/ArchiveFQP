@@ -185,7 +185,7 @@
         StateHasChanged();
     }
 
-    private void OpenCreateModal()
+    private async Task OpenCreateModal()
     {
         selectedTeacher = new();
         isEdit = false;
@@ -193,9 +193,10 @@
         StateHasChanged();
     }
 
-    private void OpenEditModal(Преподаватель teacher)
+    private async Task OpenEditModal(Преподаватель teacher)
     {
         selectedTeacher = teacher;
+        await UpdateDependentLists();
         isEdit = true;
         showModal = true;
         StateHasChanged();

@@ -49,6 +49,11 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
             OnChange?.Invoke();
         }
 
+        /// <summary>
+        /// ВСЕГДА дополняйте при изменении полей, т.к. для глобального изменения
+        /// сервиса для всех просто присваивание не работает
+        /// </summary>
+        /// <param name="settings"></param>
         public void Copy(SettingsArchive settings)
         {
             FolderDataName = settings.FolderDataName;
@@ -93,12 +98,8 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
 
             FilesRootPath = settings.FilesRootPath;
             MaxFileSize = settings.MaxFileSize;
-            AllowedWordExtensions = settings.AllowedWordExtensions;
-            AllowedPdfExtensions = settings.AllowedPdfExtensions;
-            AllowedPresentationExtensions = settings.AllowedPresentationExtensions;
-            AllowedSourceCodeExtensions = settings.AllowedSourceCodeExtensions;
-            AllowedDbExtensions = settings.AllowedDbExtensions;
-            AllowedPasswordExtensions = settings.AllowedPasswordExtensions;
+            AllowedFiles = settings.AllowedFiles;
+            RequiredFiles = settings.RequiredFiles;
 
         }
 
@@ -118,7 +119,9 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
         public string RoleDepartmentResponsibleName { get; set; } = "Ответственный кафедры";
         public string RoleDepartmentClerkName { get; set; } = "Делопроизводитель";
         public string RoleTeacherName { get; set; } = "Преподаватель";
+        public string RoleTeacherOnVerifyName { get; set; } = "Преподаватель на проверке";
         public string RoleStudentName { get; set; } = "Студент";
+        public string RoleStudentOnVerifyName { get; set; } = "Студент на проверке";
 
         public string ApplicationsInProcessStatus { get; set; } = "На рассмотрении";
         public string ApplicationsRejectStatus { get; set; } = "Отклонено";
@@ -181,11 +184,5 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
 
         public string FilesRootPath { get; set; } = ""; // 100 MB
         public long MaxFileSize { get; set; } = 100 * 1024 * 1024; // 100 MB
-        public List<string> AllowedWordExtensions { get; set; } = [".doc", ".docx"];
-        public List<string> AllowedPdfExtensions { get; set; } = [".pdf"];
-        public List<string> AllowedPresentationExtensions { get; set; } = [".ppt", ".pptx"];
-        public List<string> AllowedSourceCodeExtensions { get; set; } = [".zip", ".rar", ".7z"];
-        public List<string> AllowedDbExtensions { get; set; } = [".sql", ".bak", ".backup", ".dump", ".txt"];
-        public List<string> AllowedPasswordExtensions { get; set; } = [".txt"];
     }
 }

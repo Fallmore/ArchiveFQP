@@ -117,8 +117,8 @@
         // Пересоздаём EditContext, если модель параметра изменилась (чтобы валидация работала корректно)
         if (editContext == null || editContext.Model != Attributes)
         {
-            editContext = new EditContext(Attributes);
-            //await UpdateAttributes();
+            editContext = new (Attributes);
+            // await UpdateAttributes();
         }
     }
 
@@ -230,23 +230,21 @@
     {
         if (e.TableName == nameof(ДанныеПоАтриб))
         {
+            ДанныеПоАтриб? dAttr = null;
+            JsonSerializerSettings options = new ()
+                { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } };
             // Пропускаем обновление атрибутов, если изменение не относится к текущей работе
             if (e.ChangeType == TableChangeType.Delete)
             {
-                ДанныеПоАтриб? old = JsonConvert.DeserializeObject<ДанныеПоАтриб>(e.Old!.ToString(),
-                    new JsonSerializerSettings
-                    { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } });
-
-                if (old == null || old.IdРаботы != Attributes[0].IdРаботы) return;
+                dAttr = JsonConvert.DeserializeObject<ДанныеПоАтриб>(e.Old!.ToString(), options);
             }
             else if (e.ChangeType == TableChangeType.Update || e.ChangeType == TableChangeType.Insert)
             {
-                ДанныеПоАтриб? neww = JsonConvert.DeserializeObject<ДанныеПоАтриб>(e.New!.ToString(),
-                    new JsonSerializerSettings
-                    { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } });
-
-                if (neww == null || neww.IdРаботы != Attributes[0].IdРаботы) return;
+                dAttr = JsonConvert.DeserializeObject<ДанныеПоАтриб>(e.New!.ToString(), options);
             }
+
+            if (dAttr == null || Attributes == null
+                    || Attributes.Count == 0 || dAttr.IdРаботы != Attributes[0].IdРаботы) return;
 
             await UpdateAttributes();
         }

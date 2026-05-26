@@ -154,7 +154,7 @@
                                             <select class="form-select mb-3" @bind="newFqpWork"
                                                     @onkeypress="HandleFqpKeyPress">
                                                 <option value="">Выберите тип</option>
-                                                @foreach (var workType in workTypesFqp)
+                                                @foreach (var workType in workTypesNotFqp)
                                                 {
                                                     <option value="@workType.Название">@workType.Название</option>
                                                 }
@@ -184,7 +184,7 @@
                                             <select class="form-select mb-3" @bind="newFqpWorkCR"
                                                     @onkeypress="HandleFqpKeyPress">
                                                 <option value="">Выберите тип</option>
-                                                @foreach (var workType in workTypesFqpCR)
+                                                @foreach (var workType in workTypesNotFqpCR)
                                                 {
                                                     <option value="@workType.Название">@workType.Название</option>
                                                 }
@@ -298,152 +298,222 @@
                         <!-- Расширения файлов -->
                         <div class="col-md-12">
                             <div class="card mb-3">
-                                <div class="card-header bg-info text-white">
-                                    <h6 class="mb-0">Разрешенные расширения файлов</h6>
+                                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">Разрешенные типы файлов и их расширения</h6>
+                                    <button type="button" class="btn btn-sm btn-light" @onclick="AddNewFileType">
+                                        <i class="bi bi-plus-circle"></i> Добавить тип файла
+                                    </button>
                                 </div>
                                 <div class="card-body">
                                     <div class="row">
-                                        <div class="col-md-3">
-                                            <label class="form-label">Word</label>
-                                            <div class="input-group input-group-sm mb-2">
-                                                <input type="text" class="form-control" @bind="newWordExt"
-                                                       placeholder=".ext" @onkeypress="HandleWordExtKeyPress" />
-                                                <button type="button" class="btn btn-success btn-sm" @onclick="AddWordExtension">
-                                                    <i class="bi bi-plus"></i>
-                                                </button>
-                                            </div>
-                                            <div class="list-group list-group-flush">
-                                                @foreach (var ext in Settings.AllowedWordExtensions)
-                                                {
-                                                    <div class="list-group-item d-flex justify-content-between align-items-center p-1">
-                                                        <span>@ext</span>
-                                                        <button type="button" class="btn btn-sm btn-link text-danger"
-                                                                @onclick="() => RemoveWordExtension(ext)">
-                                                            <i class="bi bi-x"></i>
-                                                        </button>
+                                        @foreach (var fileType in Settings.AllowedFiles.Keys.ToList())
+                                        {
+                                            var fileTypeName = fileType;
+                                            var extensions = Settings.AllowedFiles[fileTypeName];
+                    
+                                            <div class="col-md-4 col-lg-3 mb-3">
+                                                <div class="card h-100">
+                                                    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                                                        <span class="fw-bold small">@fileTypeName</span>
+                                                        @if (fileTypeName != "Пояснительная записка (Pdf)")
+                                                        {
+                                                            <button type="button" class="btn btn-sm btn-link text-danger p-0"
+                                                                    @onclick="() => RemoveFileType(fileTypeName)">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        }
                                                     </div>
-                                                }
-                                            </div>
-                                        </div>
-
-                                        <div class="col-md-3">
-                                            <label class="form-label">PDF</label>
-                                            <div class="input-group input-group-sm mb-2">
-                                                <input type="text" class="form-control" @bind="newPdfExt"
-                                                       placeholder=".ext" @onkeypress="HandlePdfExtKeyPress" />
-                                                <button type="button" class="btn btn-success btn-sm" @onclick="AddPdfExtension">
-                                                    <i class="bi bi-plus"></i>
-                                                </button>
-                                            </div>
-                                            <div class="list-group list-group-flush">
-                                                @foreach (var ext in Settings.AllowedPdfExtensions)
-                                                {
-                                                    <div class="list-group-item d-flex justify-content-between align-items-center p-1">
-                                                        <span>@ext</span>
-                                                        <button type="button" class="btn btn-sm btn-link text-danger"
-                                                                @onclick="() => RemovePdfExtension(ext)">
-                                                            <i class="bi bi-x"></i>
-                                                        </button>
+                                                    <div class="card-body p-2">
+                                                        <div class="input-group input-group-sm mb-2">
+                                                            <input type="text" class="form-control"
+                                                                   placeholder=".ext"
+                                                                   @bind="newExtensionInputs[fileTypeName]"
+                                                                   @bind:event="oninput"
+                                                                   @onkeypress="(e) => HandleExtensionKeyPress(e, fileTypeName)" />
+                                                            <button type="button" class="btn btn-success btn-sm"
+                                                                    @onclick="() => AddExtension(fileTypeName)">
+                                                                <i class="bi bi-plus"></i>
+                                                            </button>
+                                                        </div>
+                                                        <div class="list-group list-group-flush" style="max-height: 200px; overflow-y: auto;">
+                                                            @foreach (var ext in extensions)
+                                                            {
+                                                                <div class="list-group-item d-flex justify-content-between align-items-center p-1 ps-2">
+                                                                    <span class="small">@ext</span>
+                                                                    <button type="button" class="btn btn-sm btn-link text-danger p-0"
+                                                                            @onclick="() => RemoveExtension(fileTypeName, ext)">
+                                                                        <i class="bi bi-x"></i>
+                                                                    </button>
+                                                                </div>
+                                                            }
+                                                            @if (!extensions.Any())
+                                                            {
+                                                                <div class="text-muted small text-center p-2">
+                                                                    Нет расширений
+                                                                </div>
+                                                            }
+                                                        </div>
                                                     </div>
-                                                }
+                                                </div>
                                             </div>
-                                        </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-                                        <div class="col-md-3">
-                                            <label class="form-label">Презентации</label>
-                                            <div class="input-group input-group-sm mb-2">
-                                                <input type="text" class="form-control" @bind="newPresentationExt"
-                                                       placeholder=".ext" @onkeypress="HandlePresentationExtKeyPress" />
-                                                <button type="button" class="btn btn-success btn-sm" @onclick="AddPresentationExtension">
-                                                    <i class="bi bi-plus"></i>
-                                                </button>
-                                            </div>
-                                            <div class="list-group list-group-flush">
-                                                @foreach (var ext in Settings.AllowedPresentationExtensions)
+                        <!-- Необходимые файлы для типов работ -->
+                        <div class="col-md-12">
+                            <div class="card mb-3">
+                                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">Необходимые файлы для типов работ</h6>
+                                    <button type="button" class="btn btn-sm btn-light" @onclick="AddNewWorkTypeRequirement">
+                                        <i class="bi bi-plus-circle"></i> Добавить тип работы
+                                    </button>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered table-hover">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="width: 20%">Тип работы</th>
+                                                    <th style="width: 70%">Необходимые файлы</th>
+                                                    <th style="width: 10%">Действия</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var requiredFile in Settings.RequiredFiles.ToList())
                                                 {
-                                                    <div class="list-group-item d-flex justify-content-between align-items-center p-1">
-                                                        <span>@ext</span>
-                                                        <button type="button" class="btn btn-sm btn-link text-danger"
-                                                                @onclick="() => RemovePresentationExtension(ext)">
-                                                            <i class="bi bi-x"></i>
-                                                        </button>
-                                                    </div>
+                                                    var workTypeName = requiredFile.Key;
+                                                    var requiredFilesList = requiredFile.Value;
+                            
+                                                    <tr>
+                                                        <td>
+                                                            <select class="form-select form-select-sm"
+                                                                    @bind="workTypeSelections[workTypeName]"
+                                                                    @bind:after="() => OnWorkTypeChanged(workTypeName)">
+                                                                <option value="">Выберите тип работы</option>
+                                                                @foreach (var workType in workTypes)
+                                                                {
+                                                                    <option value="@workType.Название">@workType.Название</option>
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <div class="d-flex flex-wrap gap-1">
+                                                                @foreach (var file in requiredFilesList)
+                                                                {
+                                                                    <span class="badge bg-primary d-inline-flex align-items-center gap-1">
+                                                                        @file
+                                                                        <button type="button" class="btn-close btn-close-white btn-sm"
+                                                                                style="font-size: 0.5rem;"
+                                                                                @onclick="() => RemoveRequiredFile(workTypeName, file)"></button>
+                                                                    </span>
+                                                                }
+                                                                <div class="input-group input-group-sm" style="width: auto;">
+                                                                    <select class="form-select form-select-sm"
+                                                                            style="width: auto; min-width: 150px;"
+                                                                            @bind="newRequiredFileInputs[workTypeName]">
+                                                                        <option value="">Выберите файл...</option>
+                                                                        @foreach (var fileType in Settings.AllowedFiles.Keys)
+                                                                        {
+                                                                            <option value="@fileType">@fileType</option>
+                                                                        }
+                                                                    </select>
+                                                                    <button type="button" class="btn btn-success btn-sm"
+                                                                            @onclick="() => AddRequiredFile(workTypeName)">
+                                                                        <i class="bi bi-plus"></i>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-center">
+                                                            <button type="button" class="btn btn-sm btn-danger"
+                                                                    @onclick="() => RemoveWorkTypeRequirement(workTypeName)">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
                                                 }
-                                            </div>
-                                        </div>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-                                        <div class="col-md-3">
-                                            <label class="form-label">Исходный код</label>
-                                            <div class="input-group input-group-sm mb-2">
-                                                <input type="text" class="form-control" @bind="newSourceCodeExt"
-                                                       placeholder=".ext" @onkeypress="HandleSourceCodeExtKeyPress" />
-                                                <button type="button" class="btn btn-success btn-sm" @onclick="AddSourceCodeExtension">
-                                                    <i class="bi bi-plus"></i>
-                                                </button>
-                                            </div>
-                                            <div class="list-group list-group-flush">
-                                                @foreach (var ext in Settings.AllowedSourceCodeExtensions)
+                        <!-- Модальное окно для добавления нового типа файла -->
+                        <div class="modal fade @(showAddFileTypeModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Добавление типа файла</h5>
+                                        <button type="button" class="btn-close" @onclick="CloseAddFileTypeModal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Название типа файла</label>
+                                            <input type="text" class="form-control" @bind="newFileTypeName" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Начальные расширения (через запятую)</label>
+                                            <input type="text" class="form-control" @bind="newFileTypeExtensions"
+                                                   placeholder=".doc, .docx, .pdf" />
+                                            <small class="text-muted">Пример: .doc, .docx, .pdf</small>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" @onclick="CloseAddFileTypeModal">Отмена</button>
+                                        <button type="button" class="btn btn-primary" @onclick="AddNewFileTypeConfirm">Добавить</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Модальное окно для добавления нового требования к типу работы -->
+                        <div class="modal fade @(showAddWorkTypeModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Добавление требований для типа работы</h5>
+                                        <button type="button" class="btn-close" @onclick="CloseAddWorkTypeModal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Тип работы</label>
+                                            <select class="form-select" @bind="newWorkTypeForRequirement">
+                                                <option value="">Выберите тип работы</option>
+                                                @foreach (var workType in workTypes)
                                                 {
-                                                    <div class="list-group-item d-flex justify-content-between align-items-center p-1">
-                                                        <span>@ext</span>
-                                                        <button type="button" class="btn btn-sm btn-link text-danger"
-                                                                @onclick="() => RemoveSourceCodeExtension(ext)">
-                                                            <i class="bi bi-x"></i>
-                                                        </button>
-                                                    </div>
+                                                    <option value="@workType.Название">@workType.Название</option>
                                                 }
-                                            </div>
+                                            </select>
                                         </div>
-
-                                        <div class="col-md-3 mt-3">
-                                            <label class="form-label">Базы данных</label>
-                                            <div class="input-group input-group-sm mb-2">
-                                                <input type="text" class="form-control" @bind="newDbExt"
-                                                       placeholder=".ext" @onkeypress="HandleDbExtKeyPress" />
-                                                <button type="button" class="btn btn-success btn-sm" @onclick="AddDbExtension">
-                                                    <i class="bi bi-plus"></i>
-                                                </button>
-                                            </div>
-                                            <div class="list-group list-group-flush">
-                                                @foreach (var ext in Settings.AllowedDbExtensions)
+                                        <div class="mb-3">
+                                            <label class="form-label">Начальный набор файлов</label>
+                                            <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                                                @foreach (var fileType in Settings.AllowedFiles.Keys)
                                                 {
-                                                    <div class="list-group-item d-flex justify-content-between align-items-center p-1">
-                                                        <span>@ext</span>
-                                                        <button type="button" class="btn btn-sm btn-link text-danger"
-                                                                @onclick="() => RemoveDbExtension(ext)">
-                                                            <i class="bi bi-x"></i>
-                                                        </button>
-                                                    </div>
-                                                }
-                                            </div>
-                                        </div>
-
-                                        <div class="col-md-3 mt-3">
-                                            <label class="form-label">Пароли</label>
-                                            <div class="input-group input-group-sm mb-2">
-                                                <input type="text" class="form-control" @bind="newPasswordExt"
-                                                       placeholder=".ext" @onkeypress="HandlePasswordExtKeyPress" />
-                                                <button type="button" class="btn btn-success btn-sm" @onclick="AddPasswordExtension">
-                                                    <i class="bi bi-plus"></i>
-                                                </button>
-                                            </div>
-                                            <div class="list-group list-group-flush">
-                                                @foreach (var ext in Settings.AllowedPasswordExtensions)
-                                                {
-                                                    <div class="list-group-item d-flex justify-content-between align-items-center p-1">
-                                                        <span>@ext</span>
-                                                        <button type="button" class="btn btn-sm btn-link text-danger"
-                                                                @onclick="() => RemovePasswordExtension(ext)">
-                                                            <i class="bi bi-x"></i>
-                                                        </button>
+                                                    var currentFileType = fileType; // Локальная переменная для замыкания
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox"
+                                                               value="@currentFileType"
+                                                               checked="@IsFileTypeSelected(currentFileType)"
+                                                               @onchange="@(e => ToggleFileTypeSelection(currentFileType, e.Value is true))" />
+                                                        <label class="form-check-label">@currentFileType</label>
                                                     </div>
                                                 }
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" @onclick="CloseAddWorkTypeModal">Отмена</button>
+                                        <button type="button" class="btn btn-primary" @onclick="AddNewWorkTypeRequirementConfirm">Добавить</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
 
                         <!-- Кнопки -->
                         <div class="col-12">
@@ -469,15 +539,26 @@
     private string selectedWorkTypeForEducation = "";
     private string selectedWorkTypeForStorageTime = "";
     private string newEducationLevel = "";
-    private string newWordExt = "";
-    private string newPdfExt = "";
-    private string newPresentationExt = "";
-    private string newSourceCodeExt = "";
-    private string newDbExt = "";
-    private string newPasswordExt = "";
 
-    private List<ТипРаботы> workTypesFqp = null!;
-    private List<ТипРаботы> workTypesFqpCR = null!;
+    private List<ТипРаботы> workTypes = null!;
+    private List<ТипРаботы> workTypesNotFqp = null!;
+    private List<ТипРаботы> workTypesNotFqpCR = null!;
+
+    private Dictionary<string, string> newExtensionInputs = new();
+    private Dictionary<string, string> newRequiredFileInputs = new();
+    private Dictionary<string, string> workTypeSelections = new();
+    
+    // Модальные окна
+    private bool showAddFileTypeModal = false;
+    private bool showAddWorkTypeModal = false;
+    
+    // Данные для нового типа файла
+    private string newFileTypeName = "";
+    private string newFileTypeExtensions = "";
+    
+    // Данные для нового типа работы
+    private string newWorkTypeForRequirement = "";
+    private List<string> selectedFilesForNewWorkType = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -500,13 +581,33 @@
         Settings.FqpWorksEducationLevels ??= new Dictionary<string, List<string>>();
         maxFileSize = ((double)Settings.MaxFileSize / 1024) / 1024;
 
-
-        workTypesFqp = (await RefDataService.GetAsync<ТипРаботы>())
+        workTypes = (await RefDataService.GetAsync<ТипРаботы>()).OrderBy(w => w.Название).ToList();
+        workTypesNotFqp = workTypes
             .Where(x => !Settings.FqpWorks.Contains(x.Название)).ToList();
-        workTypesFqpCR = (await RefDataService.GetAsync<ТипРаботы>())
+        workTypesNotFqpCR = workTypes
             .Where(x => !Settings.FqpWorksWithCR.Contains(x.Название)).ToList();
+        InitializeDictionaries();
 
         StateHasChanged();
+    }
+
+    private void InitializeDictionaries()
+    {
+        // Инициализация словарей для ввода расширений
+        foreach (var fileType in Settings.AllowedFiles.Keys)
+        {
+            if (!newExtensionInputs.ContainsKey(fileType))
+                newExtensionInputs[fileType] = "";
+        }
+        
+        // Инициализация словарей для выбора файлов
+        foreach (var requiredFile in Settings.RequiredFiles.Keys)
+        {
+            if (!newRequiredFileInputs.ContainsKey(requiredFile))
+                newRequiredFileInputs[requiredFile] = "";
+            if (!workTypeSelections.ContainsKey(requiredFile))
+                workTypeSelections[requiredFile] = requiredFile;
+        }
     }
 
     private async Task SaveSettings()
@@ -599,7 +700,7 @@
             Settings.FqpWorks.Add(newFqpWork);
             Settings.FqpWorksEducationLevels.Add(newFqpWork, []);
             Settings.StorageTimeWorks.Add(newFqpWork, 5);
-            workTypesFqp = workTypesFqp.Where(x => !Settings.FqpWorks.Contains(x.Название)).ToList();
+            workTypesNotFqp = workTypesNotFqp.Where(x => !Settings.FqpWorks.Contains(x.Название)).ToList();
             newFqpWork = "";
             StateHasChanged();
         }
@@ -612,7 +713,7 @@
         {
             Settings.FqpWorksEducationLevels.Remove(work);
         }
-        workTypesFqp = workTypesFqp.Where(x => !Settings.FqpWorks.Contains(x.Название)).ToList();
+        workTypesNotFqp = workTypesNotFqp.Where(x => !Settings.FqpWorks.Contains(x.Название)).ToList();
         StateHasChanged();
     }
 
@@ -673,54 +774,240 @@
             AddEducationLevel();
     }
 
-    // Вспомогательные методы для расширений
-    private void AddExtension(List<string> extensions, string newExt, Action updateNewExt)
+    // Управление расширениями файлов
+    private void AddExtension(string fileTypeName)
     {
-        if (!string.IsNullOrWhiteSpace(newExt) && !newExt.StartsWith("."))
+        var newExt = newExtensionInputs[fileTypeName];
+        
+        if (string.IsNullOrWhiteSpace(newExt))
+            return;
+        
+        if (!newExt.StartsWith("."))
             newExt = "." + newExt;
-    
-        if (!string.IsNullOrWhiteSpace(newExt) && !extensions.Contains(newExt))
+        
+        if (!Settings.AllowedFiles.ContainsKey(fileTypeName))
+            return;
+        
+        var extensions = Settings.AllowedFiles[fileTypeName];
+        if (!extensions.Contains(newExt))
         {
             extensions.Add(newExt);
-            updateNewExt();
+            newExtensionInputs[fileTypeName] = "";
             StateHasChanged();
         }
     }
-
-    private void RemoveExtension(List<string> extensions, string ext)
+    
+    private void RemoveExtension(string fileTypeName, string extension)
     {
-        extensions.Remove(ext);
+        if (Settings.AllowedFiles.TryGetValue(fileTypeName, out var extensions))
+        {
+            extensions.Remove(extension);
+            
+            // Если расширений не осталось, можно предложить удалить тип файла
+            if (!extensions.Any())
+            {
+                // Опционально: показать предупреждение
+            }
+            
+            StateHasChanged();
+        }
+    }
+    
+    private void HandleExtensionKeyPress(KeyboardEventArgs e, string fileTypeName)
+    {
+        if (e.Key == "Enter")
+            AddExtension(fileTypeName);
+    }
+    
+    // Управление типами файлов
+    private void AddNewFileType()
+    {
+        newFileTypeName = "";
+        newFileTypeExtensions = "";
+        showAddFileTypeModal = true;
+        StateHasChanged();
+    }
+    
+    private void AddNewFileTypeConfirm()
+    {
+        if (string.IsNullOrWhiteSpace(newFileTypeName))
+            return;
+        
+        if (Settings.AllowedFiles.ContainsKey(newFileTypeName))
+        {
+            // Показать ошибку - такой тип уже существует
+            return;
+        }
+        
+        var extensions = newFileTypeExtensions
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(e => e.Trim())
+            .Where(e => e.StartsWith("."))
+            .ToList();
+        
+        if (!extensions.Any())
+        {
+            extensions.Add(".txt"); // Расширение по умолчанию
+        }
+        
+        Settings.AllowedFiles[newFileTypeName] = extensions;
+        newExtensionInputs[newFileTypeName] = "";
+        
+        CloseAddFileTypeModal();
+        StateHasChanged();
+    }
+    
+    private void RemoveFileType(string fileTypeName)
+    {
+        // Проверяем, не используется ли этот тип в RequiredFiles
+        var isUsed = Settings.RequiredFiles.Values.Any(files => files.Contains(fileTypeName));
+        
+        if (isUsed)
+        {
+            // Показать предупреждение, что тип используется в требованиях
+            return;
+        }
+        
+        Settings.AllowedFiles.Remove(fileTypeName);
+        newExtensionInputs.Remove(fileTypeName);
+        
+        StateHasChanged();
+    }
+    
+    private void CloseAddFileTypeModal()
+    {
+        showAddFileTypeModal = false;
         StateHasChanged();
     }
 
-    // Word extensions
-    private void AddWordExtension() => AddExtension(Settings.AllowedWordExtensions, newWordExt, () => newWordExt = "");
-    private void RemoveWordExtension(string ext) => RemoveExtension(Settings.AllowedWordExtensions, ext);
-    private void HandleWordExtKeyPress(KeyboardEventArgs e) { if (e.Key == "Enter") AddWordExtension(); }
+    // Проверка, выбран ли тип файла
+    private bool IsFileTypeSelected(string fileType)
+    {
+        return selectedFilesForNewWorkType.Contains(fileType);
+    }
 
-    // PDF extensions
-    private void AddPdfExtension() => AddExtension(Settings.AllowedPdfExtensions, newPdfExt, () => newPdfExt = "");
-    private void RemovePdfExtension(string ext) => RemoveExtension(Settings.AllowedPdfExtensions, ext);
-    private void HandlePdfExtKeyPress(KeyboardEventArgs e) { if (e.Key == "Enter") AddPdfExtension(); }
-
-    // Presentation extensions
-    private void AddPresentationExtension() => AddExtension(Settings.AllowedPresentationExtensions, newPresentationExt, () => newPresentationExt = "");
-    private void RemovePresentationExtension(string ext) => RemoveExtension(Settings.AllowedPresentationExtensions, ext);
-    private void HandlePresentationExtKeyPress(KeyboardEventArgs e) { if (e.Key == "Enter") AddPresentationExtension(); }
-
-    // Source code extensions
-    private void AddSourceCodeExtension() => AddExtension(Settings.AllowedSourceCodeExtensions, newSourceCodeExt, () => newSourceCodeExt = "");
-    private void RemoveSourceCodeExtension(string ext) => RemoveExtension(Settings.AllowedSourceCodeExtensions, ext);
-    private void HandleSourceCodeExtKeyPress(KeyboardEventArgs e) { if (e.Key == "Enter") AddSourceCodeExtension(); }
-
-    // DB extensions
-    private void AddDbExtension() => AddExtension(Settings.AllowedDbExtensions, newDbExt, () => newDbExt = "");
-    private void RemoveDbExtension(string ext) => RemoveExtension(Settings.AllowedDbExtensions, ext);
-    private void HandleDbExtKeyPress(KeyboardEventArgs e) { if (e.Key == "Enter") AddDbExtension(); }
-
-    // Password extensions
-    private void AddPasswordExtension() => AddExtension(Settings.AllowedPasswordExtensions, newPasswordExt, () => newPasswordExt = "");
-    private void RemovePasswordExtension(string ext) => RemoveExtension(Settings.AllowedPasswordExtensions, ext);
-    private void HandlePasswordExtKeyPress(KeyboardEventArgs e) { if (e.Key == "Enter") AddPasswordExtension(); }
+    // Переключение выбора типа файла
+    private void ToggleFileTypeSelection(string fileType, bool isSelected)
+    {
+        if (isSelected)
+        {
+            if (!selectedFilesForNewWorkType.Contains(fileType))
+            {
+                selectedFilesForNewWorkType.Add(fileType);
+            }
+        }
+        else
+        {
+            selectedFilesForNewWorkType.Remove(fileType);
+        }
+        StateHasChanged();
+    }
+    
+    // Управление необходимыми файлами для типов работ
+    private void AddNewWorkTypeRequirement()
+    {
+        newWorkTypeForRequirement = "";
+        selectedFilesForNewWorkType = new List<string>();
+        showAddWorkTypeModal = true;
+        StateHasChanged();
+    }
+    
+    private void AddNewWorkTypeRequirementConfirm()
+    {
+        if (string.IsNullOrWhiteSpace(newWorkTypeForRequirement))
+            return;
+        
+        if (Settings.RequiredFiles.ContainsKey(newWorkTypeForRequirement))
+        {
+            // Такой тип работы уже есть в требованиях
+            return;
+        }
+        
+        Settings.RequiredFiles[newWorkTypeForRequirement] = new List<string>(selectedFilesForNewWorkType);
+        newRequiredFileInputs[newWorkTypeForRequirement] = "";
+        workTypeSelections[newWorkTypeForRequirement] = newWorkTypeForRequirement;
+        
+        CloseAddWorkTypeModal();
+        StateHasChanged();
+    }
+    
+    private void RemoveWorkTypeRequirement(string workTypeName)
+    {
+        Settings.RequiredFiles.Remove(workTypeName);
+        newRequiredFileInputs.Remove(workTypeName);
+        workTypeSelections.Remove(workTypeName);
+        
+        StateHasChanged();
+    }
+    
+    private void AddRequiredFile(string workTypeName)
+    {
+        var selectedFile = newRequiredFileInputs[workTypeName];
+        
+        if (string.IsNullOrWhiteSpace(selectedFile))
+            return;
+        
+        if (!Settings.RequiredFiles.ContainsKey(workTypeName))
+        {
+            Settings.RequiredFiles[workTypeName] = new List<string>();
+        }
+        
+        var requiredFiles = Settings.RequiredFiles[workTypeName];
+        if (!requiredFiles.Contains(selectedFile))
+        {
+            requiredFiles.Add(selectedFile);
+            newRequiredFileInputs[workTypeName] = "";
+            
+            StateHasChanged();
+        }
+    }
+    
+    private void RemoveRequiredFile(string workTypeName, string requiredFile)
+    {
+        if (Settings.RequiredFiles.TryGetValue(workTypeName, out var requiredFiles))
+        {
+            requiredFiles.Remove(requiredFile);
+            
+            if (!requiredFiles.Any())
+            {
+                // Если не осталось обязательных файлов, удаляем запись
+                Settings.RequiredFiles.Remove(workTypeName);
+                newRequiredFileInputs.Remove(workTypeName);
+                workTypeSelections.Remove(workTypeName);
+            }
+            
+            StateHasChanged();
+        }
+    }
+    
+    private void OnWorkTypeChanged(string oldKey)
+    {
+        var newKey = workTypeSelections[oldKey];
+        
+        if (oldKey != newKey && !string.IsNullOrEmpty(newKey))
+        {
+            // Переносим данные из старого ключа в новый
+            if (Settings.RequiredFiles.TryGetValue(oldKey, out var files))
+            {
+                Settings.RequiredFiles[newKey] = files;
+                Settings.RequiredFiles.Remove(oldKey);
+                
+                if (newRequiredFileInputs.ContainsKey(oldKey))
+                {
+                    newRequiredFileInputs[newKey] = newRequiredFileInputs[oldKey];
+                    newRequiredFileInputs.Remove(oldKey);
+                }
+                
+                workTypeSelections.Remove(oldKey);
+                workTypeSelections[newKey] = newKey;
+            }
+        }
+    }
+    
+    private void CloseAddWorkTypeModal()
+    {
+        showAddWorkTypeModal = false;
+        StateHasChanged();
+    }
 
 }

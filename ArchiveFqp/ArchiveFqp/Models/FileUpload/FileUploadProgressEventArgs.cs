@@ -9,6 +9,6 @@
         public decimal ProgressPercent { get; set; }
         public long BytesUploaded { get; set; }
         public long TotalBytes { get; set; }
-        public FileType FileType { get; set; }
+        public string FileType { get; set; } = string.Empty;
     }
 }

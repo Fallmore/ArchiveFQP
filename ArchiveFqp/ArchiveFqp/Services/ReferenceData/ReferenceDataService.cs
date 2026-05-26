@@ -322,6 +322,8 @@ namespace ArchiveFqp.Services.ReferenceData
                     UgsnStandards = await context.УгснСтандартs.AsNoTracking().ToListAsync(),
                     EducationLevels = await context.УровеньОбразованияs.AsNoTracking().ToListAsync(),
                     EducationForms = await context.ФормаОбученияs.AsNoTracking().ToListAsync(),
+                    SettingsInstitute = await context.НастройкиИнститутаs.AsNoTracking().ToListAsync(),
+                    SettingsDepartment = await context.НастройкиКафедрыs.AsNoTracking().ToListAsync(),
                     LastUpdated = DateTime.Now
                 };
 

@@ -1,13 +1,19 @@
 ﻿@using ArchiveFqp.Models.DTO
 @using ArchiveFqp.Models.DTO.Work
+@using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Interfaces.Work
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Serialization
+@inject NavigationManager Navigation
 @inject ProtectedLocalStorage ProtectedSessionStore
+@inject IReferenceDataService RefDataService
 @inject IWorkService WorkService
 @inject IJSRuntime JSRuntime
 @inject SettingsArchive Settings
+@implements IDisposable
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <div class="container mt-4">
@@ -25,27 +31,40 @@
                             }
                             else
                             {
-                                <button class="accordion-button bg-transparent" style="height:20px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWorkData" aria-expanded="true" aria-controls="collapseWorkData">
+                                <button class="accordion-button bg-transparent" style="height:20px;" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#collapseWorkData"
+                                        aria-expanded="true" aria-controls="collapseWorkData">
                                     <h4 class="mb-0 text-white">
                                         <i class="bi bi-plus-circle me-2"></i>Добавление новой работы
                                     </h4>
                                 </button>
                             }
                         </div>
-                        <div id="collapseWorkData" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#accordionWork">
-                            <div class="accordion-body">
-                                <div class="card-body">
-                                    <WorkDataAdd @bind-WorkDto="@WorkDto" @bind-WorkDto:after="OnWorkDTOChanged"
-                                                 UpdateSessionStore="false"
-                                                 SessionStoreNameWorkDTO="@SessionStoreNameWorkDTO" />
+                        @if (WorkDto.Attributes == null)
+                        {
+                            <div class="card-body">
+                                <WorkDataAdd @bind-WorkDto="@WorkDto" @bind-WorkDto:after="OnWorkDTOChanged"
+                                             UpdateSessionStore="false"
+                                             SessionStoreNameWorkDTO="@SessionStoreNameWorkDTO" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div id="collapseWorkData" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionWork">
+                                <div class="accordion-body">
+                                    <div class="card-body">
+                                        <WorkDataAdd @bind-WorkDto="@WorkDto" @bind-WorkDto:after="OnWorkDTOChanged"
+                                                     UpdateSessionStore="false"
+                                                     SessionStoreNameWorkDTO="@SessionStoreNameWorkDTO" />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        }
                     </div>
                 </div>
             </div>
 
-            @if (WorkDto.Attributes != null)
+            @if (WorkDto.Attributes != null && WorkDto.Attributes.Count != 0)
             {
                 <div class="accordion-item">
                     <div class="col-12">
@@ -85,6 +104,24 @@
 
     private Dictionary<int, List<string>> attributesValues = [];
 
+    protected override async Task OnInitializedAsync()
+    {
+        RefDataService.TablesChanged += OnTablesChanged;
+
+        if (WorkDto.IdРаботы != 0)
+        {
+            Работа? work = (await RefDataService.GetAsync<Работа>()).FirstOrDefault(x => x.IdРаботы == WorkDto.IdРаботы);
+            if (work == null)
+            {
+                await ProtectedSessionStore.DeleteAsync(SessionStoreNameWorkDTO);
+                await JSRuntime.InvokeVoidAsync("alert", "Работа была удалена");
+                WorkDto = new();
+                StateHasChanged();
+            }
+        }
+    }
+
+
     private async Task OnWorkDTOChanged()
     {
         // IdРаботы != 0 когда работа добавлена
@@ -107,9 +144,6 @@
             else
             {
                 StateHasChanged();
-                // Закрываем аккордеон данных и открываем - атрибутов
-                await JSRuntime.InvokeVoidAsync("eval",
-                "document.querySelector('[data-bs-target=\"#collapseWorkData\"]').click()");
             }
         }
         StateHasChanged(); await WorkDTOChanged.InvokeAsync(WorkDto);
@@ -122,10 +156,6 @@
         if (WorkDto.AttributesValuesAdded)
         {
             await End();
-
-            // Закрываем аккордеон атрибутов и открываем - данных
-            // await JSRuntime.InvokeVoidAsync("eval",
-            // "document.querySelector('[data-bs-target=\"#collapseWorkData\"]').click()");
         }
         await WorkDTOChanged.InvokeAsync(WorkDto);
     }
@@ -138,5 +168,30 @@
 
         // Даем пользователю время на просмотр результата перед очисткой данных
         await Task.Delay(2000);
+    }
+
+    private async void OnTablesChanged(object? sender, TableChangeEvent e)
+    {
+        await InvokeAsync(async () =>
+            {
+                // При добавлении работы ждём, когда в кэше появится добавленная работа
+                if (e.TableName == nameof(Работа) && e.ChangeType == TableChangeType.Delete)
+                {
+                    Работа? work = JsonConvert.DeserializeObject<Работа>(e.Old!.ToString(),
+                                new JsonSerializerSettings { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } });
+                    if (work != null && work.IdРаботы == WorkDto.IdРаботы)
+                    {
+                        await ProtectedSessionStore.DeleteAsync(SessionStoreNameWorkDTO);
+                        await JSRuntime.InvokeVoidAsync("alert", "Работа была удалена");
+                        WorkDto = new();
+                        StateHasChanged();
+                    }
+                }
+            });
+    }
+
+    public void Dispose()
+    {
+        RefDataService.TablesChanged -= OnTablesChanged;
     }
 }

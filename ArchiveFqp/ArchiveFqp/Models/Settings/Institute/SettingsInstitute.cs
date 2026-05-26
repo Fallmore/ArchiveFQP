@@ -1,9 +1,9 @@
-﻿using ArchiveFqp.Models.Settings.Department;
+﻿using ArchiveFqp.Models.Settings.Applications;
 
 namespace ArchiveFqp.Models.Settings.Institute
 {
     public class SettingsInstitute : BaseSettings
     {
-        public List<SettingsDepartment> SettingsDepartments { get; set; } = new();
+        public SettingsApplications SettingsApplications { get; set; } = new();
     }
 }

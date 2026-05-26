@@ -1,5 +1,6 @@
 ﻿using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.Settings;
+using Newtonsoft.Json;
 
 namespace ArchiveFqp.Interfaces.Settings
 {
@@ -18,6 +19,7 @@ namespace ArchiveFqp.Interfaces.Settings
         /// Конвертирует json настроек в DTO типа <typeparamref name="T"/>.
         /// </summary>
         /// <typeparam name="T"></typeparam>
+        /// <returns><inheritdoc cref="JsonConvert.DeserializeObject{T}(string, JsonSerializerSettings?)"/></returns>
         public Task<T?> GetSettingsJson<T>(string json) where T : BaseSettings;
 
         /// <summary>
@@ -25,6 +27,7 @@ namespace ArchiveFqp.Interfaces.Settings
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <typeparam name="V"></typeparam>
+        /// <returns>True, если тип T относится к настройкам, False - в ином случае</returns>
         public Task<bool> AddSettingsAsJson<T, V>(T settingsDto, V settings) where T : BaseSettings where V : class;
 
 

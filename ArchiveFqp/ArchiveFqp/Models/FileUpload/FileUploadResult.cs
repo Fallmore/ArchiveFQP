@@ -13,7 +13,7 @@
         public string FullFolderPath => FullPath[..FullPath.IndexOf("\\" + StoredFileName)];
         public long FileSize { get; set; }
         public string ContentType { get; set; } = string.Empty;
-        public FileType FileType { get; set; }
+        public string FileTypeName { get; set; } = string.Empty;
         public bool Success { get; set; }
         public string? ErrorMessage { get; set; }
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;

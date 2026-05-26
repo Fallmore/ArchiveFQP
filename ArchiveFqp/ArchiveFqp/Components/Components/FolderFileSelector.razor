@@ -1,6 +1,9 @@
 ﻿@using ArchiveFqp.Models.FileUpload
+@using ArchiveFqp.Models.Settings
+@using ArchiveFqp.Models.Settings.Department
 @using ArchiveFqp.Services.FileUpload
 @inject IJSRuntime JSRuntime
+@inject WorkFileUploadService WorkFileUploadService
 @implements IDisposable
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
@@ -68,7 +71,7 @@
                                     </td>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            <i class="bi @GetFileIcon(file.Extension) me-2 fs-5"></i>
+                                            <i class="bi @GetFileIconClass(file) me-2 fs-5"></i>
                                             <div>
                                                 <div>@file.Name</div>
                                             </div>
@@ -76,9 +79,9 @@
                                     </td>
                                     <td>@ToFileSize(file.Size)</td>
                                     <td>
-                                        @if (file.DetectedType != FileType.Other)
+                                        @if (!string.IsNullOrEmpty(file.DetectedTypeKey))
                                         {
-                                            <span class="badge bg-success">@GetFileTypeName(file.DetectedType)</span>
+                                            <span class="badge bg-success">@file.DisplayDetectedType</span>
                                         }
                                         else
                                         {
@@ -87,13 +90,15 @@
                                     </td>
                                     <td>
                                         <select class="form-select form-select-sm"
-                                                @onchange="@(e => OnFileTypeChanged(file, e.Value?.ToString()))">
-                                            @foreach (var fileType in Enum.GetValues<FileType>())
+                                                @onchange="@(e => OnFileTypeChanged(file, e.Value?.ToString()))"
+                                                disabled="@Disabled">
+                                            <option value="">Не определен</option>
+                                            @foreach (var fileType in availableFileTypes)
                                             {
-                                                var isSelected = (file.FileType == fileType) ||
-                                                (file.FileType == FileType.Other && file.DetectedType == fileType);
-                                                <option value="@fileType" selected="@isSelected">
-                                                    @GetFileTypeName(fileType)
+                                                var isSelected = file.SelectedTypeKey == fileType.Key;
+                                                <option value="@fileType.Key" selected="@isSelected">
+                                                    @fileType.DisplayName
+                                                    @(fileType.IsRequired ? " *" : "")
                                                 </option>
                                             }
                                         </select>
@@ -129,62 +134,15 @@
 
 @code {
     [Parameter] public EventCallback<List<SelectedFileInfo>> OnFilesConfirmed { get; set; }
+    [Parameter] public BaseSettings SettingsFiles { get; set; } = null!;
+    [Parameter] public string WorkType { get; set; } = null!;
     [Parameter] public bool Disabled { get; set; }
 
     private List<SelectedFileInfo> selectedFiles = new();
     private bool isProcessing;
+    private List<FileTypeConfig> availableFileTypes = new();
 
-    private readonly Dictionary<string, FileType> fileTypePatterns = new()
-    {
-        // Пояснительная записка Word
-        { ".doc", FileType.ExplanatoryNoteWord },
-        { ".docx", FileType.ExplanatoryNoteWord },
-        { "пояснительная записка", FileType.ExplanatoryNoteWord },
-
-        // Пояснительная записка PDF
-        { ".pdf", FileType.ExplanatoryNotePdf },
-        { "пояснительная", FileType.ExplanatoryNotePdf },
-        { "пояснилка", FileType.ExplanatoryNotePdf },
-        { "пз", FileType.ExplanatoryNotePdf },
-
-        // Презентация
-        { ".ppt", FileType.Presentation },
-        { ".pptx", FileType.Presentation },
-        { "презентация", FileType.Presentation },
-        { "защита", FileType.Presentation },
-
-        // Исходный код
-        { ".zip", FileType.SourceCode },
-        { ".rar", FileType.SourceCode },
-        { ".7z", FileType.SourceCode },
-
-        // База данных
-        { ".sql", FileType.DatabaseBackup },
-        { ".bak", FileType.DatabaseBackup },
-        { ".backup", FileType.DatabaseBackup },
-        { ".dump", FileType.DatabaseBackup },
-        { ".frm", FileType.DatabaseBackup },
-        { ".myd", FileType.DatabaseBackup },
-        { ".myi", FileType.DatabaseBackup },
-        { ".db", FileType.DatabaseBackup },
-        { ".sqlite", FileType.DatabaseBackup },
-        { "database", FileType.DatabaseBackup },
-        { "backup", FileType.DatabaseBackup },
-        { "бэкап", FileType.DatabaseBackup },
-        { "bd", FileType.DatabaseBackup },
-        { "бд", FileType.DatabaseBackup },
-
-        // Пароли
-        { ".txt", FileType.PasswordFile },
-        { ".pass", FileType.PasswordFile },
-        { ".pwd", FileType.PasswordFile },
-        { "password", FileType.PasswordFile },
-        { "пароль", FileType.PasswordFile },
-        { "pass", FileType.PasswordFile },
-        { "pwd", FileType.PasswordFile },
-        { "credentials", FileType.PasswordFile },
-        { "cred", FileType.PasswordFile }
-    };
+    private Dictionary<string, List<string>> typePatterns = new();
 
     public class SelectedFileInfo
     {
@@ -192,9 +150,113 @@
         public long Size { get; set; }
         public string Extension { get; set; } = "";
         public string RelativePath { get; set; } = "";
-        public FileType DetectedType { get; set; } = FileType.Other;
-        public FileType FileType { get; set; } = FileType.Other;
+        public string? DetectedTypeKey { get; set; }
+        public string? SelectedTypeKey { get; set; }
         public IBrowserFile? BrowserFile { get; set; }
+
+        public string DisplayDetectedType => DetectedTypeKey ?? "Не определен";
+        public string DisplaySelectedType => SelectedTypeKey ?? "Не выбран";
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadFileTypesFromSettings();
+    }
+
+    private async Task LoadFileTypesFromSettings()
+    {
+        try
+        {
+            // Получаем типы файлов из настроек кафедры
+            if (SettingsFiles.AllowedFiles.Count != 0)
+            {
+                availableFileTypes = SettingsFiles.AllowedFiles
+                    .Select(kvp => new FileTypeConfig
+                    {
+                        Key = GenerateKey(kvp.Key),
+                        DisplayName = kvp.Key,
+                        AllowedExtensions = kvp.Value,
+                        FilePrefix = GenerateFilePrefix(kvp.Key),
+                        IsRequired = SettingsFiles.RequiredFiles[WorkType].Contains(kvp.Key)
+                    })
+                    .ToList();
+            }
+
+            // Строим паттерны для определения типов
+            BuildTypePatterns();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка загрузки типов файлов: {ex.Message}");
+        }
+    }
+
+    private string GenerateKey(string displayName)
+    {
+        return displayName;
+        // .Replace(" ", "")
+            // .Replace("(", "")
+            // .Replace(")", "");
+    }
+
+    private string GenerateFilePrefix(string displayName)
+    {
+        return displayName switch
+        {
+            var name when name.Contains("Word") => "explanation_word",
+            var name when name.Contains("Pdf") || name.Contains("PDF") => "explanation_pdf",
+            var name when name.Contains("Презентация") => "presentation",
+            var name when name.Contains("Исходный код") => "source",
+            var name when name.Contains("База данных") => "database",
+            var name when name.Contains("Пароли") => "passwords",
+            _ => GenerateKey(displayName).ToLower()
+        };
+    }
+
+    private void BuildTypePatterns()
+    {
+        typePatterns.Clear();
+
+        foreach (var fileType in availableFileTypes)
+        {
+            typePatterns[fileType.Key] = new List<string>();
+
+            // Добавляем расширения
+            foreach (var ext in fileType.AllowedExtensions)
+            {
+                typePatterns[fileType.Key].Add(ext);
+            }
+
+            // Добавляем ключевые слова из названия
+            var keywords = fileType.DisplayName
+                .ToLower()
+                .Split(new[] { ' ', '(', ')' }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var keyword in keywords.Where(k => k.Length > 2))
+            {
+                typePatterns[fileType.Key].Add(keyword);
+            }
+
+            // Специфические ключевые слова для каждого типа
+            switch (fileType.Key)
+            {
+                case var k when k.Contains("ExplanatoryNoteWord"):
+                    typePatterns[fileType.Key].AddRange(new[] { "пояснительная", "записка", "word" });
+                    break;
+                case var k when k.Contains("ExplanatoryNotePdf"):
+                    typePatterns[fileType.Key].AddRange(new[] { "пояснительная", "записка", "pdf" });
+                    break;
+                case var k when k.Contains("Presentation"):
+                    typePatterns[fileType.Key].AddRange(new[] { "презентация", "защита" });
+                    break;
+                case var k when k.Contains("Database"):
+                    typePatterns[fileType.Key].AddRange(new[] { "database", "backup", "бэкап", "бд" });
+                    break;
+                case var k when k.Contains("Password"):
+                    typePatterns[fileType.Key].AddRange(new[] { "password", "пароль", "pass", "pwd", "credentials" });
+                    break;
+            }
+        }
     }
 
     private async Task OnFolderSelected(InputFileChangeEventArgs e)
@@ -223,8 +285,8 @@
                 };
 
                 // Определяем тип файла
-                fileInfo.DetectedType = DetectFileType(fileInfo);
-                fileInfo.FileType = fileInfo.DetectedType;
+                fileInfo.DetectedTypeKey = DetectFileType(fileInfo);
+                fileInfo.SelectedTypeKey = fileInfo.DetectedTypeKey;
 
                 selectedFiles.Add(fileInfo);
             }
@@ -234,7 +296,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Ошибка обработки папки: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка обработки папки: {ex.Message}");
         }
         finally
         {
@@ -243,66 +305,126 @@
         }
     }
 
-    private FileType DetectFileType(SelectedFileInfo file)
+    private string? DetectFileType(SelectedFileInfo file)
     {
         var fileNameLower = file.Name.ToLowerInvariant();
         var extension = file.Extension;
 
         // Сначала проверяем по расширению
-        if (!string.IsNullOrEmpty(extension))
+        foreach (var fileType in availableFileTypes)
         {
-            if (fileTypePatterns.TryGetValue(extension, out var fileType))
+            if (fileType.AllowedExtensions.Contains(extension))
             {
-                return fileType;
+                return fileType.Key;
             }
         }
 
-        // Затем по имени файла
-        foreach (var pattern in fileTypePatterns)
+        // Затем по ключевым словам в имени файла
+        foreach (var fileType in availableFileTypes)
         {
-            if (fileNameLower.Contains(pattern.Key))
+            if (typePatterns.TryGetValue(fileType.Key, out var patterns))
             {
-                return pattern.Value;
+                foreach (var pattern in patterns)
+                {
+                    if (fileNameLower.Contains(pattern.ToLower()))
+                    {
+                        return fileType.Key;
+                    }
+                }
             }
         }
 
-        return FileType.Other;
+        return null;
     }
 
     private void CheckForConflicts()
     {
+        var fileTypeConfigs = availableFileTypes.ToDictionary(ft => ft.Key);
+
         var conflicts = selectedFiles
-            .GroupBy(f => f.FileType)
-            .Where(g => g.Count() > 1 && g.Key != FileType.SourceCode && g.Key != FileType.Other)
+            .Where(f => f.SelectedTypeKey != null)
+            .GroupBy(f => f.SelectedTypeKey)
+            .Where(g =>
+            {
+                if (!fileTypeConfigs.TryGetValue(g.Key!, out var config))
+                    return false;
+                return g.Count() > 1;
+            })
             .ToList();
 
         foreach (var conflict in conflicts)
         {
-            Console.WriteLine($"Warning: Несколько файлов типа {conflict.Key}");
+            var config = fileTypeConfigs[conflict.Key!];
+            JSRuntime.InvokeVoidAsync("alert",
+                $"Внимание: несколько файлов типа {config.DisplayName}");
         }
     }
 
-    private void OnFileTypeChanged(SelectedFileInfo file, string? newType)
+    private void OnFileTypeChanged(SelectedFileInfo file, string? newTypeKey)
     {
-        if (Enum.TryParse<FileType>(newType, out var fileType))
+        if (string.IsNullOrEmpty(newTypeKey))
         {
-            file.FileType = fileType;
+            file.SelectedTypeKey = null;
         }
+        else
+        {
+            file.SelectedTypeKey = newTypeKey;
+        }
+
+        // Проверяем конфликты после изменения
+        CheckForConflicts();
+        StateHasChanged();
     }
 
     private void ClearSelection()
     {
         selectedFiles.Clear();
+        Disabled = false;
         StateHasChanged();
     }
 
-    private void ConfirmSelection()
+    private async Task ConfirmSelection()
     {
-        OnFilesConfirmed.InvokeAsync(selectedFiles);
+        // Валидация обязательных файлов
+        var requiredTypes = availableFileTypes.Where(ft => ft.IsRequired).ToList();
+        var missingRequired = requiredTypes
+            .Where(rt => !selectedFiles.Any(f => f.SelectedTypeKey == rt.Key))
+            .ToList();
+
+        if (missingRequired.Any())
+        {
+            var missingNames = string.Join(", ", missingRequired.Select(rt => rt.DisplayName));
+            await JSRuntime.InvokeVoidAsync("alert",
+                $"Отсутствуют обязательные файлы: {missingNames}");
+            return;
+        }
+
+        await OnFilesConfirmed.InvokeAsync(selectedFiles);
     }
 
-    private string GetFileIcon(string extension)
+    private string GetFileIconClass(SelectedFileInfo file)
     {
+        return GetFileIcon(file.SelectedTypeKey, file.Extension);
+    }
+
+    private string GetFileIcon(string? typeKey, string extension)
+    {
+        // Сначала пробуем по типу
+        if (!string.IsNullOrEmpty(typeKey))
+        {
+            return typeKey switch
+            {
+                var k when k.Contains("Word") => "bi-file-word",
+                var k when k.Contains("Pdf") => "bi-file-pdf",
+                var k when k.Contains("Презентация") => "bi-file-ppt",
+                var k when k.Contains("Исходный код") => "bi-file-zip",
+                var k when k.Contains("База данных") => "bi-database",
+                var k when k.Contains("Парол") => "bi-file-lock",
+                _ => "bi-file-earmark"
+            };
+        }
+    
+        // Fallback по расширению
         return extension.ToLower() switch
         {
             ".pdf" => "bi-file-pdf",
@@ -315,24 +437,11 @@
         };
     }
 
-    private string GetFileTypeName(FileType fileType)
-    {
-        return fileType switch
-        {
-            FileType.ExplanatoryNoteWord => "Пояснительная записка (Word)",
-            FileType.ExplanatoryNotePdf => "Пояснительная записка (PDF)",
-            FileType.Presentation => "Презентация",
-            FileType.SourceCode => "Исходный код",
-            FileType.DatabaseBackup => "База данных",
-            FileType.PasswordFile => "Файл с паролями",
-            FileType.Other => "Другое",
-            _ => fileType.ToString()
-        };
-    }
-
     public void Dispose()
     {
-        // Очистка ресурсов при необходимости
+        selectedFiles.Clear();
+        availableFileTypes.Clear();
+        typePatterns.Clear();
     }
 
     private string ToFileSize(long size)

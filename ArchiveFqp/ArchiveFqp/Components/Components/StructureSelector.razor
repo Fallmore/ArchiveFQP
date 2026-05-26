@@ -1,0 +1,222 @@
+﻿@using ArchiveFqp.Models.DTO.Structure
+@using ArchiveFqp.Models.ReferenceData
+
+<div class="structure-selector">
+    <!-- Институт -->
+    <div class="mb-2">
+        <label class="form-label mb-0 mx-1 fw-bold">Институт <span class="text-danger">*</span></label>
+        <InputSelect class="form-select" @bind-Value="localStructure.Институт.IdИнститута"
+                     @bind-Value:after="OnInstituteChanged"
+                     disabled="@DisableInstitute">
+            <option value="0">Выберите институт</option>
+            @foreach (Институт institute in Snapshot.Institutes.OrderBy(x => x.Название))
+            {
+                <option value="@institute.IdИнститута">@institute.Название</option>
+            }
+        </InputSelect>
+    </div>
+
+    <!-- Выпускающая кафедра -->
+    <div class="mb-2">
+        <label class="form-label mb-0 mx-1 fw-bold">Выпускающая кафедра <span class="text-danger">*</span></label>
+        <InputSelect class="form-select" @bind-Value="localStructure.Кафедра.IdКафедры"
+                     @bind-Value:after="OnDepartmentChanged"
+                     disabled="@(localStructure.Институт.IdИнститута == 0 || DisableDepartment)">
+            <option value="0">
+                @(localStructure.Институт.IdИнститута == 0 || DisableDepartment ? "" : "Выберите кафедру")
+            </option>
+            @foreach (Кафедра dept in filteredDepartments.OrderBy(x => x.Название))
+            {
+                <option value="@dept.IdКафедры">@dept.Название</option>
+            }
+        </InputSelect>
+    </div>
+
+    <div class="row mb-2">
+        <!-- Стандарт УГСН -->
+        <div class="col-md-6">
+            <label class="form-label mb-0 mx-1 fw-bold">Стандарт УГСН <span class="text-danger">*</span></label>
+            <InputSelect class="form-select" @bind-Value="localStructure.УгснСтандарт.IdУгснСтандарта"
+                         @bind-Value:after="OnUgsnStandardChanged"
+                         disabled="@(localStructure.Кафедра.IdКафедры == 0)">
+                <option value="0">@(localStructure.Кафедра.IdКафедры == 0 ? "" : "Выберите стандарт УГСН")</option>
+                @foreach (УгснСтандарт standard in Snapshot.UgsnStandards.OrderBy(x => x.Название))
+                {
+                    <option value="@standard.IdУгснСтандарта">@standard.Название</option>
+                }
+            </InputSelect>
+        </div>
+
+        <!-- УГСН -->
+        <div class="col-md-6">
+            <label class="form-label mb-0 mx-1 fw-bold">УГСН <span class="text-danger">*</span></label>
+            <InputSelect class="form-select" @bind-Value="localStructure.Угсн.IdУгсн"
+                         @bind-Value:after="OnUgsnChanged"
+                         disabled="@(localStructure.УгснСтандарт.IdУгснСтандарта == 0)">
+                <option value="0">@(localStructure.УгснСтандарт.IdУгснСтандарта == 0 ? "" : "Выберите УГСН")</option>
+                @foreach (Угсн ugsn in filteredUgsns.OrderBy(x => x.Название))
+                {
+                    <option value="@ugsn.IdУгсн">@ugsn.Название</option>
+                }
+            </InputSelect>
+        </div>
+    </div>
+
+    <!-- Направление подготовки -->
+    <div class="mb-2">
+        <label class="form-label mb-0 mx-1 fw-bold">Направление подготовки/специальность <span class="text-danger">*</span></label>
+        <InputSelect class="form-select" @bind-Value="localStructure.Направление.IdНаправления"
+                     @bind-Value:after="OnDirectionChanged"
+                     disabled="@(localStructure.Угсн.IdУгсн == 0)">
+            <option value="0">@(localStructure.Угсн.IdУгсн == 0 ? "" : "Выберите направление/специальность")</option>
+            @foreach (Направление direction in filteredDirections.OrderBy(x => x.Название))
+            {
+                <option value="@direction.IdНаправления">@direction.Название</option>
+            }
+        </InputSelect>
+    </div>
+
+    <!-- Профиль -->
+    <div class="mb-2">
+        <label class="form-label mb-0 mx-1 fw-bold">Профиль/магистерская программа/специализация</label>
+        <InputSelect class="form-select" @bind-Value="idProfile"
+                     @bind-Value:after="OnProfileChanged"
+                     disabled="@(localStructure.Направление.IdНаправления == 0)">
+            <option value="">@(localStructure.Направление.IdНаправления == 0 ? "" : "Выберите профиль/магистерскую программу/специализацию (необязательно)")</option>
+            @foreach (Профиль profile in filteredProfiles.OrderBy(x => x.Название))
+            {
+                <option value="@profile.IdПрофиля">@profile.Название</option>
+            }
+        </InputSelect>
+    </div>
+</div>
+
+@code {
+    [Parameter] public StructureDto Value { get; set; } = new();
+    [Parameter] public EventCallback<StructureDto> ValueChanged { get; set; }
+    [Parameter] public ReferenceDataSnapshot Snapshot { get; set; } = null!;
+    [Parameter] public bool DisableInstitute { get; set; } = false;
+    [Parameter] public bool DisableDepartment { get; set; } = false;
+    private int? idProfile;
+
+    private StructureDto localStructure = new();
+    private List<Угсн> filteredUgsns = new();
+    private List<Направление> filteredDirections = new();
+    private List<Профиль> filteredProfiles = new();
+    private List<Кафедра> filteredDepartments = new();
+
+    protected override void OnInitialized()
+    {
+        if (Value != null)
+        {
+            localStructure = new StructureDto
+            {
+                Институт = Value.Институт,
+                Кафедра = Value.Кафедра,
+                Угсн = Value.Угсн,
+                УгснСтандарт = Value.УгснСтандарт,
+                Направление = Value.Направление,
+                Профиль = Value.Профиль
+            };
+        }
+        _ = UpdateDependentLists();
+    }
+    protected override void OnParametersSet()
+    {
+        OnInitialized();
+    }
+    private async Task OnInstituteChanged()
+    {
+        localStructure.Кафедра.IdКафедры = 0;
+        localStructure.УгснСтандарт.IdУгснСтандарта = 0;
+        await OnDepartmentChanged();
+        await ValueChanged.InvokeAsync(localStructure);
+    }
+
+    private async Task OnDepartmentChanged()
+    {
+        localStructure.Угсн.IdУгсн = 0;
+        await OnUgsnChanged();
+        await ValueChanged.InvokeAsync(localStructure);
+    }
+
+    private async Task OnUgsnStandardChanged()
+    {
+        localStructure.Угсн.IdУгсн = 0;
+        await OnUgsnChanged();
+        await ValueChanged.InvokeAsync(localStructure);
+    }
+
+    private async Task OnUgsnChanged()
+    {
+        localStructure.Направление.IdНаправления = 0;
+        await OnDirectionChanged();
+        await ValueChanged.InvokeAsync(localStructure);
+    }
+
+    private async Task OnDirectionChanged()
+    {
+        idProfile = null;
+        await OnProfileChanged();
+        await ValueChanged.InvokeAsync(localStructure);
+    }
+
+    private async Task OnProfileChanged()
+    {
+        if (idProfile.HasValue)
+        {
+            localStructure.Профиль ??= new();
+            localStructure.Профиль.IdПрофиля = idProfile.Value;
+        }
+        else
+            localStructure.Профиль = null;
+
+        await UpdateDependentLists();
+        await ValueChanged.InvokeAsync(localStructure);
+    }
+
+    private async Task UpdateDependentLists()
+    {
+        if (localStructure.Институт.IdИнститута == 0)
+            filteredDepartments = Snapshot.Departments.ToList();
+        else
+        {
+            filteredDepartments = Snapshot.Departments
+                .Where(d => d.IdИнститута == localStructure.Институт.IdИнститута)
+                .DistinctBy(d => d.Название)
+                .ToList();
+        }
+
+        if (localStructure.УгснСтандарт.IdУгснСтандарта == 0)
+            filteredUgsns = Snapshot.Ugsns;
+        else
+        {
+            var directions = Snapshot.Directions
+                .Where(d => d.IdКафедры == localStructure.Кафедра.IdКафедры)
+                .ToList();
+
+            List<int> idUgsns = directions.Select(x => x.IdУгсн).ToList();
+            filteredUgsns = Snapshot.Ugsns
+                .Where(u => u.IdУгснСтандарта == localStructure.УгснСтандарт.IdУгснСтандарта && idUgsns.Contains(u.IdУгсн))
+                .ToList();
+        }
+
+        if (localStructure.Угсн.IdУгсн == 0)
+            filteredDirections = Snapshot.Directions;
+        else
+        {
+            filteredDirections = Snapshot.Directions
+                .Where(d => d.IdКафедры == localStructure.Кафедра.IdКафедры && d.IdУгсн == localStructure.Угсн.IdУгсн)
+                .ToList();
+        }
+
+        if (localStructure.Направление.IdНаправления == 0)
+            filteredProfiles = Snapshot.Profiles;
+        else
+        {
+            filteredProfiles = Snapshot.Profiles
+                .Where(p => p.IdНаправления == localStructure.Направление.IdНаправления)
+                .ToList();
+        }
+    }
+}

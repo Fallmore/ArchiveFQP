@@ -2,19 +2,21 @@
 using ArchiveFqp.Interfaces.Hash;
 using ArchiveFqp.Models.FileUpload;
 using ArchiveFqp.Models.Hash;
+using ArchiveFqp.Models.Settings;
 using ArchiveFqp.Models.Settings.SettingsArchive;
 using Microsoft.AspNetCore.Components.Forms;
+using System.Text.RegularExpressions;
 
 namespace ArchiveFqp.Services.FileUpload
 {
     /// <summary>
-    /// Сервис для загрузки файлов учебных работ
-    /// Реализует специфические требования для загрузки различных типов файлов
+    /// Сервис для загрузки файлов учебных работ с поддержкой динамических типов
     /// </summary>
     public class WorkFileUploadService : BaseFileUploadService
     {
         private readonly IHashService _hashService;
         private SettingsArchive _settings;
+        private Dictionary<string, FileTypeConfig> _fileTypeConfigs = null!;
 
         public override event EventHandler<FileUploadProgressEventArgs>? ProgressChanged;
 
@@ -41,6 +43,59 @@ namespace ArchiveFqp.Services.FileUpload
         private void SettingsChanged(object? sender, SettingsArchive e)
         {
             _settings = e;
+        }
+
+        /// <summary>
+        /// Инициализация конфигураций типов файлов из настроек
+        /// </summary>
+        public void InitializeFileTypeConfigs(BaseSettings settingsFiles, string workType)
+        {
+            _fileTypeConfigs = new Dictionary<string, FileTypeConfig>();
+
+            _settings.RequiredFiles.TryGetValue(workType, out var requiredFiles);
+
+            foreach (var extensionMapping in _settings.AllowedFiles)
+            {
+                var config = new FileTypeConfig
+                {
+                    Key = extensionMapping.Key,
+                    DisplayName = extensionMapping.Key,
+                    AllowedExtensions = extensionMapping.Value,
+                    // Определяем префикс и другие свойства на основе имени
+                    FilePrefix = GenerateFilePrefix(extensionMapping.Key),
+                    IsRequired = requiredFiles == null ? false : requiredFiles.Contains(extensionMapping.Key)
+                };
+
+                _fileTypeConfigs[config.Key] = config;
+            }
+        }
+
+        /// <summary>
+        /// Генерация ключа из отображаемого имени
+        /// </summary>
+        private string GenerateKey(string displayName)
+        {
+            // Удаляем пробелы и специальные символы, транслитерируем
+            var normalized = Regex.Replace(displayName, @"[^\w\s]", "");
+            normalized = Regex.Replace(normalized, @"\s+", "");
+            return normalized;
+        }
+
+        /// <summary>
+        /// Генерация префикса для файла
+        /// </summary>
+        private string GenerateFilePrefix(string displayName)
+        {
+            return displayName switch
+            {
+                var name when name.Contains("Word", StringComparison.OrdinalIgnoreCase) => "explanation_word",
+                var name when name.Contains("Pdf", StringComparison.OrdinalIgnoreCase) => "explanation_pdf",
+                var name when name.Contains("Презентация", StringComparison.OrdinalIgnoreCase) => "presentation",
+                var name when name.Contains("Исходный код", StringComparison.OrdinalIgnoreCase) => "source",
+                var name when name.Contains("База данных", StringComparison.OrdinalIgnoreCase) => "database",
+                var name when name.Contains("Пароли", StringComparison.OrdinalIgnoreCase) => "passwords",
+                _ => GenerateKey(displayName).ToLower()
+            };
         }
 
         public override async Task<FileUploadResult> UploadFileAsync(IFileUploadContext context, CancellationToken cancellationToken = default)
@@ -70,6 +125,7 @@ namespace ArchiveFqp.Services.FileUpload
 
             FileUploadWithHashResult result = new();
             List<IBrowserFile> filesToHash = new();
+            List<Task<FileUploadResult>> uploadTasks = new();
 
             try
             {
@@ -85,85 +141,29 @@ namespace ArchiveFqp.Services.FileUpload
                 //}
                 string fullFolderPath = EnsureDirectoryExists(relativeFolderPath);
 
-                // Загружаем все файлы и собираем их для хеширования
-                List<Task<FileUploadResult>> uploadTasks = new();
-
-                // Пояснительная записка Word
-                if (workContext.ExplanatoryNoteWord != null)
+                // Динамическая загрузка всех файлов из контекста
+                foreach (var fileMapping in workContext.Files)
                 {
-                    filesToHash.Add(workContext.ExplanatoryNoteWord);
-                    uploadTasks.Add(UploadSpecificFile(
-                        workContext.ExplanatoryNoteWord,
-                        fullFolderPath,
-                        relativeFolderPath,
-                        FileType.ExplanatoryNoteWord,
-                        _settings.FileExplanatoryNoteWord,
-                        cancellationToken));
-                }
+                    string fileTypeKey = fileMapping.Key;
+                    var files = fileMapping.Value;
 
-                // Пояснительная записка PDF
-                if (workContext.ExplanatoryNotePdf != null)
-                {
-                    filesToHash.Add(workContext.ExplanatoryNotePdf);
-                    uploadTasks.Add(UploadSpecificFile(
-                        workContext.ExplanatoryNotePdf,
-                        fullFolderPath,
-                        relativeFolderPath,
-                        FileType.ExplanatoryNotePdf,
-                        _settings.FileExplanatoryNotePDF,
-                        cancellationToken));
-                }
+                    if (!_fileTypeConfigs.TryGetValue(fileTypeKey, out var config))
+                    {
+                        _logger.LogWarning("Неизвестный тип файла: {FileType}", fileTypeKey);
+                        continue;
+                    }
 
-                // Презентация
-                if (workContext.Presentation != null)
-                {
-                    filesToHash.Add(workContext.Presentation);
-                    uploadTasks.Add(UploadSpecificFile(
-                        workContext.Presentation,
-                        fullFolderPath,
-                        relativeFolderPath,
-                        FileType.Presentation,
-                        _settings.FilePresentation,
-                        cancellationToken));
-                }
-
-                // Исходный код
-                foreach (var file in workContext.SourceCodeFiles)
-                {
-                    filesToHash.Add(file);
-                    uploadTasks.Add(UploadSpecificFile(
-                        file,
-                        fullFolderPath,
-                        relativeFolderPath,
-                        FileType.SourceCode,
-                        _settings.FileSourceCode,
-                        cancellationToken));
-                }
-
-                // База данных
-                if (workContext.DatabaseBackup != null)
-                {
-                    filesToHash.Add(workContext.DatabaseBackup);
-                    uploadTasks.Add(UploadSpecificFile(
-                        workContext.DatabaseBackup,
-                        fullFolderPath,
-                        relativeFolderPath,
-                        FileType.DatabaseBackup,
-                        _settings.FileDb,
-                        cancellationToken));
-                }
-
-                // Файл с паролями
-                if (workContext.PasswordFile != null)
-                {
-                    filesToHash.Add(workContext.PasswordFile);
-                    uploadTasks.Add(UploadSpecificFile(
-                        workContext.PasswordFile,
-                        fullFolderPath,
-                        relativeFolderPath,
-                        FileType.PasswordFile,
-                        _settings.FilePassword,
-                        cancellationToken));
+                    foreach (var file in files)
+                    {
+                        filesToHash.Add(file);
+                        uploadTasks.Add(UploadSpecificFile(
+                            file,
+                            fullFolderPath,
+                            relativeFolderPath,
+                            fileTypeKey,
+                            config,
+                            cancellationToken));
+                    }
                 }
 
                 // Ждем завершения всех загрузок
@@ -189,29 +189,28 @@ namespace ArchiveFqp.Services.FileUpload
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Ошибка загрузки файлов для работы {WorkTitle}", context.WorkTitle);
+
+                result.FileResults.Add(new FileUploadResult
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
+                });
             }
 
             return result;
         }
 
         /// <summary>
-        /// Загружает файл на сервер
+        /// Загружает файл на сервер с динамической конфигурацией
         /// </summary>
-        /// <param name="file"></param>
-        /// <param name="fullFolderPath"></param>
-        /// <param name="relativeFolderPath"></param>
-        /// <param name="fileType"></param>
-        /// <param name="filePrefix"></param>
-        /// <param name="cancellationToken"></param>
-        /// <returns>Результат загрузки файлов</returns>
         private async Task<FileUploadResult> UploadSpecificFile(
             IBrowserFile file, string fullFolderPath, string relativeFolderPath,
-            FileType fileType, string filePrefix, CancellationToken cancellationToken)
+            string fileTypeKey, FileTypeConfig config, CancellationToken cancellationToken)
         {
             FileUploadResult result = new()
             {
                 OriginalFileName = file.Name,
-                FileType = fileType,
+                FileTypeName = config.DisplayName,
                 UploadedAt = DateTime.UtcNow
             };
 
@@ -220,7 +219,7 @@ namespace ArchiveFqp.Services.FileUpload
             try
             {
                 // Валидация файла
-                if (!ValidateFile(file, fileType, out string? errorMessage))
+                if (!ValidateFile(file, config, out string? errorMessage))
                 {
                     result.Success = false;
                     result.ErrorMessage = errorMessage;
@@ -229,7 +228,11 @@ namespace ArchiveFqp.Services.FileUpload
 
                 // Генерация имени файла
                 string extension = Path.GetExtension(file.Name);
-                string storedFileName = $"{filePrefix}{extension}";
+                string storedFileName = $"{config.DisplayName}{extension}";
+
+                // Если файл с таким именем уже существует - добавляем номер
+                // Если нужно - расскоментируйте
+                //storedFileName = GetUniqueFileName(fullFolderPath, storedFileName);
 
                 filePath = Path.Combine(fullFolderPath, storedFileName);
 
@@ -254,7 +257,7 @@ namespace ArchiveFqp.Services.FileUpload
                         ProgressPercent = (decimal)totalBytesRead / fileSize,
                         BytesUploaded = totalBytesRead,
                         TotalBytes = fileSize,
-                        FileType = fileType
+                        FileType = config.DisplayName
                     });
                 }
 
@@ -283,7 +286,10 @@ namespace ArchiveFqp.Services.FileUpload
             return result;
         }
 
-        public override bool ValidateFile(IBrowserFile file, FileType fileType, out string? errorMessage)
+        /// <summary>
+        /// Валидация файла с динамической конфигурацией
+        /// </summary>
+        public bool ValidateFile(IBrowserFile file, FileTypeConfig config, out string? errorMessage)
         {
             errorMessage = null;
 
@@ -297,38 +303,63 @@ namespace ArchiveFqp.Services.FileUpload
             // Проверка расширения
             string extension = Path.GetExtension(file.Name).ToLowerInvariant();
 
-            bool isOk = false;
-            switch (fileType)
+            if (!config.AllowedExtensions.Contains(extension))
             {
-                case FileType.ExplanatoryNoteWord:
-                    isOk = _settings.AllowedWordExtensions.Contains(extension);
-                    errorMessage = $"Для пояснительной записки в Word разрешены только {string.Join(", ", _settings.AllowedWordExtensions)} файлы";
-                    break;
-                case FileType.ExplanatoryNotePdf:
-                    isOk = _settings.AllowedPdfExtensions.Contains(extension);
-                    errorMessage = $"Для пояснительной записки в PDF разрешены только {string.Join(", ", _settings.AllowedPdfExtensions)} файлы";
-                    break;
-                case FileType.Presentation:
-                    isOk = _settings.AllowedPresentationExtensions.Contains(extension);
-                    errorMessage = $"Для презентации разрешены только {string.Join(", ", _settings.AllowedPresentationExtensions)} файлы";
-                    break;
-                case FileType.SourceCode:
-                    isOk = _settings.AllowedSourceCodeExtensions.Contains(extension);
-                    errorMessage = $"Для бэкапа БД разрешены только {string.Join(", ", _settings.AllowedSourceCodeExtensions)} файлы";
-                    break;
-                case FileType.DatabaseBackup:
-                    isOk = _settings.AllowedDbExtensions.Contains(extension);
-                    errorMessage = $"Для бэкапа БД разрешены только {string.Join(", ", _settings.AllowedDbExtensions)} файлы";
-                    break;
-                case FileType.PasswordFile:
-                    isOk = _settings.AllowedPasswordExtensions.Contains(extension);
-                    errorMessage = $"Для файла с паролями разрешены только {string.Join(", ", _settings.AllowedPasswordExtensions)} файлы";
-                    break;
-                case FileType.Other:
-                    break;
+                errorMessage = $"Для {config.DisplayName} разрешены только {string.Join(", ", config.AllowedExtensions)} файлы";
+                return false;
             }
 
-            return isOk;
+            return true;
+        }
+
+        public override bool ValidateFile(IBrowserFile file, FileType fileType, out string? errorMessage)
+        {
+            // Для обратной совместимости со старым кодом
+            // Находим конфигурацию по старому типу
+            var config = _fileTypeConfigs.Values.FirstOrDefault(c =>
+                c.DisplayName.Contains(GetDisplayNameFromOldFileType(fileType)));
+
+            if (config != null)
+            {
+                return ValidateFile(file, config, out errorMessage);
+            }
+
+            errorMessage = "Неизвестный тип файла";
+            return false;
+        }
+
+        private string GetDisplayNameFromOldFileType(FileType fileType)
+        {
+            return fileType switch
+            {
+                var ft when ft == FileType.ExplanatoryNoteWord => "Пояснительная записка Word",
+                var ft when ft == FileType.ExplanatoryNotePdf => "Пояснительная записка Pdf",
+                var ft when ft == FileType.Presentation => "Презентация",
+                var ft when ft == FileType.SourceCode => "Исходный код",
+                var ft when ft == FileType.DatabaseBackup => "База данных",
+                var ft when ft == FileType.PasswordFile => "Пароли",
+                _ => string.Empty
+            };
+        }
+
+        /// <summary>
+        /// Получить уникальное имя файла, если файл с таким именем уже существует
+        /// </summary>
+        private string GetUniqueFileName(string directory, string fileName)
+        {
+            string nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+            string extension = Path.GetExtension(fileName);
+            string fullPath = Path.Combine(directory, fileName);
+            int counter = 1;
+
+            while (File.Exists(fullPath))
+            {
+                string newFileName = $"{nameWithoutExt}_{counter}{extension}";
+                fullPath = Path.Combine(directory, newFileName);
+                counter++;
+            }
+
+            return Path.GetFileName(fullPath);
         }
 
         public override async Task<HashVerificationResult> VerifyUploadedFilesAsync(string sourceHash, string relativeFolderPath, CancellationToken cancellationToken = default)
@@ -392,6 +423,28 @@ namespace ArchiveFqp.Services.FileUpload
         public new void DirectoryDelete(string? relarivePath)
         {
             base.DirectoryDelete(relarivePath);
+        }
+    }
+
+    /// <summary>
+    /// Конфигурация типа файла
+    /// </summary>
+    public class FileTypeConfig
+    {
+        public string Key { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public List<string> AllowedExtensions { get; set; } = new();
+        public string FilePrefix { get; set; } = string.Empty;
+        public bool IsRequired { get; set; } = false;
+        public string? Description { get; set; }
+
+        public FileTypeConfig() { }
+
+        public FileTypeConfig(string key, string displayName, List<string> allowedExtensions)
+        {
+            Key = key;
+            DisplayName = displayName;
+            AllowedExtensions = allowedExtensions;
         }
     }
 }

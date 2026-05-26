@@ -110,13 +110,13 @@
 
             <!-- Разделы для авторизованных пользователей -->
             @{
-                string administrativeRoles = $"{Settings.RoleAdminName}, {Settings.RoleDepartmentHeadName}, "
-                                            + $"{Settings.RoleDepartmentResponsibleName}, {Settings.RoleInstituteResponsibleName}";
+                string administrativeRoles = $"{Settings.RoleAdminName}, {Settings.RoleInstituteResponsibleName}, "
+                                            + $"{Settings.RoleDepartmentHeadName}, {Settings.RoleDepartmentResponsibleName}";
             }
             
             <!-- Для преподавателей и студентов -->
             <AuthorizeView Roles="@($"{Settings.RoleTeacherName}, {Settings.RoleStudentName}")">
-                <div class="nav-item">
+                <div class="nav-item mb-0">
                     <NavLink class="nav-link d-flex align-items-center" href="works/applications/send">
                         <i class="bi bi-eye-fill me-3 fs-5"></i>
                         <span class="lh-1">Запросы на просмотр</span>
@@ -126,12 +126,12 @@
 
             <!-- Для преподавателей -->
             <AuthorizeView Roles="@($"{Settings.RoleTeacherName}")">
-                <hr class="sidebar-divider" />
-                <div class="sidebar-heading">
+                <hr class="sidebar-divider mt-0" />
+                <div class="sidebar-heading mt-0">
                     <span class="text-uppercase small fw-bold lh-1">Атрибуты</span>
                 </div>
 
-                <div class="nav-item">
+                <div class="nav-item mb-0">
                     <NavLink class="nav-link d-flex align-items-center" href="works/attributes/send">
                         <i class="bi bi-send-fill me-3 fs-5"></i>
                         <span class="lh-1">Заявки на атрибуты</span>
@@ -140,8 +140,8 @@
             </AuthorizeView>
 
             <AuthorizeView Roles="@administrativeRoles">
-                <hr class="sidebar-divider" />
-                <div class="sidebar-heading">
+                <hr class="sidebar-divider mt-0" />
+                <div class="sidebar-heading mt-0">
                     <span class="text-uppercase small fw-bold lh-1">Управление</span>
                 </div>
 
@@ -162,7 +162,7 @@
                 </div>
 
                 <!-- Проверка заявлений атрибутов -->
-                <div class="nav-item">
+                <div class="nav-item mb-0">
                     <NavLink class="nav-link d-flex align-items-center" href="works/attributes/review">
                         <i class="bi bi-tags-fill me-3 fs-5"></i>
                         <span class="lh-1">Заявления на атрибуты</span>
@@ -170,13 +170,15 @@
                 </div>
             </AuthorizeView>
 
-            <!-- Только для администратора -->
-            <AuthorizeView Roles="@($"{Settings.RoleAdminName}")">
-                <hr class="sidebar-divider" />
-                <div class="sidebar-heading">
+            <AuthorizeView Roles="@($"{Settings.RoleAdminName}, {Settings.RoleInstituteResponsibleName}, {Settings.RoleDepartmentHeadName}, {Settings.RoleDepartmentResponsibleName}")">
+                <hr class="sidebar-divider mt-0" />
+                <div class="sidebar-heading mt-0">
                     <span class="text-uppercase small fw-bold lh-1">Администрирование</span>
                 </div>
+            </AuthorizeView>
 
+            <!-- Только для администратора -->
+            <AuthorizeView Roles="@($"{Settings.RoleAdminName}")">
                 <div class="nav-item">
                     <NavLink class="nav-link d-flex align-items-center" href="admin">
                         <i class="bi bi-shield-lock-fill me-3 fs-5"></i>
@@ -184,11 +186,31 @@
                     </NavLink>
                 </div>
             </AuthorizeView>
+
+            <!-- Только для ответственного института -->
+            <AuthorizeView Roles="@($"{Settings.RoleInstituteResponsibleName}")">
+                <div class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center" href="institute">
+                        <i class="bi bi-shield-lock-fill me-3 fs-5"></i>
+                        <span class="lh-1">Панель инсититута</span>
+                    </NavLink>
+                </div>
+            </AuthorizeView>
+
+            <!-- Только для завкафедрой и ответственного кафедры -->
+            <AuthorizeView Roles="@($"{Settings.RoleDepartmentHeadName}, {Settings.RoleDepartmentResponsibleName}")">
+                <div class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center" href="department">
+                        <i class="bi bi-shield-lock-fill me-3 fs-5"></i>
+                        <span class="lh-1">Панель кафедры</span>
+                    </NavLink>
+                </div>
+            </AuthorizeView>
         </div>
     </div>
 
     <div class="sidebar-footer">
-        <div class="small text-white-50 text-center py-3">
+        <div class="small text-white-50 text-center py-2 mt-0">
             <i class="bi bi-c-circle"></i> 2026 АГТУ
         </div>
     </div>

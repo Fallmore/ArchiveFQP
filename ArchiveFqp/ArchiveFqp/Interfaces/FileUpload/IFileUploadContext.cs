@@ -13,6 +13,6 @@ namespace ArchiveFqp.Interfaces.FileUpload
         int Year { get; }
         string StudentName { get; }
         string WorkTitle { get; }
-        IEnumerable<IBrowserFile> Files { get; }
+        Dictionary<string, List<IBrowserFile>> Files { get; }
     }
 }

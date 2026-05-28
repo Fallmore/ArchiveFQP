@@ -1,7 +1,9 @@
 ﻿@using ArchiveFqp.Components.Components
 @using ArchiveFqp.Interfaces.Settings
 @using ArchiveFqp.Interfaces.User
+@using ArchiveFqp.Models.DTO.Structure
 @using ArchiveFqp.Models.DTO.WorkApplication
+@using ArchiveFqp.Models.Settings.Department
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Interfaces.Applications
 @using ArchiveFqp.Interfaces.Work
@@ -10,6 +12,7 @@
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @inject SettingsArchive Settings
+@inject ISettingsService SettingsService
 @inject IWorkService WorkService
 @inject IUserService UserService
 @inject IApplicationsService ApplicationsService
@@ -36,10 +39,10 @@
         <!-- Основная информация -->
         <div class="col">
             <div class="row-md-6 mb-1">
-                @if (workApplictaionDto.IdРаботы.HasValue)
+                @if (workApplicationDto.IdРаботы.HasValue)
                 {
-                    string idModal = "workModal" + workApplictaionDto.IdРаботы;
-                    string idModalLabel = "workModalLabel" + workApplictaionDto.IdРаботы;
+                    string idModal = "workModal" + workApplicationDto.IdРаботы;
+                    string idModalLabel = "workModalLabel" + workApplicationDto.IdРаботы;
 
                     <button type="button" class="btn btn-primary" @onclick="@(() => OpenModal(idModal))">
                         Выбранная работа
@@ -53,7 +56,7 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body pt-0">
-                                    <WorkDetails IdWork="workApplictaionDto.IdРаботы" ShowBackButton="false" @key="workApplictaionDto.IdРаботы" />
+                                    <WorkDetails IdWork="workApplicationDto.IdРаботы" ShowBackButton="false" @key="workApplicationDto.IdРаботы" />
                                 </div>
                             </div>
                         </div>
@@ -72,8 +75,8 @@
                 <div class="row-md-6 mb-1">
                     <!-- Цель -->
                     <label class="form-label mb-0 mx-1 fw-bold">Цель <span class="text-danger">*</span></label>
-                    <InputTextArea class="form-control " @bind-Value="workApplictaionDto.Цель"
-                                   disabled="@(workApplictaionDto.IdРаботы == null)"
+                    <InputTextArea class="form-control " @bind-Value="workApplicationDto.Цель"
+                                   disabled="@(workApplicationDto.IdРаботы == null)"
                                    rows="3"
                                    placeholder="Укажите цель получения работы (изучение, научное исследование и т.д.)..." />
                 </div>
@@ -82,15 +85,15 @@
                     <!-- Дата возврата по заявлению -->
                     <label class="form-label mb-0 mx-1 fw-bold">Дата окончания просмотра <span class="text-danger">*</span></label>
                     <div class="col-auto">
-                        <input type="date" class="form-control" @bind="workApplictaionDto.ДатаВозврПоЗаявл"
-                               disabled="@(workApplictaionDto.IdРаботы == null)"
+                        <input type="date" class="form-control" @bind="workApplicationDto.ДатаВозврПоЗаявл"
+                               disabled="@(workApplicationDto.IdРаботы == null)"
                                placeholder="Выберите дату"
                                min="@(DateTime.Now.AddDays(Settings.MinDayWatchWorks).ToString("yyyy-MM-dd"))" max="@(DateTime.Now.AddDays(Settings.MaxDayWatchWorks).ToString("yyyy-MM-dd"))" />
                     </div>
                 </div>
 
                 <div class="row-md-6">
-                    <button type="submit" class="btn btn-success mt-3" disabled="@(workApplictaionDto.IdРаботы == null)">
+                    <button type="submit" class="btn btn-success mt-3" disabled="@(workApplicationDto.IdРаботы == null)">
                         Подать заявку
                     </button>
                 </div>
@@ -101,30 +104,30 @@
                     <!-- Цель -->
                     <label class="form-label mb-0 mx-1 fw-bold">Цель</label>
                     <br />
-                    <span class="mx-1">@(workApplictaionDto.Цель)</span>
+                    <span class="mx-1">@(workApplicationDto.Цель)</span>
                 </div>
 
                 <div class="row-md-6">
                     <!-- Дата поступления -->
                     <label class="form-label mb-0 mx-1 fw-bold">Дата подачи</label>
                     <br />
-                    <span class="mx-1">@(workApplictaionDto.ДатаПоступления)</span>
+                    <span class="mx-1">@(workApplicationDto.ДатаПоступления)</span>
                 </div>
 
                 <div class="row-md-6">
                     <!-- Дата возврата по заявлению -->
                     <label class="form-label mb-0 mx-1 fw-bold">Дата окончания просмотра</label>
                     <br />
-                    <span class="mx-1">@(workApplictaionDto.ДатаВозврПоЗаявл)</span>
+                    <span class="mx-1">@(workApplicationDto.ДатаВозврПоЗаявл)</span>
                 </div>
 
-                @if (workApplictaionDto.ДатаВозврПоФакту.HasValue && workApplictaionDto.ДатаВозврПоФакту != workApplictaionDto.ДатаВозврПоЗаявл)
+                @if (workApplicationDto.ДатаВозврПоФакту.HasValue && workApplicationDto.ДатаВозврПоФакту != workApplicationDto.ДатаВозврПоЗаявл)
                 {
                     <div class="row-md-6">
                         <!-- Дата возврата по факту -->
                         <label class="form-label mb-0 mx-1 fw-bold">Дата досрочного окончания</label>
                         <br />
-                        <span class="mx-1">@(workApplictaionDto.ДатаВозврПоФакту)</span>
+                        <span class="mx-1">@(workApplicationDto.ДатаВозврПоФакту)</span>
                     </div>
                 }
 
@@ -133,8 +136,8 @@
                     <div class="row-md-6 mb-1">
                         <!-- Заявитель -->
                         @{
-                            string idModal = "userInfoModal" + workApplictaionDto.IdПользователя;
-                            string idModalLabel = "userInfoModalLabel" + workApplictaionDto.IdПользователя;
+                            string idModal = "userInfoModal" + workApplicationDto.IdПользователя;
+                            string idModalLabel = "userInfoModalLabel" + workApplicationDto.IdПользователя;
 
                             <button type="button" class="btn btn-primary" @onclick="@(() => OpenModal(idModal))">
                                 Заявитель
@@ -148,9 +151,9 @@
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
                                         <div class="modal-body pt-0">
-                                            <UserInfo Student="workApplictaionDto.ПользовательСтудент"
-                                                      Teacher="workApplictaionDto.ПользовательПреподаватель"
-                                                      @key="workApplictaionDto.IdПользователя" />
+                                            <UserInfo Student="workApplicationDto.ПользовательСтудент"
+                                                      Teacher="workApplicationDto.ПользовательПреподаватель"
+                                                      @key="workApplicationDto.IdПользователя" />
                                         </div>
                                     </div>
                                 </div>
@@ -166,20 +169,20 @@
                         <!-- Дата ответа -->
                         <label class="form-label mb-0 mx-1 fw-bold">Дата ответа</label>
                         <br />
-                        <span class="mx-1">@(workApplictaionDto.ДатаОтвета)</span>
+                        <span class="mx-1">@(workApplicationDto.ДатаОтвета)</span>
                     </div>
 
                     <div class="row-md-6">
                         <!-- Ответ -->
                         <label class="form-label mb-0 mx-1 fw-bold">Ответ</label>
                         <br />
-                        <span class="mx-1">@(workApplictaionDto.Ответ)</span>
+                        <span class="mx-1">@(workApplicationDto.Ответ)</span>
                     </div>
 
                     if (currentStatus.Название == Settings.ApplicationsActiveStatus && !IsReviewMode)
                     {
-                        string idModal = "workWatchModal" + workApplictaionDto.IdЗаявления;
-                        string idModalLabel = "workWatchModalLabel" + workApplictaionDto.IdЗаявления;
+                        string idModal = "workWatchModal" + workApplicationDto.IdЗаявления;
+                        string idModalLabel = "workWatchModalLabel" + workApplicationDto.IdЗаявления;
 
                         <div class="row align-items-center">
                             <div class="col">
@@ -189,7 +192,7 @@
                             </div>
 
                             <div class="col-auto">
-                                <button type="button" class="btn btn-danger" @onclick="@(async () => { })">
+                                <button type="button" class="btn btn-danger" @onclick="@(async () => { await StopWatching(workApplicationDto);})">
                                     Прекратить просмотр
                                 </button>
                             </div>
@@ -200,13 +203,13 @@
                             <div class="modal-dialog modal-xl">
                                 <div class="modal-content">
                                     <div class="modal-header">
-                                        <h5 class="modal-title" id="@idModalLabel">Пояснительная записка @(workApplictaionDto.Работа.Тема)</h5>
+                                        <h5 class="modal-title" id="@idModalLabel">Пояснительная записка @(workApplicationDto.Работа.Тема)</h5>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                     </div>
                                     <div class="modal-body pt-0">
                                         @if (isClickedWatch)
                                         {
-                                            <WorkRead IdWork="workApplictaionDto.IdРаботы" ApplicationWork="workApplictaionDto.ToWorkApplication()" @key="workApplictaionDto.IdЗаявления" />
+                                            <WorkRead IdWork="workApplicationDto.IdРаботы" ApplicationWork="workApplicationDto.ToWorkApplication()" @key="workApplicationDto.IdЗаявления" />
                                         }
                                     </div>
                                 </div>
@@ -222,8 +225,8 @@
                         <div class="row-md-6 mb-1">
                             <!-- Ответ -->
                             <label class="form-label mb-0 mx-1 fw-bold">Ответ <span class="text-danger">*</span></label>
-                            <InputTextArea class="form-control " @bind-Value="workApplictaionDto.Ответ"
-                                           disabled="@(workApplictaionDto.IdРаботы == null)"
+                            <InputTextArea class="form-control " @bind-Value="workApplicationDto.Ответ"
+                                           disabled="@(workApplicationDto.IdРаботы == null)"
                                            rows="3"
                                            placeholder="Опишите причину решения" />
                         </div>
@@ -232,7 +235,7 @@
                             <!-- Статус выдачи -->
                             <label class="form-label mb-0 mx-1 fw-bold">Вердикт <span class="text-danger">*</span></label>
                             <div class="col-md-5">
-                                <InputSelect class="form-select" @bind-Value="workApplictaionDto.IdСтатуса">
+                                <InputSelect class="form-select" @bind-Value="workApplicationDto.IdСтатуса">
                                     @{
                                         int inReviewStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
                                         int rejectStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsRejectStatus).IdСтатуса;
@@ -246,7 +249,7 @@
                         </div>
 
                         <div class="row-md-6">
-                            <button type="submit" class="btn btn-success mt-3" disabled="@(workApplictaionDto.IdРаботы == null)">
+                            <button type="submit" class="btn btn-success mt-3" disabled="@(workApplicationDto.IdРаботы == null)">
                                 Отправить ответ
                             </button>
                         </div>
@@ -273,8 +276,8 @@
     [Parameter] public int? IdWork { get; set; }
     [Parameter] public bool IsWritingMode { get; set; } = true;
     [Parameter] public bool IsReviewMode { get; set; } = false;
-    [Parameter] public WorkApplicationDto? WorkApplictaionDto { get; set; }
-    private WorkApplicationDto workApplictaionDto = new();
+    [Parameter] public WorkApplicationDto? WorkApplicationDto { get; set; }
+    private WorkApplicationDto workApplicationDto = new();
     private List<СтатусЗаявления> applicationStatuses = [];
     private СтатусЗаявления currentStatus = null!;
     private bool isAnswered = false;
@@ -287,38 +290,38 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (WorkApplictaionDto != null) workApplictaionDto = WorkApplictaionDto;
+        if (WorkApplicationDto != null) workApplicationDto = WorkApplicationDto;
         else
         {
-            workApplictaionDto.IdРаботы = IdWork;
+            workApplicationDto.IdРаботы = IdWork;
             if (IdWork.HasValue)
-                workApplictaionDto.Работа = await WorkService.GetWorkDisplayAsync(IdWork.Value);
+                workApplicationDto.Работа = await WorkService.GetWorkDisplayAsync(IdWork.Value);
         }
 
         if (!IsWritingMode)
         {
             applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
-            currentStatus = applicationStatuses.First(w => w.IdСтатуса == workApplictaionDto.IdСтатуса);
+            currentStatus = applicationStatuses.First(w => w.IdСтатуса == workApplicationDto.IdСтатуса);
             isAnswered = currentStatus.Название != Settings.ApplicationsInProcessStatus;
         }
 
-        editContext = new(workApplictaionDto);
+        editContext = new(workApplicationDto);
         messageStore = new(editContext);
         editContext.OnValidationStateChanged += HandleValidationRequested;
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (WorkApplictaionDto != null) workApplictaionDto = WorkApplictaionDto;
+        if (WorkApplicationDto != null) workApplicationDto = WorkApplicationDto;
         else
         {
-            workApplictaionDto.IdРаботы = IdWork;
+            workApplicationDto.IdРаботы = IdWork;
             if (IdWork.HasValue)
-                workApplictaionDto.Работа = await WorkService.GetWorkDisplayAsync(IdWork.Value);
+                workApplicationDto.Работа = await WorkService.GetWorkDisplayAsync(IdWork.Value);
         }
         if (!IsWritingMode)
         {
-            currentStatus = applicationStatuses.First(w => w.IdСтатуса == workApplictaionDto.IdСтатуса);
+            currentStatus = applicationStatuses.First(w => w.IdСтатуса == workApplicationDto.IdСтатуса);
             isAnswered = currentStatus.Название != Settings.ApplicationsInProcessStatus;
         }
     }
@@ -334,6 +337,7 @@
         if (!IsReviewMode)
         {
             await AddWorkApplication();
+            await CheckAutoReview();
         }
         else
         {
@@ -352,15 +356,15 @@
             int inReviewStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
             int rejectStatusId = applicationStatuses.First(w => w.Название == Settings.ApplicationsRejectStatus).IdСтатуса;
             errorMessage = null;
-            if (workApplictaionDto.IdСтатуса == inReviewStatusId)
+            if (workApplicationDto.IdСтатуса == inReviewStatusId)
             {
-                messageStore?.Add(() => workApplictaionDto.IdСтатуса, "Выберите вердикт");
+                messageStore?.Add(() => workApplicationDto.IdСтатуса, "Выберите вердикт");
             }
             // Если происходит отказ, то необходимо объяснение отказа
-            if (string.IsNullOrWhiteSpace(workApplictaionDto.Ответ)
-                && workApplictaionDto.IdСтатуса == rejectStatusId)
+            if (string.IsNullOrWhiteSpace(workApplicationDto.Ответ)
+                && workApplicationDto.IdСтатуса == rejectStatusId)
             {
-                messageStore?.Add(() => workApplictaionDto.Ответ, "Введите объяснение отказа");
+                messageStore?.Add(() => workApplicationDto.Ответ, "Введите объяснение отказа");
             }
         }
 #pragma warning restore CS8603
@@ -374,16 +378,14 @@
             ClaimsPrincipal user = authState!.User;
 
             int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-            workApplictaionDto.IdПользователя = idUser;
-            workApplictaionDto.IdСтатуса = (await ApplicationsService.GetApplicationsStatusesAsync())
+            workApplicationDto.IdПользователя = idUser;
+            workApplicationDto.IdСтатуса = (await ApplicationsService.GetApplicationsStatusesAsync())
                     .First(ws => ws.Название == Settings.ApplicationsInProcessStatus).IdСтатуса;
 
-            await ApplicationsService.AddWorkApplication(workApplictaionDto);
-
-            await SendNotificationToReviewersAsync();
+            await ApplicationsService.AddWorkApplication(workApplicationDto);
 
             successMessage = "Заявление успешно отправлено!";
-            workApplictaionDto.IdРаботы = IdWork = null;
+            workApplicationDto.IdРаботы = IdWork = null;
             StateHasChanged();
         }
         catch (Exception ex)
@@ -396,7 +398,7 @@
     {
         try
         {
-            if (!(await ApplicationsService.AddAnswerWorkApplication(workApplictaionDto)))
+            if (!(await ApplicationsService.AddAnswerWorkApplication(workApplicationDto)))
             {
                 errorMessage = "Заявление не найдено, либо удалено";
             }
@@ -415,6 +417,24 @@
         }
     }
 
+    private async Task StopWatching(WorkApplicationDto workApplication)
+    {
+        try
+        {
+            workApplication.IdСтатуса = applicationStatuses.First(ws => ws.Название == Settings.ApplicationsCompleteStatus).IdСтатуса;
+            if (!(await ApplicationsService.CompleteWorkApplication(workApplication)))
+            {
+                throw new Exception("Заявление не найдено, либо удалено");
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка при завершении: {ex.Message}";
+        }
+    }
+
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
@@ -423,29 +443,80 @@
         }
     }
 
-    private async Task SendNotificationToSenderAsync()
+    private async Task CheckAutoReview()
+    {
+        НастройкиКафедры? settingsDepartmnet = await SettingsService.GetSettings<НастройкиКафедры>(workApplicationDto.Работа.Студент.Структура.Кафедра.IdКафедры);
+        if (settingsDepartmnet == null || string.IsNullOrWhiteSpace(settingsDepartmnet.Настройки)) return;
+
+        SettingsDepartment settingsDepartmnetDto = (await SettingsService.GetSettingsJson<SettingsDepartment>(settingsDepartmnet.Настройки))!;
+        var userSender = (await UserService.GetUserDisplayAsync(workApplicationDto.IdПользователя))!;
+        StructureDto structureSender = (await UserService.GetTeacherDisplayAsync(workApplicationDto.IdПользователя))?.Структура
+                                    ?? (await UserService.GetStudentDisplayAsync(workApplicationDto.IdПользователя))!.Структура;
+
+        // Проверка на автоматическое отклонение заявлений на получение работы
+        if (settingsDepartmnetDto.SettingsApplications.AutoDenyWorkApplicationsEnabled)
+        {
+            var autoDenyStructures = settingsDepartmnetDto.SettingsApplications.AutoDenyWorkApplications;
+            
+            // Ищем структуры, для которых включено автоматическое отклонение, и проверяем принадлежность отправителя заявления к этим структурам
+            var autoDeny = autoDenyStructures.Keys.Where(x => x.IsBelongsStructure(workApplicationDto.Работа.Студент.Структура));
+            if (autoDeny.Count() != 0 && autoDeny.Any(x => x.IsBelongsStructure(structureSender)))
+            {
+                workApplicationDto.Ответ = "Отклонено автоматически";
+                workApplicationDto.IdСтатуса = (await ApplicationsService.GetApplicationsStatusesAsync())
+                        .First(ws => ws.Название == Settings.ApplicationsRejectStatus).IdСтатуса;
+
+                await ApplicationsService.AddAnswerWorkApplication(workApplicationDto);
+                await SendNotificationToSenderAsync($"Ваше заявление на получение работы \"{workApplicationDto.Работа.Тема}\" было отклонено автоматически.");
+                await SendNotificationToReviewersAsync($"Заявление от {userSender.ФИОИнициалы} на получение работы \"{workApplicationDto.Работа.Тема}\" было отклонено автоматически.");
+                return;
+            }
+        }
+
+        // Проверка на автоматическое одобрение заявлений на получение работы
+        if (settingsDepartmnetDto.SettingsApplications.AutoAgreeWorkApplicationsEnabled)
+        {
+            var autoAgreeStructures = settingsDepartmnetDto.SettingsApplications.AutoAgreeWorkApplications;
+            
+            // Ищем структуры, для которых включено автоматическое одобрение, и проверяем принадлежность отправителя заявления к этим структурам
+            var autoAgree = autoAgreeStructures.Keys.Where(x => x.IsBelongsStructure(workApplicationDto.Работа.Студент.Структура));
+            if (autoAgree.Count() != 0 && autoAgree.Any(x => x.IsBelongsStructure(structureSender)))
+            {
+                workApplicationDto.Ответ = "Одобрено автоматически";
+                workApplicationDto.IdСтатуса = (await ApplicationsService.GetApplicationsStatusesAsync())
+                        .First(ws => ws.Название == Settings.ApplicationsActiveStatus).IdСтатуса;
+
+                await ApplicationsService.AddAnswerWorkApplication(workApplicationDto);
+                await SendNotificationToSenderAsync($"Ваше заявление на получение работы \"{workApplicationDto.Работа.Тема}\" было одобрено автоматически.");
+                await SendNotificationToReviewersAsync($"Заявление от {userSender.ФИОИнициалы} на получение работы \"{workApplicationDto.Работа.Тема}\" было одобрено автоматически.");
+                return;
+            }
+        }
+    }
+
+    private async Task SendNotificationToSenderAsync(string? message = null)
     {
         string title = "Заявления на просмотр работ";
-        СтатусЗаявления status = (await ApplicationsService.GetApplicationsStatusesAsync()).First(x => x.IdСтатуса == workApplictaionDto.IdСтатуса);
-        string message = $"Ваше заявление на получение работы \"{workApplictaionDto.Работа.Тема}\" было "
+        СтатусЗаявления status = (await ApplicationsService.GetApplicationsStatusesAsync()).First(x => x.IdСтатуса == workApplicationDto.IdСтатуса);
+        message ??= $"Ваше заявление на получение работы \"{workApplicationDto.Работа.Тема}\" было "
             + (status.Название == Settings.ApplicationsActiveStatus
             ? "одобрено."
             : "отклонено.");
 
-        await NotificationService.SendToUserAsync(WorkApplictaionDto!.IdПользователя.ToString(), title, message, "works/applications/send");
+        await NotificationService.SendToUserAsync(workApplicationDto!.IdПользователя.ToString(), title, message, "works/applications/send");
     }
 
-    private async Task SendNotificationToReviewersAsync()
+    private async Task SendNotificationToReviewersAsync(string? message = null)
     {
         string title = "Заявления на просмотр работ";
-        string message = $"Было добавлено заявление на получение работы \"{workApplictaionDto.Работа.Тема}\"";
-        List<string> rolesReviewers = [Settings.RoleDepartmentResponsibleName];
+        message ??= $"Было добавлено заявление на получение работы \"{workApplicationDto.Работа.Тема}\"";
+        List<string> rolesReviewers = [Settings.RoleDepartmentResponsibleName, Settings.RoleDepartmentHeadName];
         List<int> appReviewers = (await UserService.GetUsersByRolesAsync(rolesReviewers))
             .Select(x => x.Пользователь.IdПользователя)
             .ToList();
 
         appReviewers = (await UserService.GetTeacherDisplayAsync(appReviewers))
-            .Where(x => x.Структура.Кафедра == workApplictaionDto.Работа.Студент.Структура.Кафедра)
+            .Where(x => x.Структура.Кафедра == workApplicationDto.Работа.Студент.Структура.Кафедра)
             .Select(x => x.Пользователь.Пользователь.IdПользователя)
             .ToList();
 
@@ -456,7 +527,7 @@
     public void Dispose()
     {
         if (!string.IsNullOrWhiteSpace(successMessage))
-            WorkApplictaionDto?.IdСтатуса = currentStatus.IdСтатуса;
+            WorkApplicationDto?.IdСтатуса = currentStatus.IdСтатуса;
 
         if (editContext != null)
             editContext.OnValidationStateChanged -= HandleValidationRequested;

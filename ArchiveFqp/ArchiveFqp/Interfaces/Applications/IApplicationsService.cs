@@ -57,11 +57,18 @@ namespace ArchiveFqp.Interfaces.Applications
         Task<bool> AddAnswerAttributeApplication(ЗаявлениеАтрибута attributeApplication);
 
         /// <summary>
-        /// Выполнение заявления на добавление атрибута (добавление атрибута)
+        /// Выполнение заявления на добавление атрибута (то есть добавление атрибута)
         /// </summary>
         /// <param name="attributeApplication"></param>
         /// <returns></returns>
         Task<bool> CompleteAttributeApplication(ЗаявлениеАтрибута attributeApplication);
+
+        /// <summary>
+        /// Завершение просмотра у заявления на просмотр работы
+        /// </summary>
+        /// <param name="workApplicationDto"></param>
+        /// <returns></returns>
+        Task<bool> CompleteWorkApplication(WorkApplicationDto workApplication);
 
     }
 }

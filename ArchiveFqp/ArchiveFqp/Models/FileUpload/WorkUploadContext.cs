@@ -14,6 +14,7 @@ namespace ArchiveFqp.Models.FileUpload
         public int Year { get; set; }
         public string StudentName { get; set; } = string.Empty;
         public string WorkTitle { get; set; } = string.Empty;
+        public bool IsTemp { get; set; } = false;
         public Dictionary<string, List<IBrowserFile>> Files { get; set; } = new();
 
 

@@ -572,10 +572,7 @@
     {
         if (!string.IsNullOrEmpty(Settings.FilesRootPath))
         {
-            var relativePath = Settings.FilesRootPath
-                .Replace(Settings.FolderDataName, "")
-                .Replace(Settings.FolderWorksName, "")
-                .TrimEnd(Path.DirectorySeparatorChar);
+            var relativePath = Settings.FilesRootPath;
             filesRootPathDisplay = relativePath;
         }
         Settings.FqpWorksEducationLevels ??= new Dictionary<string, List<string>>();
@@ -616,7 +613,7 @@
         {
             if (!string.IsNullOrEmpty(filesRootPathDisplay))
             {
-                Settings.FilesRootPath = Path.Combine(filesRootPathDisplay, Settings.FolderDataName, Settings.FolderWorksName);
+                Settings.FilesRootPath = filesRootPathDisplay;
             }
 
             using var context = DbFactory.CreateDbContext();
@@ -659,7 +656,6 @@
             if (!string.IsNullOrEmpty(selectedPath))
             {
                 filesRootPathDisplay = selectedPath;
-                Settings.FilesRootPath = Path.Combine(selectedPath, Settings.FolderDataName, Settings.FolderWorksName);
                 StateHasChanged();
             }
         }

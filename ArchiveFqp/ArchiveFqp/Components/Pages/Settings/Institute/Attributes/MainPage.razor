@@ -1,0 +1,640 @@
+﻿@page "/institute/attributes"
+@using ArchiveFqp.Components.Components
+@using ArchiveFqp.Components.Pages.Works
+@using ArchiveFqp.Interfaces.Attributes
+@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Interfaces.User
+@using ArchiveFqp.Models
+@using ArchiveFqp.Models.DTO.Attribute
+@using ArchiveFqp.Models.DTO.Teacher
+@using ArchiveFqp.Models.DatabaseNotification
+@using ArchiveFqp.Models.ReferenceData
+@using ArchiveFqp.Models.Settings.SettingsArchive
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@inject IDbContextFactory<ArchiveFqpContext> DbFactory
+@inject NavigationManager NavigationManager
+@inject IReferenceDataService RefDataService
+@inject SettingsArchive Settings
+@inject IAttributeService AttributeService
+@inject IJSRuntime JSRuntime
+@inject IUserService UserService
+@inject AuthenticationStateProvider AuthStateProvider
+@implements IDisposable
+@attribute [Authorize(Roles = "Ответственный института")]
+@rendermode @(new InteractiveServerRenderMode())
+
+<PageTitle>Панель ответственного института - Управление атрибутами</PageTitle>
+
+@if (RendererInfo.IsInteractive && responsible != null)
+{
+    <div class="container-fluid mt-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-tags me-2"></i>Управление атрибутами и данными по атрибутам<br />института @responsible.Структура.Институт.Название.Replace("Институт ", "")
+                    </h4>
+                    <button class="btn btn-light btn-sm" @onclick="@(() => NavigationManager.NavigateTo("/institute"))">
+                        <i class="bi bi-arrow-left"></i> Назад
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Вкладки -->
+                <ul class="nav nav-tabs mb-3">
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "attributesInstitutes" ? "active" : "")" @onclick="@(() => SetActiveTab("attributesInstitutes"))">
+                            <i class="bi bi-building"></i> Атрибуты института
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "attributeData" ? "active" : "")" @onclick="@(() => SetActiveTab("attributeData"))">
+                            <i class="bi bi-database"></i> Данные по атрибутам
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Атрибуты института -->
+                @if (activeTab == "attributesInstitutes")
+                {
+                    <div class="table-responsive">
+                        <div class="mb-3">
+                            <button class="btn btn-success btn-sm" @onclick="() => OpenAttributesInstituteModal()">
+                                <i class="bi bi-plus-circle"></i> Добавить атрибут института
+                            </button>
+                        </div>
+                        <table class="table table-hover table-striped">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Институт</th>
+                                    <th>Атрибут</th>
+                                    <th>Статус работы</th>
+                                    <th>Тип работы</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var attr in attributesInstitute)
+                                {
+                                    <tr>
+                                        <td>@attr.IdСтруктуры</td>
+                                        <td>@attr.Структура?.Институт.Название</td>
+                                        <td>@attr.Атрибут.Название</td>
+                                        <td>@(attr.СтатусРаботы?.Название ?? "Все")</td>
+                                        <td>@(attr.ТипРаботы?.Название ?? "Все")</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-primary" @onclick="() => OpenAttributesInstituteModal(attr.ToAttributeStructure<АтрибутИнститута>())">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteItem<АтрибутИнститута>(attr.IdСтруктуры)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                <!-- Данные по атрибутам -->
+                @if (activeTab == "attributeData")
+                {
+                    <div class="table-responsive">
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <SearchableSelect TItem="Работа"
+                                                  TValue="int?"
+                                                  Items="@works"
+                                                  TextSelector="@((s) => s.Тема)"
+                                                  ValueSelector="@(s => s.IdРаботы)"
+                                                  Placeholder="Выберите или введите работу..."
+                                                  IsInvalid="@(false)"
+                                                  @bind-SelectedValue="@filterAttributeDataWork"
+                                                  OnCustomValue="@(() => filterAttributeDataWork = null)" />
+                            </div>
+                            <div class="col-md-4">
+                                <select class="form-select" @bind="filterAttributeDataAttr" @bind:event="onchange">
+                                    <option value="">Выберите атрибут</option>
+                                    @foreach (var attr in attributes)
+                                    {
+                                        <option value="@attr.IdАтрибута">@attr.Название</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-success btn-sm" @onclick="() => OpenAttributeDataModal()">
+                                    <i class="bi bi-plus-circle"></i> Добавить данные
+                                </button>
+                            </div>
+                        </div>
+                    
+                        <table class="table table-hover table-striped">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Работа</th>
+                                    <th>Структура</th>
+                                    <th>Атрибут</th>
+                                    <th>Данные</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var data in filteredAttributeData)
+                                {
+                                    Работа work = works.First(w => w.IdРаботы == data.IdРаботы);
+                                    AttributeStructureDto attributeStructure = allStructures.First(w => w.IdСтруктуры == data.IdСтруктуры);
+                                    <tr>
+                                        <td>@data.IdДанных</td>
+                                        <td>@work.Тема</td>
+                                        <td>@GetStructureName(attributeStructure)</td>
+                                        <td>@attributeStructure.Атрибут.Название</td>
+                                        <td>@data.Данные</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-primary" @onclick="() => OpenAttributeDataModal(data)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteItem<ДанныеПоАтриб>(data.IdДанных)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    #region Модальные окна для CRUD операций
+
+    #region Структуры
+
+    <!-- Модальное окно для атрибута института -->
+    <div class="modal fade @(showAttributesInstituteModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">@(isEdit ? "Редактирование" : "Добавление") атрибута института</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Институт *</label>
+                        <select class="form-select" @bind="selectedAttributesInstitute.IdИнститута"
+                                disabled>
+                            <option value="">Выберите институт</option>
+                            @foreach (var institute in snapshot.Institutes.OrderBy(x => x.Название))
+                            {
+                                <option value="@institute.IdИнститута">@institute.Название</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Атрибут *</label>
+                        <select class="form-select" @bind="selectedAttributesInstitute.IdАтрибута">
+                            <option value="">Выберите атрибут</option>
+                            @foreach (var attr in attributes.OrderBy(x => x.Название))
+                            {
+                                <option value="@attr.IdАтрибута">@attr.Название</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Статус работы</label>
+                        <select class="form-select" @bind="selectedAttributesInstitute.IdСтатусаРаботы">
+                            <option value="">Все</option>
+                            @foreach (var status in snapshot.WorkStatuses.OrderBy(x => x.IdСтатусаРаботы))
+                            {
+                                <option value="@status.IdСтатусаРаботы">@status.Название</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Тип работы</label>
+                        <select class="form-select" @bind="selectedAttributesInstitute.IdТипаРаботы">
+                            <option value="">Все</option>
+                            @foreach (var type in snapshot.WorkTypes.OrderBy(x => x.IdТипаРаботы))
+                            {
+                                <option value="@type.IdТипаРаботы">@type.Название</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModal">Отмена</button>
+                    <button class="btn btn-primary" @onclick="() => SaveItem<АтрибутИнститута>(selectedAttributesInstitute)">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    #endregion
+
+    <!-- Модальное окно для данных по атрибутам -->
+    <div class="modal fade @(showAttributeDataModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">@(isEdit ? "Редактирование" : "Добавление") данных атрибута</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Работа *</label>
+                        <SearchableSelect TItem="Работа"
+                                          TValue="int"
+                                          Items="@works"
+                                          TextSelector="@((s) => s.Тема)"
+                                          ValueSelector="@(s => s.IdРаботы)"
+                                          Placeholder="Выберите или введите работу..."
+                                          IsInvalid="@(selectedAttributeData.IdРаботы == 0)"
+                                          @bind-SelectedValue="@selectedAttributeData.IdРаботы"
+                                          OnCustomValue="@(() => selectedAttributeData.IdРаботы = 0)" />
+                        <button type="button" class="btn btn-primary mt-2" @onclick="@(() => showWorkModal = true)">
+                            Выбранная работа
+                        </button>
+                    
+                        <div class="modal fade @(showWorkModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+                            <div class="modal-dialog modal-xl">
+                                <div class="modal-content">
+                                    <div class="modal-header bg-primary text-white">
+                                        <h5 class="modal-title">Информация о работе</h5>
+                                        <button type="button" class="btn-close btn-close-white" @onclick="() => showWorkModal = false"></button>
+                                    </div>
+                                    <div class="modal-body pt-0">
+                                        <WorkDetails IdWork="selectedAttributeData.IdРаботы" ShowBackButton="false" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Атрибут *</label>
+                        <select class="form-select" @bind="idAttribute">
+                            <option value="">Выберите атрибут</option>
+                            @foreach (var attr in attributes.OrderBy(x => x.Название))
+                            {
+                                <option value="@(attr.IdАтрибута)">
+                                    @(attr.Название)
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Структура *</label>
+                        <select class="form-select" @bind="selectedAttributeData.IdСтруктуры"
+                                data-bs-toggle="tooltip"
+                                title="@(GetStructureInfo(selectedAttributeData.IdСтруктуры))"
+                                disabled="@(idAttribute == 0)">
+                            <option value="">Выберите структуру</option>
+                            @foreach (var structure in allStructures.Where(x => x.Атрибут.IdАтрибута == idAttribute))
+                            {
+                                <option value="@structure.IdСтруктуры" data-bs-toggle="tooltip"
+                                        title="@(GetStructureInfo(structure.IdСтруктуры))">
+                                    @GetStructureName(structure)
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Данные *</label>
+                        <SearchableSelect TItem="string"
+                                          TValue="string"
+                                          Items="@GetStructureAttributesData(selectedAttributeData.IdСтруктуры)"
+                                          Placeholder="Выберите или введите данные..."
+                                          IsInvalid="@(string.IsNullOrWhiteSpace(selectedAttributeData.Данные))"
+                                          @bind-SelectedValue="@(selectedAttributeData.Данные)"
+                                          OnCustomValue="@((s) => selectedAttributeData.Данные = s)"
+                                          Disabled="@(selectedAttributeData.IdСтруктуры == 0)" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModal">Отмена</button>
+                    <button class="btn btn-primary" @onclick="() => SaveItem<ДанныеПоАтриб>(selectedAttributeData)">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    #endregion
+}
+
+
+@code {
+    private TeacherDisplayDto? responsible;
+    private string activeTab = "attributesInstitutes";
+
+    // Основные атрибуты
+    private List<Атрибут> attributes = new();
+    private Атрибут selectedAttribute = new();
+
+    // Атрибуты институтов
+    private List<AttributeStructureDto> attributesInstitute = new();
+    private АтрибутИнститута selectedAttributesInstitute = new();
+    private bool showAttributesInstituteModal = false;
+
+    // Данные по атрибутам
+    private List<ДанныеПоАтриб> attributeData = new();
+    private List<ДанныеПоАтриб> filteredAttributeData
+    {
+        get
+        {
+            return attributeData.Where(x =>
+            {
+                bool matchesWork = filterAttributeDataWork == null || x.IdРаботы == filterAttributeDataWork;
+                bool matchesAttr = filterAttributeDataAttr == null
+                    || allStructures
+                        .Where(a => a.Атрибут.IdАтрибута == filterAttributeDataAttr)
+                            .Select(x => x.IdСтруктуры).Contains(x.IdСтруктуры);
+
+                return matchesWork && matchesAttr;
+            }).ToList();
+        }
+    }
+    private ДанныеПоАтриб selectedAttributeData = new();
+    private bool showAttributeDataModal = false;
+
+    // Справочники для выпадающих списков
+    private ReferenceDataSnapshot snapshot = null!;
+    private List<Работа> works = new();
+    private List<AttributeValuesDto> allStructureAttributes = new();
+    private List<AttributeStructureDto> allStructures = new();
+
+    // Фильтры для данных по атрибутам
+    private int? filterAttributeDataWork;
+    private int? filterAttributeDataAttr;
+    private bool showWorkModal = false;
+    private int idAttribute;
+    private int idInstitute;
+    private int idDepartment;
+    private int idUgsnStandard;
+    private int idUgsn;
+    private int idDirection;
+    private bool isEdit = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RendererInfo.IsInteractive)
+        {
+            await GetStructureInfo();
+            snapshot = await RefDataService.GetSnapshotAsync();
+            await LoadData();
+            RefDataService.TablesChanged += OnTablesChanged;
+        }
+    }
+
+    private async Task GetStructureInfo()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        ClaimsPrincipal user = authState!.User;
+        int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
+        responsible = await UserService.GetTeacherDisplayAsync(idUser);
+    }
+
+    private async Task LoadData()
+    {
+        attributes = snapshot.Attributes.OrderBy(a => a.Название).ToList();
+
+        var attributesOrganization = (await AttributeService
+            .CreateDtoAsync(await RefDataService.GetAsync<АтрибутУчреждения>(true, true)))
+            !.OrderBy(a => a.IdСтруктуры).ToList();
+
+        attributesInstitute = (await AttributeService
+            .CreateDtoAsync(snapshot.AttributesInstitute
+                .Where(x => x.IdИнститута == responsible!.Структура.Институт.IdИнститута).ToList()))
+            !.OrderBy(a => a.Структура!.Институт.Название).ToList();
+
+        // Иерархично собираем все подчиненные кафедры, направления, профили
+        {
+            List<Кафедра> departments = snapshot.Departments
+                .Where(x => x.IdИнститута == responsible!.Структура.Институт.IdИнститута)
+                .ToList();
+            var attributesDepartment = (await AttributeService
+                .CreateDtoAsync(snapshot.AttributesDepartment
+                    .Where(x => departments.Exists(y => y.IdКафедры == x.IdКафедры)).ToList()))
+                !.OrderBy(a => a.Структура!.Кафедра.Название).ToList();
+
+            List<Направление> directions = snapshot.Directions
+                .Where(x => departments.Exists(y => y.IdКафедры == x.IdКафедры))
+                .ToList();
+            var attributesDirection = (await AttributeService
+                .CreateDtoAsync(snapshot.AttributesDirection
+                    .Where(x => directions.Exists(y => y.IdНаправления == x.IdНаправления)).ToList()))
+                !.OrderBy(a => a.Структура!.Направление.Название).ToList();
+
+            List<Профиль> profiles = snapshot.Profiles
+                .Where(x => directions.Exists(y => y.IdНаправления == x.IdНаправления))
+                .ToList();
+            var attributesProfile = (await AttributeService
+                .CreateDtoAsync(snapshot.AttributesProfile
+                    .Where(x => profiles.Exists(y => y.IdПрофиля == x.IdПрофиля)).ToList()))
+                !.OrderBy(a => a.Структура!.Профиль!.Название).ToList();
+
+            allStructureAttributes = await RefDataService.GetAsync<AttributeValuesDto>();
+            allStructures = [];
+            allStructures.AddRange(attributesOrganization);
+            allStructures.AddRange(attributesInstitute);
+            allStructures.AddRange(attributesDepartment);
+            allStructures.AddRange(attributesDirection);
+            allStructures.AddRange(attributesProfile);
+        }
+
+        // Через RefDataService уйдёт много памяти и времени
+        using ArchiveFqpContext context = DbFactory.CreateDbContext();
+        works = await context.Работаs
+            .Include(x => x.IdСтудентаNavigation)
+            .Where(x => x.IdСтудентаNavigation.IdИнститута == responsible!.Структура.Институт.IdИнститута)
+            .ToListAsync();
+
+        var ids = works.Select(x => x.IdРаботы);
+        attributeData = await context.ДанныеПоАтрибs.Where(x => ids.Contains(x.IdРаботы)).ToListAsync();
+
+        StateHasChanged();
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    private async Task SaveItem<T>(T item) where T : class
+    {
+        try
+        {
+            string message = await AttributeService.Upsert(item) ? "Обновлено" : "Добавлено";
+            await JSRuntime.InvokeVoidAsync("alert", message);
+        }
+        catch (DbUpdateException ex)
+        {
+            string errorMessage = ex.InnerException?.Message ?? ex.Message;
+            if (errorMessage.Contains("affected 0 row"))
+                errorMessage = "Обновления запрещены триггером в БД";
+            if (errorMessage.Contains("данные_по_атриб_атрибут_key"))
+                errorMessage = "Данные атрибута структуры уже существуют";
+            else if (errorMessage.Contains("_атрибут_key"))
+                errorMessage = "Атрибут структуры уже существует";
+            else if (errorMessage.Contains("название"))
+                errorMessage = "Атрибут уже существует";
+
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteItem<T>(int id) where T : class
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Вы уверены? Это может затронуть связанные данные!"))
+        {
+            try
+            {
+                await AttributeService.Delete<T>(id);
+                await JSRuntime.InvokeVoidAsync("alert", "Удалено");
+            }
+            catch (DbUpdateException ex)
+            {
+                string errorMessage = ex.InnerException?.Message ?? ex.Message;
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+            }
+        }
+    }
+
+    private string GetStructureInfo(int id)
+    {
+        if (id < 1) return "";
+        AttributeStructureDto atst = allStructures.First(x => x.IdСтруктуры == id);
+        string info = $"Тип: {atst.ТипРаботы?.Название ?? "Все"}\n"
+                    + $"Статус: {atst.СтатусРаботы?.Название ?? "Все"}\n";
+        return info + atst.ТипСтруктуры switch
+        {
+            StructureType.Учреждение => "",
+            StructureType.Институт => atst.Структура!.GetStructureInfo<Институт>(),
+            StructureType.Кафедра => atst.Структура!.GetStructureInfo<Кафедра>(),
+            StructureType.Направление => atst.Структура!.GetStructureInfo<Направление>(),
+            StructureType.Профиль => atst.Структура!.GetStructureInfo<Профиль>(),
+            _ => "Неизвестная структура"
+        };
+    }
+
+    private string GetStructureName(AttributeStructureDto atst)
+    {
+        return atst.ТипСтруктуры switch
+        {
+            StructureType.Учреждение => $"Университет",
+            StructureType.Институт => $"Институт - {atst.Структура!.Институт.Название}",
+            StructureType.Кафедра => $"Кафедра - {atst.Структура!.Кафедра.Название}",
+            StructureType.Направление => $"Направление - {atst.Структура!.Направление.Название}",
+            StructureType.Профиль => $"Профиль - {atst.Структура!.Профиль!.Название}",
+            _ => "Неизвестная структура"
+        };
+    }
+
+    private List<string> GetStructureAttributesData(int id)
+    {
+        if (id < 1) return [];
+        return allStructureAttributes
+            .FirstOrDefault(av => av.IdАтрибута == allStructures
+                .First(x => x.IdСтруктуры == id).Атрибут.IdАтрибута)
+            ?.Данные.Prepend(Settings.AttributesValueNone).ToList() ?? [];
+    }
+
+    private List<AttributeStructureDto> GetStructureAttributes(int id)
+    {
+        if (id < 1) return allStructures;
+        AttributeStructureDto atst = allStructures.First(x => x.IdСтруктуры == id);
+        var res = atst.ТипСтруктуры switch
+        {
+            StructureType.Учреждение => allStructures.Where(x => x.Структура == null),
+            StructureType.Институт => allStructures.Where(x => x.Структура != null && x.Структура!.Институт.IdИнститута == atst.Структура!.Институт.IdИнститута),
+            StructureType.Кафедра => allStructures.Where(x => x.Структура != null && x.Структура!.Кафедра.IdКафедры == atst.Структура!.Кафедра.IdКафедры),
+            StructureType.Направление => allStructures.Where(x => x.Структура != null && x.Структура!.Направление.IdНаправления == atst.Структура!.Направление.IdНаправления),
+            StructureType.Профиль => allStructures.Where(x => x.Структура != null && x.Структура.Профиль != null && x.Структура!.Профиль!.IdПрофиля == atst.Структура!.Профиль!.IdПрофиля),
+            _ => []
+        };
+
+        return res.DistinctBy(x => x.Атрибут.Название).ToList();
+    }
+
+    private void CloseModal()
+    {
+        showAttributesInstituteModal =
+        showAttributeDataModal = false;
+        idAttribute = idInstitute = idDepartment = idDirection = 0;
+        StateHasChanged();
+    }
+
+    private void OpenAttributesInstituteModal(АтрибутИнститута? attribute = null)
+    {
+        if (attribute == null)
+        {
+            selectedAttributesInstitute = new()
+            {
+                IdИнститута = responsible!.Структура.Институт.IdИнститута
+            };
+            isEdit = false;
+        }
+        else
+        {
+            selectedAttributesInstitute = new()
+            {
+                IdСтруктуры = attribute.IdСтруктуры,
+                IdАтрибута = attribute.IdАтрибута,
+                IdСтатусаРаботы = attribute.IdСтатусаРаботы,
+                IdТипаРаботы = attribute.IdТипаРаботы,
+                IdИнститута = attribute.IdИнститута
+            };
+            isEdit = true;
+        }
+        showAttributesInstituteModal = true;
+        StateHasChanged();
+    }
+
+    private void OpenAttributeDataModal(ДанныеПоАтриб? data = null)
+    {
+        if (data == null)
+        {
+            selectedAttributeData = new();
+            isEdit = false;
+        }
+        else
+        {
+            selectedAttributeData = new()
+            {
+                IdДанных = data.IdДанных,
+                IdСтруктуры = data.IdСтруктуры,
+                IdРаботы = data.IdРаботы,
+                Данные = data.Данные
+            };
+            idAttribute = allStructures.First(x => x.IdСтруктуры == data.IdСтруктуры).Атрибут.IdАтрибута;
+            isEdit = true;
+        }
+        showAttributeDataModal = true;
+        StateHasChanged();
+    }
+
+    private async void OnTablesChanged(object? sender, TableChangeEvent e)
+    {
+        if (e.TableName.Contains("Атриб"))
+        {
+            await InvokeAsync(async () => { await LoadData(); });
+        }
+    }
+
+    public void Dispose()
+    {
+        RefDataService.TablesChanged -= OnTablesChanged;
+    }
+}

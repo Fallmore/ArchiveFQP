@@ -77,7 +77,10 @@ namespace ArchiveFqp.Services.Applications
                 IdСтатуса = workApplication.IdСтатуса
             };
 
-            return await base.Upsert(newApp, _dbFactory);
+            await base.Upsert(newApp, _dbFactory);
+            workApplication.IdЗаявления = newApp.IdЗаявления;
+
+            return true;
         }
 
         public async Task<bool> AddAnswerWorkApplication(WorkApplicationDto workApplication)
@@ -178,6 +181,20 @@ namespace ArchiveFqp.Services.Applications
                 });
             }
 
+            return true;
+        }
+
+        public async Task<bool> CompleteWorkApplication(WorkApplicationDto workApplication)
+        {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
+            ЗаявлениеРаботы? app = context.ЗаявлениеРаботыs.Find(workApplication.IdЗаявления);
+            if (app == null) return false;
+
+            app.IdСтатуса = workApplication.IdСтатуса;
+            app.ДатаВозврПоФакту = DateTime.Now;
+
+            await context.SaveChangesAsync();
             return true;
         }
     }

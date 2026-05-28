@@ -36,6 +36,9 @@ namespace ArchiveFqp.Services.FileUpload
 
         public abstract Task<HashVerificationResult> VerifyUploadedFilesAsync(string sourceHash, string relativeFolderPath, CancellationToken cancellationToken = default);
 
+        public abstract bool MoveFilesFromTemp(string sourceRelativePath, string destinationRelativePath);
+
+
         /// <summary>
         /// Формирует путь к папке на основе контекста
         /// </summary>

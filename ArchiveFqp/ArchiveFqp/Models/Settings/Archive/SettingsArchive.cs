@@ -32,11 +32,7 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
 
             if (string.IsNullOrWhiteSpace(FilesRootPath))
             {
-                FilesRootPath = Path.Combine(
-                    env.ContentRootPath,
-                    FolderDataName,
-                    FolderWorksName
-                );
+                FilesRootPath = env.ContentRootPath;
             }
         }
 
@@ -105,6 +101,9 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
 
         public string FolderDataName { get; set; } = "AppData";
         public string FolderWorksName { get; set; } = "works";
+        public string FolderTempName { get; set; } = "Temp";
+        public string FilesRootPath { get; set; } = "";
+        public long MaxFileSize { get; set; } = 100 * 1024 * 1024; // 100 MB
 
         public int MinDayWatchWorks { get; set; } = 3;
         public int MaxDayWatchWorks { get; set; } = 14;
@@ -146,13 +145,6 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
 
         public string AttributesValueAwait { get; set; } = "Ожидание поиска...";
         public string AttributesValueNone { get; set; } = "Н/Д";
-
-        public string FileExplanatoryNoteWord { get; set; } = "Пояснительная_записка_Word";
-        public string FileExplanatoryNotePDF { get; set; } = "Пояснительная_записка_PDF";
-        public string FilePresentation { get; set; } = "Презентация";
-        public string FileSourceCode { get; set; } = "Исходный_код";
-        public string FileDb { get; set; } = "База_данных";
-        public string FilePassword { get; set; } = "Пароли";
         #endregion
 
         
@@ -181,8 +173,5 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
             { "ВКРБ", 5},
             { "МД", 5 }
         };
-
-        public string FilesRootPath { get; set; } = ""; // 100 MB
-        public long MaxFileSize { get; set; } = 100 * 1024 * 1024; // 100 MB
     }
 }

@@ -63,5 +63,13 @@ namespace ArchiveFqp.Interfaces.FileUpload
         /// <param name="cancellationToken"></param>
         /// <returns>Результат проверки хеша</returns>
         Task<HashVerificationResult> VerifyUploadedFilesAsync(string sourceHash, string relativeFolderPath, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Перемещает файлы из одной папки в другую внутри папки сервера
+        /// </summary>
+        /// <param name="sourceRelativePath">Относительный путь к исходной папке</param>
+        /// <param name="destinationRelativePath">Относительный путь к целевой папке</param>
+        /// <returns>Возвращает <c>true</c>, если файлы успешно перемещены, иначе <c>false</c></returns>
+        bool MoveFilesFromTemp(string sourceRelativePath, string destinationRelativePath);
     }
 }

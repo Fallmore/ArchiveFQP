@@ -93,7 +93,7 @@
                         <label class="form-label mb-0 mx-1 fw-bold">Доступ работы <span class="text-danger">*</span></label>
                         <InputSelect class="form-select" @bind-Value="WorkDto.IdДоступаРаботы" @bind-Value:after="@(async () => await SaveStateWorkDTO())" disabled="@disabled">
                             <option value="">Выберите кто видит работу</option>
-                            @foreach (ДоступРаботы type in snapshot.WorkAccess)
+                            @foreach (ДоступРаботы type in snapshot.WorkAccess.OrderBy(x => x.IdДоступаРаботы))
                             {
                                 <option value="@type.IdДоступаРаботы">@type.Название</option>
                             }
@@ -190,7 +190,7 @@
                                               Placeholder="@(WorkDto.IdТипаРаботы == null ? "Сначала выберите тип работы" : (filteredStudents.Count == 0 ? "Нет учащихся студентов" : "Выберите или введите студента..."))"
                                               IsInvalid="@(WorkDto.IdСтудента == null)"
                                               @bind-SelectedValue="@WorkDto.IdСтудента"
-                                              @bind-SelectedValue:after="@(() => {OnStudentChanged(WorkDto.IdСтудента);HandleValidationRequested(editContext, new());})"
+                                              @bind-SelectedValue:after="@(async () => {await OnStudentChanged(WorkDto.IdСтудента);HandleValidationRequested(editContext, new());})"
                                               OnCustomValue="@(() => WorkDto.IdСтудента = null)"
                                               Disabled="@(disabled || WorkDto.IdТипаРаботы == null)" />
                             <ValidationMessage For="() => WorkDto.IdСтудента" />
@@ -393,7 +393,7 @@
                         <table class="table table-hover">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 40%">Файл</th>
+                                    <th style="width: 40%">Выбранный файл</th>
                                     <th style="width: 20%">Тип файла</th>
                                 </tr>
                             </thead>
@@ -405,25 +405,21 @@
                                         <tr>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    <div>
-                                                        <div>
-                                                            @result.OriginalFileName -
-                                                            @if (result.Success)
-                                                            {
-                                                                <span class="text-success">
-                                                                    <i class="bi bi-check-circle"></i> Загружен
-                                                                    (@(result.FileSize / 1024) KB)
-                                                                </span>
-                                                            }
-                                                            else
-                                                            {
-                                                                <span class="text-danger">
-                                                                    <i class="bi bi-exclamation-triangle"></i>
-                                                                    @result.ErrorMessage
-                                                                </span>
-                                                            }
-                                                        </div>
-                                                    </div>
+                                                    @result.OriginalFileName -
+                                                    @if (result.Success)
+                                                    {
+                                                        <span class="text-success">
+                                                            <i class="bi bi-check-circle"></i> Загружен
+                                                            (@(result.FileSize / 1024) KB)
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-danger">
+                                                            <i class="bi bi-exclamation-triangle"></i>
+                                                            @result.ErrorMessage
+                                                        </span>
+                                                    }
                                                 </div>
                                             </td>
                                             <td>@result.FileTypeName</td>
@@ -437,16 +433,12 @@
                                         <tr>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    <div>
-                                                        <div>
-                                                            @file.Name
-                                                            @if (isUploading)
-                                                                @if (uploadingFile.ContainsKey(file.Name))
-                                                                {
-                                                                    <span>@string.Format(" {0:P0}", uploadingFile[file.Name])</span>
-                                                                }
-                                                        </div>
-                                                    </div>
+                                                    @file.Name
+                                                    @if (isUploading)
+                                                        @if (uploadingFile.ContainsKey(file.Name))
+                                                        {
+                                                            <span>@string.Format(" {0:P0}", uploadingFile[file.Name])</span>
+                                                        }
                                                 </div>
                                             </td>
                                             <td>@file.DisplaySelectedType</td>
@@ -460,10 +452,43 @@
             </div>
         }
 
+        <!-- Загруженные файлы с папки -->
+        @if (uploadedFiles.Count != 0)
+        {
+            <div class="row mb-2">
+                <div class="col-12">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40%">Загруженный файл</th>
+                                    <th style="width: 20%">Тип файла</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var file in uploadedFiles)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                @file.Name
+                                            </div>
+                                        </td>
+                                        <td>@file.Extension</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+
+
         <!-- Кнопки действий -->
         <div class="row mt-1">
             <div class="col-12 d-flex justify-content-between">
-                <button type="submit" class="btn btn-primary" disabled="@(isSubmitting || selectedFiles.Count == 0 || disabled)">
+                <button type="submit" class="btn btn-primary" disabled="@(isSubmitting || disabled || (!IsEdit && selectedFiles.Count == 0))">
                     @if (isSubmitting)
                     {
                         <span class="spinner-border spinner-border-sm me-2" role="status"></span>
@@ -490,7 +515,8 @@
     [Parameter] public WorkCreateDto WorkDto { get; set; } = new();
     [Parameter] public EventCallback<WorkCreateDto> WorkDTOChanged { get; set; }
     [Parameter] public string SessionStoreNameWorkDTO { get; set; } = "workDTO";
-    [Parameter] public bool UpdateSessionStore { get; set; } = true;
+    [Parameter] public bool IsEdit { get; set; } = false;
+
     private TeacherDtoFactory? teacherDtoFactory;
     private StudentDtoFactory? studentDtoFactory;
     private bool disabled => WorkDto.IdРаботы != 0;
@@ -498,7 +524,7 @@
     private bool disableDepartment = false;
 
     private ReferenceDataSnapshot snapshot = null!;
-    private BaseSettings SettingsFiles = null!;
+    private BaseSettings SettingsFiles = new();
 
     private TeacherDisplayDto? selectedTeacher;
     private List<Пользователь> users = null!;
@@ -514,6 +540,9 @@
     private bool hasCR = false;
     private bool isSubmitting = false;
     private bool waitAddWork = false;
+
+    private WorkCreateDto? workDtoOriginal;
+    private List<FileInfo> uploadedFiles = new();
 
     private bool isUploading;
     private Dictionary<string, decimal> uploadingFile = new();
@@ -538,6 +567,12 @@
         FileUploadService.ProgressChanged += OnUploadProgressChanged;
         RefDataService.TablesChanged += OnTablesChanged;
 
+        if (IsEdit)
+        {
+            workDtoOriginal = new(WorkDto);
+            uploadedFiles = FileUploadService.GetFiles(workDtoOriginal.Местоположение!);
+        }
+
         editContext = new(WorkDto);
         messageStore = new(editContext);
         editContext.OnValidationStateChanged += HandleValidationRequested;
@@ -550,11 +585,15 @@
         filteredEducationLevels = snapshot.EducationLevels;
         filteredTeachers = snapshot.Teachers.OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
 
-        var result = await ProtectedSessionStore.GetAsync<WorkCreateDto>(SessionStoreNameWorkDTO);
-        if (result.Success)
+        if (!IsEdit)
         {
-            WorkDto = result.Value!;
-            await OnWorkTypeChanged();
+            var result = await ProtectedSessionStore.GetAsync<WorkCreateDto>(SessionStoreNameWorkDTO);
+            if (result.Success)
+            {
+                WorkDto = result.Value!;
+                await OnWorkTypeChanged();
+            }
+            else WorkDto.IdСтатусаРаботы = snapshot.WorkStatuses.First(ws => ws.Название == SettingsArchive.WorkOnReviewStatus).IdСтатусаРаботы;
         }
         else WorkDto.IdСтатусаРаботы = snapshot.WorkStatuses.First(ws => ws.Название == SettingsArchive.WorkOnReviewStatus).IdСтатусаРаботы;
 
@@ -584,8 +623,11 @@
 
     private async Task SaveStateWorkDTO()
     {
-        await ProtectedSessionStore.SetAsync(SessionStoreNameWorkDTO, WorkDto);
-        await WorkDTOChanged.InvokeAsync(WorkDto);
+        if (!IsEdit)
+        {
+            await ProtectedSessionStore.SetAsync(SessionStoreNameWorkDTO, WorkDto);
+            await WorkDTOChanged.InvokeAsync(WorkDto);
+        }
     }
 
     private async Task SetStructuresByRole()
@@ -702,13 +744,17 @@
                     .Select(x => x.IdТипаРаботы).ToList();
 
                 List<Работа> works = await RefDataService.GetAsync<Работа>();
+                // Фильтр по образованию и исключение студентов, у которых уже есть выпускные работы
                 filteredStudents = filteredStudents
                     .Where(x => filteredEducationLevels.Select(y => y.IdУровняОбразования).Contains(x.IdУровняОбразования))
-                    .Where(x => !works
-                        .Where(w => fqps.Contains(w.IdТипаРаботы))
-                        .Select(y => y.IdСтудента).Contains(x.IdСтудента))
                     .OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия)
                     .ToList();
+                if (!IsEdit)
+                    filteredStudents = filteredStudents
+                        .Where(x => !works
+                            .Where(w => fqps.Contains(w.IdТипаРаботы))
+                            .Select(y => y.IdСтудента).Contains(x.IdСтудента))
+                        .ToList();
 
                 // Если указан существующий студент, но него не оказалось в списке,
                 // то очищаем и обновляем список
@@ -790,8 +836,9 @@
 
     private async Task OnTeacherChanged(int? id)
     {
+        selectedTeacher = await teacherDtoFactory!.CreateDisplayDtoAsync(id ?? 0);
         WorkDto.IdПреподавателя = id;
-        selectedTeacher = teacherDtoFactory!.CreateDisplayDtoAsync(id ?? 0).Result;
+        WorkDto.IdДолжности = selectedTeacher?.Должность.IdДолжности;
         await SaveStateWorkDTO();
     }
 
@@ -899,6 +946,7 @@
         isSubmitting = true;
         StateHasChanged();
         Работа work = new();
+        Работа workOriginal = new();
         bool workAdded = false;
 
         using ArchiveFqpContext context = DbFactory.CreateDbContext();
@@ -911,19 +959,39 @@
             }
 
             // Создаем новую работу
-            work = new()
+            if (IsEdit)
             {
-                Тема = WorkDto.Тема,
-                IdСтудента = WorkDto!.IdСтудента!.Value,
-                IdПреподавателя = WorkDto!.IdПреподавателя!.Value,
-                КоличСтраниц = WorkDto.КоличСтраниц,
-                IdТипаРаботы = WorkDto!.IdТипаРаботы!.Value,
-                IdСтатусаРаботы = WorkDto.IdСтатусаРаботы,
-                IdДолжности = snapshot.Teachers.First(t => t.IdПреподавателя == WorkDto!.IdПреподавателя!.Value).IdДолжности,
-                Аннотация = WorkDto.Аннотация,
-                IdДоступаРаботы = WorkDto!.IdДоступаРаботы!.Value
-            };
+                work = context.Работаs.First(w => w.IdРаботы == WorkDto.IdРаботы);
+                workOriginal = context.Работаs.AsNoTracking().First(w => w.IdРаботы == WorkDto.IdРаботы);
+            }
 
+            work.Тема = WorkDto.Тема;
+            work.IdСтудента = WorkDto.IdСтудента!.Value;
+            work.IdПреподавателя = WorkDto.IdПреподавателя!.Value;
+            work.КоличСтраниц = WorkDto.КоличСтраниц;
+            work.IdТипаРаботы = WorkDto.IdТипаРаботы!.Value;
+            work.IdСтатусаРаботы = WorkDto.IdСтатусаРаботы;
+            work.IdДолжности = workDtoOriginal is null ? WorkDto.IdДолжности!.Value : workDtoOriginal.IdДолжности!.Value;
+            work.Аннотация = WorkDto.Аннотация;
+            work.IdДоступаРаботы = WorkDto.IdДоступаРаботы!.Value;
+
+            if (IsEdit && selectedFiles.Count == 0)
+            {
+                if ((await WorkService.GetWorksAsync()).FirstOrDefault(w => w.IdСтудента == work.IdСтудента && w.Тема == work.Тема) != default)
+                {
+                    throw new Exception("Такая работа уже существует!");
+                }
+
+                work.Местоположение = WorkDto.Местоположение;
+                work.Эцп = WorkDto.Эцп;
+                work.ДатаИзменения = DateTime.Now;
+
+                context.Работаs.Update(work);
+                await context.SaveChangesAsync();
+                workAdded = true;
+
+                if (hasCR) await AddConsultantsAndReviewers(context, work.IdРаботы);
+            }
             // Если есть файлы для загрузки
             if (selectedFiles.Count != 0)
             {
@@ -931,18 +999,29 @@
                 {
                     throw new Exception("Такая работа уже существует!");
                 }
-
+                
                 FileUploadWithHashResult? res = await UploadFiles();
                 if (res != default)
                 {
                     work.Местоположение = res.FileResults.First().RelativeFolderPath;
                     work.Эцп = res.HashesInfo.CompositeHash;
+                    if (IsEdit)
+                    {
+                        work.ДатаИзменения = DateTime.Now;
+                        context.Работаs.Update(work);
+                    }
+                    else
+                    {
+                        context.Работаs.Add(work);
+                    }
 
-                    context.Работаs.Add(work);
                     await context.SaveChangesAsync();
                     workAdded = true;
 
                     if (hasCR) await AddConsultantsAndReviewers(context, work.IdРаботы);
+
+                    if (IsEdit)
+                        FileUploadService.MoveFilesFromTemp(work.Местоположение, work.Местоположение);
 
                     WorkDto.IdРаботы = work.IdРаботы;
                     waitAddWork = true;
@@ -962,31 +1041,58 @@
             errorMessage = ex.InnerException?.Message ?? "";
 
             if (errorMessage.Contains("работа_ЭЦП_key"))
-                errorMessage = "Данные файлы уже принадлежат существующей работе в архиве!";
+                errorMessage = "Данные файлы уже принадлежат существующей работе в архиве";
+            else if (errorMessage.Contains("рецензент_работа_препод_key"))
+                errorMessage = "Один из рецензентов уже является рецензентом данной работы";
+            else if (errorMessage.Contains("консультант_работа_препод_key"))
+                errorMessage = "Один из консультантов уже является консультантом данной работы";
+            else if (errorMessage.Contains("работа_работа_студента_key"))
+                errorMessage = "У студента уже существует работа с этой темой";
+            else if (errorMessage.Contains("работа_работа_студентов_key"))
+                errorMessage = "Уже существует работа данного типа с такой темой";
+            else if (errorMessage.Contains("неправильное_дата_добавления"))
+                errorMessage = "Не допускается дата добавления в будущем";
+            else if (errorMessage.Contains("неправильное_колич_страниц"))
+                errorMessage = "Не допускается отрицательное количество страниц";
+            else if (errorMessage.Contains("местоположение"))
+                errorMessage = "Местоположение уже существует у одной из работ";
 
-            FileUploadService.DirectoryDelete(work.Местоположение);
-
-            if (workAdded)
-            {
-                context.Работаs.Remove(work);
-                await context.SaveChangesAsync();
-            }
+            await Rollback(context, work, workAdded, workOriginal);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Ошибка добавления работы");
             errorMessage = $"Ошибка при добавлении: {ex.Message}";
-            if (workAdded)
-            {
-                context.Работаs.Remove(work);
-                await context.SaveChangesAsync();
-            }
+
+            await Rollback(context, work, workAdded, workOriginal);
         }
         finally
         {
             isUploading = false;
             isSubmitting = false;
             StateHasChanged();
+        }
+    }
+
+    private async Task Rollback(ArchiveFqpContext context, Работа work, bool workAdded, Работа workOriginal)
+    {
+        if (work.Местоположение != null)
+        {
+            FileUploadService.DirectoryDelete(work.Местоположение, IsEdit);
+        }
+
+        await SwitchToStudent();
+
+        if (workAdded)
+        {
+            if (!IsEdit)
+                context.Работаs.Remove(work);
+            else
+            {
+                work = workOriginal;
+                context.Работаs.Update(work);
+            }
+            await context.SaveChangesAsync();
         }
     }
 
@@ -1035,7 +1141,28 @@
         List<Консультант> consultants = [];
         List<Рецензент> reviewers = [];
 
-        foreach (int idTeacher in WorkDto.IdКонсультантов.Where(x => x > 0))
+        List<int> idNewConsultants = [.. WorkDto.IdКонсультантов.Where(x => x > 0)];
+        List<int> idNewReviewers = [.. WorkDto.IdРецензентов.Where(x => x > 0)];
+
+        if (IsEdit)
+        {
+            idNewConsultants = [.. idNewConsultants.Where(x => !workDtoOriginal!.IdКонсультантов.Contains(x))];
+            idNewReviewers = [.. idNewReviewers.Where(x => !workDtoOriginal!.IdРецензентов.Contains(x))];
+
+            List<int> idOldConsultants = [.. workDtoOriginal!.IdКонсультантов.Where(x => x > 0 && !idNewConsultants!.Contains(x))];
+            List<int> idOldReviewers = [.. workDtoOriginal!.IdРецензентов.Where(x => x > 0 && !idNewReviewers!.Contains(x))];
+
+            List<int> idDeletedConsultants = [.. idOldConsultants.Where(x => !WorkDto.IdКонсультантов.Contains(x))];
+            List<int> idDeletedReviewers = [.. idOldReviewers.Where(x => !WorkDto.IdРецензентов.Contains(x))];
+
+            var deleteConsultants = context.Консультантs.Where(x => x.IdРаботы == idWork && idDeletedConsultants.Contains(x.IdПреподавателя));
+            context.Консультантs.RemoveRange(deleteConsultants);
+
+            var deleteReviewers = context.Рецензентs.Where(x => x.IdРаботы == idWork && idDeletedReviewers.Contains(x.IdПреподавателя));
+            context.Рецензентs.RemoveRange(deleteReviewers);
+        }
+
+        foreach (int idTeacher in idNewConsultants)
         {
             Преподаватель teacher = snapshot.Teachers.First(x => x.IdПреподавателя == idTeacher);
             consultants.Add(new()
@@ -1046,7 +1173,7 @@
             });
         }
 
-        foreach (int idTeacher in WorkDto.IdРецензентов.Where(x => x > 0))
+        foreach (int idTeacher in idNewReviewers)
         {
             Преподаватель teacher = snapshot.Teachers.First(x => x.IdПреподавателя == idTeacher);
             reviewers.Add(new()
@@ -1057,8 +1184,9 @@
             });
         }
 
-        context.Консультантs.AddRange(consultants);
-        context.Рецензентs.AddRange(reviewers);
+        await context.Консультантs.AddRangeAsync(consultants);
+        await context.Рецензентs.AddRangeAsync(reviewers);
+
         await context.SaveChangesAsync();
     }
 
@@ -1102,7 +1230,8 @@
                 WorkType = workType,
                 Year = WorkDto.ГодВыпуска ?? DateTime.Now.Year,
                 StudentName = studentDtoFactory!.CreateDisplayDtoAsync(student).Result.Пользователь.ФИО,
-                WorkTitle = WorkDto.Тема
+                WorkTitle = WorkDto.Тема,
+                IsTemp = IsEdit
             };
 
             foreach (var file in selectedFiles)
@@ -1122,6 +1251,7 @@
             else if (uploadResult.SuccessCount == 0 && uploadResult.FileResults.Count == 1)
             {
                 FileUploadResult file = uploadResult.FileResults.First();
+                // Проверяется по сообщению о наличии работы
                 if (file.ErrorMessage!.Contains("работа", StringComparison.OrdinalIgnoreCase))
                 {
                     uploadResult = default;
@@ -1144,13 +1274,18 @@
         }
         finally
         {
-            if (WorkDto.IsNewUser)
-            {
-                WorkDto.IsNewUser = false;
-                await OnStudentChanged(WorkDto.IdСтудента);
-            }
+            await SwitchToStudent();
             isUploading = false;
             StateHasChanged();
+        }
+    }
+
+    private async Task SwitchToStudent()
+    {
+        if (WorkDto.IsNewUser)
+        {
+            WorkDto.IsNewUser = false;
+            await OnStudentChanged(WorkDto.IdСтудента);
         }
     }
 

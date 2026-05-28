@@ -109,15 +109,7 @@
     {
         if (Value != null)
         {
-            localStructure = new StructureDto
-            {
-                Институт = Value.Институт,
-                Кафедра = Value.Кафедра,
-                Угсн = Value.Угсн,
-                УгснСтандарт = Value.УгснСтандарт,
-                Направление = Value.Направление,
-                Профиль = Value.Профиль
-            };
+            localStructure = new (Value);
         }
         _ = UpdateDependentLists();
     }
@@ -127,29 +119,29 @@
     }
     private async Task OnInstituteChanged()
     {
-        localStructure.Кафедра.IdКафедры = 0;
-        localStructure.УгснСтандарт.IdУгснСтандарта = 0;
+        localStructure.Кафедра = new();
+        localStructure.УгснСтандарт = new();
         await OnDepartmentChanged();
         await ValueChanged.InvokeAsync(localStructure);
     }
 
     private async Task OnDepartmentChanged()
     {
-        localStructure.Угсн.IdУгсн = 0;
+        localStructure.Угсн = new();
         await OnUgsnChanged();
         await ValueChanged.InvokeAsync(localStructure);
     }
 
     private async Task OnUgsnStandardChanged()
     {
-        localStructure.Угсн.IdУгсн = 0;
+        localStructure.Угсн = new();
         await OnUgsnChanged();
         await ValueChanged.InvokeAsync(localStructure);
     }
 
     private async Task OnUgsnChanged()
     {
-        localStructure.Направление.IdНаправления = 0;
+        localStructure.Направление = new();
         await OnDirectionChanged();
         await ValueChanged.InvokeAsync(localStructure);
     }
@@ -172,6 +164,7 @@
             localStructure.Профиль = null;
 
         await UpdateDependentLists();
+        StateHasChanged();  
         await ValueChanged.InvokeAsync(localStructure);
     }
 

@@ -217,7 +217,7 @@
                                     <label class="form-label mb-0 fw-bold">Доступ работы</label>
                                     <select class="form-select" @bind="searchModel.IdWorkAccess">
                                         <option value="-1"></option>
-                                        @foreach (var access in snapshot.WorkAccess)
+                                        @foreach (var access in snapshot.WorkAccess.OrderBy(x => x.IdДоступаРаботы))
                                         {
                                             <option value="@access.IdДоступаРаботы">@access.Название</option>
                                         }

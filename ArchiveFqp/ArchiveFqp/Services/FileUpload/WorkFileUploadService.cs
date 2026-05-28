@@ -4,8 +4,10 @@ using ArchiveFqp.Models.FileUpload;
 using ArchiveFqp.Models.Hash;
 using ArchiveFqp.Models.Settings;
 using ArchiveFqp.Models.Settings.SettingsArchive;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Components.Forms;
 using System.Text.RegularExpressions;
+using UglyToad.PdfPig.Content;
 
 namespace ArchiveFqp.Services.FileUpload
 {
@@ -35,7 +37,7 @@ namespace ArchiveFqp.Services.FileUpload
 
             if (string.IsNullOrEmpty(_settings.FilesRootPath))
             {
-                _settings.FilesRootPath = Path.Combine(environment.ContentRootPath, _settings.FolderDataName, _settings.FolderWorksName);
+                _settings.FilesRootPath = environment.ContentRootPath;
                 _settings.SaveSettings();
             }
         }
@@ -132,13 +134,14 @@ namespace ArchiveFqp.Services.FileUpload
                 // Строим путь к папке
                 string relativeFolderPath = BuildFolderPath(context);
 #warning Раскоментировать после всех проверок
-                //if (DirectoryExists(relativeFolderPath))
-                //{
-                //    result.FileResults = [new FileUploadResult{ 
-                //        Success = false, 
-                //        ErrorMessage = "Работа данного студента уже в архиве!"}];
-                //    return result;
-                //}
+                if (!workContext.IsTemp || DirectoryExists(relativeFolderPath))
+                {
+                    result.FileResults = [new FileUploadResult{
+                        Success = false,
+                        ErrorMessage = "Работа данного студента уже в архиве!"}];
+                    return result;
+                }
+                if (workContext.IsTemp) relativeFolderPath = Path.Combine(relativeFolderPath, _settings.FolderTempName);
                 string fullFolderPath = EnsureDirectoryExists(relativeFolderPath);
 
                 // Динамическая загрузка всех файлов из контекста
@@ -369,7 +372,7 @@ namespace ArchiveFqp.Services.FileUpload
 
             try
             {
-                string fullFolderPath = Path.Combine(_settings.FilesRootPath, relativeFolderPath);
+                string fullFolderPath = Path.Combine(_settings.FilesRootPath, _settings.FolderDataName, _settings.FolderWorksName, relativeFolderPath);
 
                 if (!Directory.Exists(fullFolderPath))
                 {
@@ -419,10 +422,89 @@ namespace ArchiveFqp.Services.FileUpload
         /// <summary>
         /// <inheritdoc cref="BaseFileUploadService.DirectoryDelete(string)"/>
         /// </summary>
-        /// <param name="relarivePath"></param>
-        public new void DirectoryDelete(string? relarivePath)
+        /// <param name="relativePath"></param>
+        public new void DirectoryDelete(string? relativePath)
         {
-            base.DirectoryDelete(relarivePath);
+            base.DirectoryDelete(relativePath);
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="BaseFileUploadService.DirectoryDelete(string)"/>
+        /// </summary>
+        /// <remarks>Если папка содержит временую папку, то удаляет ее, иначе удаляет папку по переданному пути</remarks>
+        /// <param name="relativePath"></param>
+        /// <param name="HasTemp"></param>
+        public void DirectoryDelete(string relativePath, bool HasTemp)
+        {
+            string path = HasTemp ? Path.Combine(relativePath, _settings.FolderTempName) : relativePath;
+            DirectoryDelete(path);
+        }
+
+        /// <summary>
+        /// Перемещает папку с файлами работы из временной папки в основную папку.
+        /// </summary>
+        /// <param name="sourceRelativePath">Относительный путь к исходной папке</param>
+        /// <param name="destinationRelativePath">Относительный путь к целевой папке</param>
+        /// <returns>Возвращает <c>true</c>, если папка успешно перемещена, иначе <c>false</c></returns>
+        public override bool MoveFilesFromTemp(string sourceRelativePath, string destinationRelativePath)
+        {
+            try
+            {
+                string root = Path.Combine(_settings.FilesRootPath, _settings.FolderDataName, _settings.FolderWorksName);
+                string sourceFullPath = Path.Combine(root, sourceRelativePath, _settings.FolderTempName);
+                string destinationFullPath = Path.Combine(root, destinationRelativePath);
+                if (!Directory.Exists(sourceFullPath))
+                {
+                    _logger.LogWarning("Временная папка не найдена: {SourcePath}", sourceFullPath);
+                    return false;
+                }
+                Directory.Move(sourceFullPath, destinationFullPath);
+                _logger.LogInformation("Папка успешно перемещена из {Source} в {Destination}", sourceFullPath, destinationFullPath);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка перемещения папки из {Source} в {Destination}", sourceRelativePath, destinationRelativePath);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Получить список файлов из указанной директории
+        /// </summary>
+        /// <param name="relativeDirectoryPath">Относительный путь к директории</param>
+        /// <returns>Список информации о файлах</returns>
+        public List<FileInfo> GetFiles(string relativeDirectoryPath)
+        {
+            var result = new List<FileInfo>();
+
+            try
+            {
+                // Формируем полный путь
+                string root = Path.Combine(_settings.FilesRootPath, _settings.FolderDataName, _settings.FolderWorksName);
+                string fullPath = Path.Combine(root, relativeDirectoryPath);
+
+                if (!Directory.Exists(fullPath))
+                {
+                    _logger.LogWarning("Директория не найдена: {Path}", fullPath);
+                    return result;
+                }
+
+                var files = Directory.GetFiles(fullPath, "*", SearchOption.TopDirectoryOnly);
+
+                foreach (var filePath in files)
+                {
+                    result.Add(new FileInfo(filePath));
+                }
+
+                _logger.LogInformation("Найдено {Count} файлов в {Path}", result.Count, relativeDirectoryPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при получении списка файлов из {Path}", relativeDirectoryPath);
+            }
+
+            return result;
         }
     }
 

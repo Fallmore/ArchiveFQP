@@ -2,6 +2,7 @@
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Interfaces.Settings;
 using ArchiveFqp.Models.Database;
+using ArchiveFqp.Models.DTO.Structure;
 using ArchiveFqp.Models.Settings;
 using ArchiveFqp.Models.Settings.Department;
 using ArchiveFqp.Models.Settings.Institute;
@@ -50,11 +51,22 @@ namespace ArchiveFqp.Services.Settings
 
         public async Task<T?> GetSettingsJson<T>(string json) where T : BaseSettings
         {
-            return JsonConvert.DeserializeObject<T>(json, _options);
+            if (typeof(T).Name != nameof(SettingsDepartment))
+                return JsonConvert.DeserializeObject<T>(json, _options);
+            else
+            {
+                JsonSerializerSettings options = new()
+                {
+                    Converters = [new StructureDtoDictionaryConverter()],
+                    ObjectCreationHandling = _options.ObjectCreationHandling,
+                };
+                return JsonConvert.DeserializeObject<T>(json, options);
+            }
         }
 
-        public async Task<bool> AddSettingsAsJson<T,V>(T settingsDto, V settings) where T : BaseSettings where V : class
+        public async Task<bool> AddSettingsAsJson<T, V>(T settingsDto, V settings) where T : BaseSettings where V : class
         {
+            
             switch (typeof(T).Name)
             {
                 case nameof(SettingsArchive):
@@ -64,7 +76,12 @@ namespace ArchiveFqp.Services.Settings
                     (settings as НастройкиИнститута)!.Настройки = JsonConvert.SerializeObject(settingsDto, _options);
                     break;
                 case nameof(SettingsDepartment):
-                    (settings as НастройкиКафедры)!.Настройки = JsonConvert.SerializeObject(settingsDto, _options);
+                    JsonSerializerSettings options = new()
+                    {
+                        Converters = [new StructureDtoDictionaryConverter()],
+                        ObjectCreationHandling = _options.ObjectCreationHandling,
+                    };
+                    (settings as НастройкиКафедры)!.Настройки = JsonConvert.SerializeObject(settingsDto, options);
                     break;
                 case nameof(SettingsUser):
                     (settings as НастройкиПользователя)!.Настройки = JsonConvert.SerializeObject(settingsDto, _options);

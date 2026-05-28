@@ -1,0 +1,88 @@
+﻿@page "/department/users"
+@using ArchiveFqp.Interfaces.User
+@using ArchiveFqp.Models
+@using ArchiveFqp.Models.DTO.Structure
+@using ArchiveFqp.Models.DTO.Teacher
+@using ArchiveFqp.Models.Settings.SettingsArchive
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@inject NavigationManager NavigationManager
+@inject IUserService UserService
+@inject SettingsArchive Settings
+@inject AuthenticationStateProvider AuthStateProvider
+@attribute [Authorize(Roles = "Ответственный кафедры, Завкафедрой")]
+@rendermode @(new InteractiveServerRenderMode())
+
+<PageTitle>Панель кафедры - Управление пользователями</PageTitle>
+
+@if (RendererInfo.IsInteractive && responsible != null)
+{
+    <div class="container-fluid mt-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-people me-2"></i>Управление пользователями и аккаунтами<br/>кафедры @responsible.Структура.Кафедра.Название
+                    </h4>
+                    <button class="btn btn-light btn-sm" @onclick="@(() => NavigationManager.NavigateTo("/department"))">
+                        <i class="bi bi-arrow-left"></i> Назад
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Вкладки -->
+                <ul class="nav nav-tabs mb-3">
+                    <li class="nav-item">
+                        <button class="nav-link @(activeTab == "students" ? "active" : "")" @onclick="@(() => SetActiveTab("students"))">
+                            <i class="bi bi-mortarboard"></i> Студенты
+                        </button>
+                    </li>
+                    @if (responsible.Пользователь.Роли.Contains(Settings.RoleDepartmentHeadName))
+                    {
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "teachers" ? "active" : "")" @onclick="@(() => SetActiveTab("teachers"))">
+                                <i class="bi bi-person-workspace"></i> Преподаватели
+                            </button>
+                        </li>
+                    }
+                </ul>
+
+                <!-- Контент вкладок -->
+                @if (activeTab == "students")
+                {
+                    <StudentsTable Responsible="responsible" />
+                }
+                else if (activeTab == "teachers" && responsible.Пользователь.Роли.Contains(Settings.RoleDepartmentHeadName))
+                {
+                    <TeachersTable Responsible="responsible" />
+                }
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    private string activeTab = "students";
+    private TeacherDisplayDto? responsible;
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RendererInfo.IsInteractive)
+            await GetStructureInfo();
+    }
+
+    private async Task GetStructureInfo()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        ClaimsPrincipal user = authState!.User;
+        int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
+        responsible = await UserService.GetTeacherDisplayAsync(idUser);
+    }
+}

@@ -1,0 +1,546 @@
+﻿@using ArchiveFqp.Components.Components
+@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Interfaces.User
+@using ArchiveFqp.Models
+@using ArchiveFqp.Models.DTO.Structure
+@using ArchiveFqp.Models.DTO.Student
+@using ArchiveFqp.Models.DTO.Teacher
+@using ArchiveFqp.Models.DatabaseNotification
+@using ArchiveFqp.Models.ReferenceData
+@using ArchiveFqp.Models.Settings.SettingsArchive
+@using ArchiveFqp.Services.Notifications
+@using ArchiveFqp.Services.ReferenceData
+@using Microsoft.EntityFrameworkCore
+@inject SettingsArchive Settings
+@inject NotificationService NotificationService
+@inject IReferenceDataService RefDataService
+@inject IUserService UserService
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<div class="table-responsive">
+    <div class="mb-3">
+        <div class="row">
+            <div class="col-auto d-flex align-items-end">
+                <button class="btn btn-success btn-sm" @onclick="OpenCreateModal">
+                    <i class="bi bi-plus-circle"></i> Добавить студента
+                </button>
+            </div>
+            <div class="col-md-4 pt-1">
+                <input type="text" class="form-control"
+                       @bind="searchText"
+                       @bind:event="oninput"
+                       placeholder="Введите ФИО для поиска студента" />
+            </div>
+        </div>
+    </div>
+    
+    <table class="table table-hover table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>ID</th>
+                <th>Статус</th>
+                <th>Пользователь</th>
+                <th>Институт</th>
+                <th>Кафедра</th>
+                <th>Направление</th>
+                <th>Профиль</th>
+                <th>Форма обучения</th>
+                <th>Уровень образования</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (filteredStudents == null)
+            {
+                <tr><td colspan="6" class="text-center">Загрузка...</td></tr>
+            }
+            else if (filteredStudents.Count == 0)
+            {
+                <tr><td colspan="6" class="text-center">Нет данных</td></tr>
+            }
+            else
+            {
+                @foreach (var student in filteredStudents)
+                {
+                    bool isVerifying = student.Пользователь.Роли.Contains(Settings.RoleStudentOnVerifyName);
+                    <tr>
+                        <td>@student.IdСтудента</td>
+                        <td>
+                            @if (isVerifying)
+                            {
+                                <span class="badge bg-danger">Подтвердите студента</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">Подтвержден</span>
+                            }
+                        </td>
+                        <td>@student.Пользователь.ФИО</td>
+                        <td>@student.Структура.Институт.Название</td>
+                        <td>@student.Структура.Кафедра.Название</td>
+                        <td>@student.Структура.Направление.Название</td>
+                        <td>@student.Структура.Профиль?.Название</td>
+                        <td>@student.ФормаОбучения.Название</td>
+                        <td>@student.УровеньОбразования.Название</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" @onclick="() => OpenEditModal(student.ToStudent())">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteStudent(student.IdСтудента)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            @if (isVerifying)
+                            {
+                                <button class="btn btn-sm btn-success" @onclick="() => ApproveStudent(student)">
+                                    <i class="bi bi-check"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => DenyStudent(student)">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- Модальное окно для пользователя -->
+@if (snapshot != null)
+{
+    <div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)" @onclick:stopPropagation>
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">@(isEdit ? "Редактирование" : "Добавление") пользователя</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                </div>
+                <EditForm Model="@selectedStudent" OnValidSubmit="@SaveStudent" FormName="studentForm">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Пользователь *</label>
+                            <SearchableSelect TItem="Пользователь"
+                                              TValue="int"
+                                              Items="@users"
+                                              TextSelector="@((s) => string.Join(" ", s.Фамилия, s.Имя, s.Отчество))"
+                                              ValueSelector="@(s => s.IdПользователя)"
+                                              Placeholder="Выберите или введите пользователя..."
+                                              @bind-SelectedValue="@selectedStudent.IdПользователя"
+                                              OnCustomValue="@(() => selectedStudent.IdПользователя = 0)"
+                                              Disabled="@isEdit" />
+                            <ValidationMessage For="() => selectedStudent.IdПользователя" />
+                        </div>
+                        <div class="mb-3">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label class="form-label">Форма обучения *</label>
+                                    <InputSelect class="form-select" @bind-Value="selectedStudent.IdФормыОбучения">
+                                        @foreach (ФормаОбучения educationForm in snapshot.EducationForms)
+                                        {
+                                            <option value="@educationForm.IdФормыОбучения">@educationForm.Название</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="() => selectedStudent.IdФормыОбучения" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Уровень образования *</label>
+                                    <InputSelect class="form-select" @bind-Value="selectedStudent.IdУровняОбразования">
+                                        @foreach (УровеньОбразования educationForm in snapshot.EducationLevels)
+                                        {
+                                            <option value="@educationForm.IdУровняОбразования">@educationForm.Название</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="() => selectedStudent.IdУровняОбразования" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Год окончания *</label>
+                                    <InputSelect class="form-select" @bind-Value="selectedStudent.ГодОкончания">
+                                        @for (int year = DateTime.Now.Year + 10; year >= DateTime.Now.Year - 50; year--)
+                                        {
+                                            <option value="@year">@year</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="() => selectedStudent.ГодОкончания" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Институт *</label>
+                            <InputSelect class="form-select" @bind-Value="selectedStudent.IdИнститута"
+                                         @bind-Value:after="OnInstituteChanged" disabled>
+                                <option value="0"></option>
+                                @foreach (Институт institute in snapshot.Institutes.OrderBy(x => x.Название))
+                                {
+                                    <option value="@institute.IdИнститута">@institute.Название</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="() => selectedStudent.IdИнститута" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Кафедра *</label>
+                            <InputSelect class="form-select" @bind-Value="selectedStudent.IdКафедры"
+                                         @bind-Value:after="OnDepartmentChanged" disabled>
+                                <option value="0"></option>
+                                @foreach (Кафедра department in filteredDepartments.OrderBy(x => x.Название))
+                                {
+                                    <option value="@department.IdКафедры">@department.Название</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="() => selectedStudent.IdКафедры" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Стандарт УГСН *</label>
+                                <InputSelect class="form-select" @bind-Value="idУгснСтандарта"
+                                             @bind-Value:after="OnUgsnStandardChanged"
+                                             disabled="@(selectedStudent.IdКафедры == 0)">
+                                    <option value="0"></option>
+                                    @foreach (УгснСтандарт standard in snapshot.UgsnStandards.OrderBy(x => x.Название))
+                                    {
+                                        <option value="@standard.IdУгснСтандарта">@standard.Название</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">УГСН *</label>
+                                <InputSelect class="form-select" @bind-Value="idУгсн"
+                                             @bind-Value:after="OnUgsnChanged"
+                                             disabled="@(idУгснСтандарта == 0)">
+                                    <option value="0"></option>
+                                    @foreach (Угсн ugsn in filteredUgsns.OrderBy(x => x.Название))
+                                    {
+                                        <option value="@ugsn.IdУгсн">@ugsn.Название</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Направление *</label>
+                            <InputSelect class="form-select" @bind-Value="selectedStudent.IdНаправления"
+                                         @bind-Value:after="OnDirectionChanged"
+                                         disabled="@(idУгсн == 0)">
+                                <option value="0"></option>
+                                @foreach (Направление direction in filteredDirections.OrderBy(x => x.Название))
+                                {
+                                    <option value="@direction.IdНаправления">@direction.Название</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="() => selectedStudent.IdНаправления" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Профиль</label>
+                            <InputSelect class="form-select" @bind-Value="selectedStudent.IdПрофиля"
+                                         @bind-Value:after="OnProfileChanged"
+                                         disabled="@(selectedStudent.IdНаправления == 0)">
+                                <option value=""></option>
+                                @foreach (Профиль profile in filteredProfiles.OrderBy(x => x.Название))
+                                {
+                                    <option value="@profile.IdПрофиля">@profile.Название</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" type="button" @onclick="CloseModal">Отмена</button>
+                        <button class="btn btn-primary" type="submit">Сохранить</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+@code {
+    [Parameter] public TeacherDisplayDto Responsible { get; set; } = null!;
+    private List<StudentDisplayDto>? studentsDisplay;
+    private List<Пользователь> users = null!;
+    private Студент selectedStudent = new();
+    private ReferenceDataSnapshot snapshot = null!;
+    private bool showModal = false;
+    private bool isEdit = false;
+
+    private List<УровеньОбразования> filteredEducationLevels = new();
+    private List<Угсн> filteredUgsns = new();
+    private List<Направление> filteredDirections = new();
+    private List<Профиль> filteredProfiles = new();
+    private List<Кафедра> filteredDepartments = new();
+    private int idУгснСтандарта;
+    private int idУгсн;
+
+    private string searchText = "";
+    private List<StudentDisplayDto> filteredStudents
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
+                return studentsDisplay ?? [];
+
+            return studentsDisplay?.Where(item =>
+            {
+                bool matchesItem = item.Пользователь.ФИО.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+                return matchesItem;
+            }).ToList() ?? [];
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        RefDataService.TablesChanged += OnTablesChanged;
+    }
+
+    private async Task LoadData()
+    {
+        List<int> idStudents = (await RefDataService.GetAsync<Студент>()).Select(x => x.IdПользователя).ToList();
+        studentsDisplay = (await UserService.GetStudentDisplayAsync(idStudents))
+            .OrderBy(x => x.Пользователь.ФИО)
+            .Where(x => x.Структура.Кафедра == Responsible.Структура.Кафедра).ToList();
+
+        users = await RefDataService.GetAsync<Пользователь>();
+        snapshot = await RefDataService.GetSnapshotAsync();
+        StateHasChanged();
+    }
+
+    private void OpenCreateModal()
+    {
+        selectedStudent = new()
+        {
+            IdИнститута = Responsible.Структура.Институт.IdИнститута,
+            IdКафедры = Responsible.Структура.Кафедра.IdКафедры
+        };
+        idУгсн = idУгснСтандарта = 0;
+        _ = UpdateDependentLists();
+        isEdit = false;
+        showModal = true;
+        StateHasChanged();
+    }
+
+    private void OpenEditModal(Студент student)
+    {
+        selectedStudent = student;
+        idУгсн = snapshot.Directions.First(x => x.IdНаправления == selectedStudent.IdНаправления).IdУгсн;
+        idУгснСтандарта = snapshot.Ugsns.First(x => x.IdУгсн == idУгсн).IdУгснСтандарта;
+        _ = UpdateDependentLists();
+        isEdit = true;
+        showModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        idУгсн = idУгснСтандарта = 0;
+        showModal = false;
+        StateHasChanged();
+    }
+
+    private async Task SaveStudent()
+    {
+        try
+        {
+            string message = await UserService.Upsert(selectedStudent) ? "Обновлено" : "Добавлено";
+            CloseModal();
+            await JSRuntime.InvokeVoidAsync("alert", message + " успешно");
+        }
+        catch (DbUpdateException ex)
+        {
+            string errorMessage = ex.InnerException?.Message ?? ex.Message;
+            if (errorMessage.Contains("студент_студент_key"))
+                errorMessage = "Студент уже существует";
+            if (errorMessage.Contains("неправильное_год_окончания"))
+                errorMessage = "Неправильный год окончания";
+
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteStudent(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Удалить студента?"))
+        {
+            try
+            {
+                await UserService.Delete<Студент>(id);
+                await JSRuntime.InvokeVoidAsync("alert", "Студент удален успешно");
+            }
+            catch (DbUpdateException ex)
+            {
+                string errorMessage = ex.InnerException?.Message ?? ex.Message;
+                if (errorMessage.Contains(ReferenceDataService.GetTableName<Работа>()))
+                    errorMessage = "Студент имеет работы";
+
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ApproveStudent(StudentDisplayDto student)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Студент точно принадлежит вашей кафедре?\nЕсли какие-то данные неверны, Вы можете их изменить."))
+        {
+            АккаунтПользователя? account = null;
+            string message = "Студент подтвержден и ему была присвоена роль студента.";
+            try
+            {
+                // Получаем предыдущую, проверенную запись студента у пользователя перед подтверждением
+                Студент? VerifiedStudent = await UserService.GetStudentAsync(student.Пользователь.Пользователь.IdПользователя);
+
+                account = await UserService.GetUserAccountAsync(student.Пользователь.Пользователь);
+                if (account == null)
+                {
+                    account = await UserService.AddAccountStudentDefault(student);
+                    message += "\n\nУ студента отсутстовал аккаунт и он был создан с базовыми логином и паролем:"
+                                + $"\nЛогин: {account.Логин}"
+                                + $"\nПароль: {string.Join("", student.Пользователь.ФИОИнициалы, StructureDto.Abbreviate(student.Структура.Кафедра.Название), student.ГодОкончания)}";
+                }
+                else
+                {
+                    account.Роли.Remove((await RefDataService.GetAsync<РольПользователя>()).First(x => x.Название == Settings.RoleStudentOnVerifyName).IdРоли);
+                    await UserService.Upsert(account);
+                }
+
+                // Пытаемся удалить предыдущую запись студента,
+                // если она не имеет никаких связей
+                try
+                {
+                    if (VerifiedStudent != null)
+                        await UserService.Delete<Студент>(VerifiedStudent.IdСтудента);
+                }
+                catch (DbUpdateException) { }
+
+                await JSRuntime.InvokeVoidAsync("alert", message);
+            }
+            catch (DbUpdateException ex)
+            {
+                string errorMessage = ex.InnerException?.Message ?? ex.Message;
+                if (errorMessage.Contains("login_key"))
+                    errorMessage = "У студента отсутствует аккаунт и при добавлении базового "
+                                   + $"аккаунта, аккаунт с логином {account!.Логин} уже существует";
+
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task DenyStudent(StudentDisplayDto student)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Студент точно НЕ принадлежит вашей кафедре?\nЕсли какие-то данные неверны, Вы можете их изменить."))
+        {
+            if (await UserService.Delete<Студент>(student.Пользователь.Пользователь.IdПользователя))
+            {
+                АккаунтПользователя? account = await UserService.GetUserAccountAsync(student.Пользователь.Пользователь);
+                if (account != null)
+                {
+                    account.Роли.Remove((await RefDataService.GetAsync<РольПользователя>()).First(x => x.Название == Settings.RoleStudentOnVerifyName).IdРоли);
+                    await UserService.Upsert(account);
+                }
+                await JSRuntime.InvokeVoidAsync("alert", "Студент отклонен");
+            }
+        }
+    }
+
+    private async Task UpdateDependentLists()
+    {
+        if (selectedStudent.IdИнститута == 0)
+            filteredDepartments = snapshot.Departments.ToList();
+        else
+            filteredDepartments = snapshot.Departments
+            .Where(d => d.IdИнститута == selectedStudent.IdИнститута)
+            .DistinctBy(d => d.Название)
+            .ToList();
+
+        if (idУгснСтандарта == 0)
+            filteredUgsns = snapshot.Ugsns;
+        else
+        {
+            filteredDirections = snapshot.Directions
+            .Where(d => d.IdКафедры == selectedStudent.IdКафедры)
+            .ToList();
+
+            List<int>
+            idUgsns = filteredDirections.Select(x => x.IdУгсн).ToList();
+            filteredUgsns = snapshot.Ugsns
+            .Where(u => u.IdУгснСтандарта == idУгснСтандарта && idUgsns.Contains(u.IdУгсн))
+            .ToList();
+        }
+
+        if (idУгсн == 0)
+            filteredDirections = snapshot.Directions;
+        else
+            filteredDirections = snapshot.Directions
+            .Where(d => d.IdКафедры == selectedStudent.IdКафедры && d.IdУгсн == idУгсн)
+            .ToList();
+
+        if (selectedStudent.IdНаправления == 0)
+            filteredProfiles = snapshot.Profiles;
+        else
+            filteredProfiles = snapshot.Profiles
+            .Where(p => p.IdНаправления == selectedStudent.IdНаправления)
+            .ToList();
+    }
+
+    #region Цепочка функций, вызывающих друг друга по иерархии
+
+    private async Task OnInstituteChanged()
+    {
+        selectedStudent.IdКафедры = idУгснСтандарта = 0;
+        await OnDepartmentChanged();
+    }
+
+    private async Task OnDepartmentChanged()
+    {
+        idУгсн = 0;
+        await OnUgsnChanged();
+    }
+
+    private async Task OnUgsnStandardChanged()
+    {
+        idУгсн = 0;
+        await OnUgsnChanged();
+    }
+
+    private async Task OnUgsnChanged()
+    {
+        selectedStudent.IdНаправления = 0;
+        await OnDirectionChanged();
+    }
+
+    private async Task OnDirectionChanged()
+    {
+        selectedStudent.IdПрофиля = 0;
+        await OnProfileChanged();
+    }
+
+    private async Task OnProfileChanged()
+    {
+        await UpdateDependentLists();
+    }
+
+    #endregion
+
+    private async void OnTablesChanged(object? sender, TableChangeEvent e)
+    {
+        if (e.TableName == nameof(Студент))
+        {
+            await InvokeAsync(async () => { await LoadData(); });
+        }
+    }
+
+    public void Dispose()
+    {
+        RefDataService.TablesChanged -= OnTablesChanged;
+    }
+}

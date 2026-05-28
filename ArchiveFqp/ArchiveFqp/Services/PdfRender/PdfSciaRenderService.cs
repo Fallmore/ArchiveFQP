@@ -14,7 +14,7 @@ namespace ArchiveFqp.Services.PdfRender
         {
             if (string.IsNullOrEmpty(settings.FilesRootPath))
             {
-                settings.FilesRootPath = Path.Combine(environment.ContentRootPath, settings.FolderDataName, settings.FolderWorksName);
+                settings.FilesRootPath = environment.ContentRootPath;
                 settings.SaveSettings();
             }
         }
@@ -112,7 +112,7 @@ namespace ArchiveFqp.Services.PdfRender
             Работа? work = (await refDataService.GetAsync<Работа>()).FirstOrDefault(x => x.IdРаботы == idWork);
             if (work == null || work.Местоположение == null) return null;
 
-            string path = Path.Combine(settings.FilesRootPath, work.Местоположение, $"{settings.FileExplanatoryNotePDF}.pdf");
+            string path = Path.Combine(settings.FilesRootPath, settings.FolderDataName, settings.FolderWorksName, work.Местоположение, $"{settings.AllowedFiles.Keys.FirstOrDefault(k => k == "Пояснительная записка (Pdf)")}.pdf");
             return File.OpenRead(path);
         }
     }

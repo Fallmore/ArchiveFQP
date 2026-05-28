@@ -1,8 +1,10 @@
-﻿@page "/admin/works"
+﻿@page "/institute/works"
 @using ArchiveFqp.Components.Pages.Works.Add
 @using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Interfaces.Work
 @using ArchiveFqp.Models
+@using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.Work
 @using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.ReferenceData
@@ -10,6 +12,9 @@
 @using ArchiveFqp.Services.ReferenceData
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IUserService UserService
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject NavigationManager NavigationManager
 @inject WorkFileUploadService FileUploadService
@@ -17,10 +22,10 @@
 @inject IWorkService WorkService
 @inject IJSRuntime JSRuntime
 @implements IDisposable
-@attribute [Authorize(Roles = "Администратор")]
+@attribute [Authorize(Roles = "Ответственный института")]
 @rendermode @(new InteractiveServerRenderMode())
 
-<PageTitle>Админ-панель - Управление работами</PageTitle>
+<PageTitle>Панель ответственного института - Управление работами</PageTitle>
 
 @if (RendererInfo.IsInteractive)
 {
@@ -29,9 +34,9 @@
             <div class="card-header bg-primary text-white">
                 <div class="d-flex justify-content-between align-items-center">
                     <h4 class="mb-0">
-                        <i class="bi bi-file-earmark-text me-2"></i>Управление работами
+                        <i class="bi bi-file-earmark-text me-2"></i>Управление работами<br />института @responsible!.Структура.Институт.Название.Replace("Институт ", "")
                     </h4>
-                    <button class="btn btn-light btn-sm" @onclick="@(() => NavigationManager.NavigateTo("/admin"))">
+                    <button class="btn btn-light btn-sm" @onclick="@(() => NavigationManager.NavigateTo("/institute"))">
                         <i class="bi bi-arrow-left"></i> Назад
                     </button>
                 </div>
@@ -45,7 +50,7 @@
                                @bind:after="LoadWorksAsync" />
                     </div>
                     <div class="col-md-2">
-                        <select class="form-select" @bind="filterTypeId"
+                        <select class="form-select" @bind="filterTypeId" @bind:event="onchange"
                                 @bind:after="LoadWorksAsync">
                             <option value="">Все типы</option>
                             @foreach (var type in snapshot.WorkTypes)
@@ -81,7 +86,6 @@
                     <table class="table table-hover table-striped">
                         <thead class="table-dark">
                             <tr>
-                                <th>ID</th>
                                 <th>Тема</th>
                                 <th>Студент</th>
                                 <th>Руководитель</th>
@@ -107,7 +111,6 @@
                                 @foreach (var work in filteredWorks)
                                 {
                                     <tr>
-                                        <td>@work.IdРаботы</td>
                                         <td>@work.Тема</td>
                                         <td>@work.Студент.Пользователь.ФИО</td>
                                         <td>@work.Руководитель.Пользователь.ФИО</td>
@@ -193,6 +196,8 @@
 
 
 @code {
+    private TeacherDisplayDto? responsible;
+
     private WorkCreateDto WorkDto { get; set; } = new();
     private List<WorkDisplayDto>? works;
     private List<Работа> worksOriginal = new();
@@ -212,9 +217,18 @@
     {
         if (RendererInfo.IsInteractive)
         {
+            await GetStructureInfo();
             await LoadData();
             RefDataService.TablesChanged += OnTablesChanged;
         }
+    }
+
+    private async Task GetStructureInfo()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        ClaimsPrincipal user = authState!.User;
+        int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
+        responsible = await UserService.GetTeacherDisplayAsync(idUser);
     }
 
     public async Task LoadWorksAsync()
@@ -228,7 +242,8 @@
                 .Include(s => s.IdТипаРаботыNavigation)
                 .Include(s => s.IdСтатусаРаботыNavigation)
                 .Include(s => s.IdДоступаРаботыNavigation)
-                .Where(item => (!filterTypeId.HasValue || item.IdТипаРаботыNavigation.IdТипаРаботы == filterTypeId.Value)
+                .Where(item => item.IdСтудентаNavigation.IdИнститута == responsible!.Структура.Институт.IdИнститута
+                        && (!filterTypeId.HasValue || item.IdТипаРаботыNavigation.IdТипаРаботы == filterTypeId.Value)
                         && (!filterStatusId.HasValue || item.IdСтатусаРаботыNavigation.IdСтатусаРаботы == filterStatusId.Value)
                         && (!filterAccessId.HasValue || item.IdДоступаРаботыNavigation.IdДоступаРаботы == filterAccessId.Value))
                 .AsEnumerable()

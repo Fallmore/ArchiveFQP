@@ -44,7 +44,6 @@
                         {
                             <div class="card-body">
                                 <WorkDataAdd @bind-WorkDto="@WorkDto" @bind-WorkDto:after="OnWorkDTOChanged"
-                                             UpdateSessionStore="false"
                                              SessionStoreNameWorkDTO="@SessionStoreNameWorkDTO" />
                             </div>
                         }
@@ -54,7 +53,6 @@
                                 <div class="accordion-body">
                                     <div class="card-body">
                                         <WorkDataAdd @bind-WorkDto="@WorkDto" @bind-WorkDto:after="OnWorkDTOChanged"
-                                                     UpdateSessionStore="false"
                                                      SessionStoreNameWorkDTO="@SessionStoreNameWorkDTO" />
                                     </div>
                                 </div>
@@ -100,7 +98,6 @@
     [Parameter] public WorkCreateDto WorkDto { get; set; } = new();
     [Parameter] public EventCallback<WorkCreateDto> WorkDTOChanged { get; set; }
     [Parameter] public string SessionStoreNameWorkDTO { get; set; } = "workDTO";
-    [Parameter] public bool UpdateSessionStore { get; set; } = true;
 
     private Dictionary<int, List<string>> attributesValues = [];
 

@@ -10,8 +10,7 @@
 
 @if (RendererInfo.IsInteractive)
 {
-    <WorkAddOne UpdateSessionStore="false"
-                SessionStoreNameWorkDTO="@sessionStoreNameWorkDTOSingle"
+    <WorkAddOne SessionStoreNameWorkDTO="@sessionStoreNameWorkDTOSingle"
                 @bind-WorkDto="@workDto"
                 @bind-WorkDto:after="OnWorkDTOChanged" />
 }

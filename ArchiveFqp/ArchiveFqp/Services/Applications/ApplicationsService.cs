@@ -23,7 +23,7 @@ namespace ArchiveFqp.Services.Applications
         private readonly IReferenceDataService _refDataService;
         private readonly IUserService _userService;
         private readonly IWorkService _workService;
-        private SettingsArchive _settings;
+        private readonly SettingsArchive _settings;
 
         public ApplicationsService(IDbContextFactory<ArchiveFqpContext> dbFactory, IAttributeService attributeService,
             IReferenceDataService referenceDataService, IUserService userService, IWorkService workService,
@@ -35,12 +35,6 @@ namespace ArchiveFqp.Services.Applications
             _userService = userService;
             _workService = workService;
             _settings = settings;
-            _settings.SettingsChanged += SettingsChanged;
-        }
-
-        private void SettingsChanged(object? sender, SettingsArchive e)
-        {
-            _settings = e;
         }
 
         public async Task<List<СтатусЗаявления>> GetApplicationsStatusesAsync()

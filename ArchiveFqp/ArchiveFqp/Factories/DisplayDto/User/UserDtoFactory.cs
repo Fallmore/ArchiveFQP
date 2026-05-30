@@ -1,12 +1,15 @@
 ﻿using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.User;
+using DocumentFormat.OpenXml.InkML;
+using Microsoft.EntityFrameworkCore;
 
 namespace ArchiveFqp.Factories.DisplayDto.User
 {
     public class UserDtoFactory : IDisplayDtoFactory<UserDisplayDto, Пользователь>
     {
         private readonly IReferenceDataService _refDataService;
+        private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
 
         private List<Пользователь> _users = [];
         private List<РольПользователя> _roles = [];
@@ -14,9 +17,10 @@ namespace ArchiveFqp.Factories.DisplayDto.User
 
         private Task _init;
 
-        public UserDtoFactory(IReferenceDataService refDataService)
+        public UserDtoFactory(IReferenceDataService refDataService, IDbContextFactory<ArchiveFqpContext> dbFactory)
         {
             _refDataService = refDataService;
+            _dbFactory = dbFactory;
             _init = Task.Run(InitializeLists);
         }
 
@@ -31,17 +35,14 @@ namespace ArchiveFqp.Factories.DisplayDto.User
             List<string>? roles;
             if (_accounts.Count == 0)
             {
-                roles = (await _refDataService.GetAsync<АккаунтПользователя>())
+                using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+                roles = context.АккаунтПользователяs.AsNoTracking()
                     .Where(o => o.IdПользователя == user.IdПользователя)
                     .Select(o => o.Роли.Select(x => _roles.Find(y => y.IdРоли == x)!.Название).ToList())
                     .ToList().FirstOrDefault();
             }
             else
             {
-                var f = _accounts
-                    .Where(o => o.IdПользователя == user.IdПользователя);
-                var d = f.Select(o => o.Роли).ToList();
-                var s = d.Select(o => o.Select(x => _roles.Find(y => y.IdРоли == x)!.Название).ToList());
                 roles = _accounts
                     .Where(o => o.IdПользователя == user.IdПользователя)
                     .Select(o => o.Роли.Select(x => _roles.Find(y => y.IdРоли == x)!.Название).ToList())
@@ -66,7 +67,8 @@ namespace ArchiveFqp.Factories.DisplayDto.User
 
         public async Task<List<UserDisplayDto>> CreateDisplayDtoAsync(IEnumerable<Пользователь> users)
         {
-            _accounts = await _refDataService.GetAsync<АккаунтПользователя>();
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+            _accounts = await context.АккаунтПользователяs.AsNoTracking().ToListAsync();
             IEnumerable<Task<UserDisplayDto>> tasks = users.Select(CreateDisplayDtoAsync);
             UserDisplayDto[] results = await Task.WhenAll(tasks);
             _accounts = [];

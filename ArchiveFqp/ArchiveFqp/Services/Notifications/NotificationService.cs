@@ -1,6 +1,7 @@
 ﻿using ArchiveFqp.Hubs;
 using ArchiveFqp.Interfaces.Settings;
 using ArchiveFqp.Models.Database;
+using ArchiveFqp.Models.Settings.SettingsArchive;
 using ArchiveFqp.Models.Settings.User;
 using ArchiveFqp.Services.Settings;
 using DocumentFormat.OpenXml.Office2010.Excel;
@@ -13,30 +14,30 @@ namespace ArchiveFqp.Services.Notifications
     {
         private readonly IHubContext<NotificationHub> _hubContext;
         private readonly UserConnectionManager _connectionManager;
+        private readonly SettingsArchive _settingsArchive;
         private readonly ISettingsService _settingsService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<NotificationService> _logger;
 
-        public NotificationService(
-            IHubContext<NotificationHub> hubContext,
-            UserConnectionManager connectionManager,
-            ISettingsService settingsService,
-            IHttpContextAccessor httpContextAccessor,
+        public NotificationService(IHubContext<NotificationHub> hubContext,
+            UserConnectionManager connectionManager, SettingsArchive settingsArchive,
+            ISettingsService settingsService, IHttpContextAccessor httpContextAccessor,
             ILogger<NotificationService> logger)
         {
             _hubContext = hubContext;
             _connectionManager = connectionManager;
+            _settingsArchive = settingsArchive;
             _settingsService = settingsService;
             _httpContextAccessor = httpContextAccessor;
             _logger = logger;
         }
 
         // Отправка уведомления конкретному пользователю по ID
-        public async Task SendToUserAsync(string userId, string title, string message, string? url = null)
+        public async Task SendToUserAsync(string userId, string title, string message, string? url = null, bool onlyEmail = false)
         {
             var connectionIds = _connectionManager.GetConnectionIds(userId);
 
-            if (connectionIds.Count != 0)
+            if (connectionIds.Count != 0 && !onlyEmail && _settingsArchive.SendNotificationsOnEmail)
             {
                 foreach (var connectionId in connectionIds)
                 {
@@ -48,7 +49,7 @@ namespace ArchiveFqp.Services.Notifications
             else // Отправка письма, если пользователь не на сайте
             {
                 НастройкиПользователя? userSettings = await _settingsService.GetSettings<НастройкиПользователя>(int.Parse(userId));
-                if (userSettings != null)
+                if (userSettings != null && _settingsArchive.SendNotifications)
                 {
                     SettingsUser? settings = await _settingsService.GetSettingsJson<SettingsUser>(userSettings?.Настройки ?? "");
                     if (settings != null)

@@ -1,14 +1,21 @@
-﻿@using ArchiveFqp.Components.Components
+﻿
+
+
+@using ArchiveFqp.Components.Components
 @using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Interfaces.User
+@using ArchiveFqp.Interfaces.Student
 @using ArchiveFqp.Models
 @using ArchiveFqp.Models.DTO.Student
 @using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.ReferenceData
+@using ArchiveFqp.Models.Search
 @using ArchiveFqp.Services.ReferenceData
 @using Microsoft.EntityFrameworkCore
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Serialization
 @inject IReferenceDataService RefDataService
-@inject IUserService UserService
+@inject IStudentService StudentService
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -44,7 +51,7 @@
             </tr>
         </thead>
         <tbody>
-            @if (filteredStudents == null)
+            @if (Students == null)
             {
                 <tr><td colspan="6" class="text-center">Загрузка...</td></tr>
             }
@@ -54,7 +61,7 @@
             }
             else
             {
-                @foreach (var student in filteredStudents)
+                @foreach (var student in filteredStudents.Skip((Students.CurrentPage - 1) * Students.PageSize).Take(Students.PageSize).ToList())
                 {
                     <tr>
                         <td>@student.IdСтудента</td>
@@ -226,7 +233,8 @@
     </div>
 }
 @code {
-    private List<StudentDisplayDto>? studentsDisplay;
+    [Parameter] public PaginatedResult<StudentDisplayDto>? Students { get; set; }
+    [Parameter] public EventCallback<int> StudentsChanged { get; set; }
     private List<Пользователь> users = null!;
     private Студент selectedStudent = new();
     private ReferenceDataSnapshot snapshot = null!;
@@ -247,9 +255,9 @@
         get
         {
             if (string.IsNullOrWhiteSpace(searchText))
-                return studentsDisplay ?? [];
+                return Students?.Items ?? [];
 
-            return studentsDisplay?.Where(item =>
+            return Students?.Items.Where(item =>
             {
                 return item.Пользователь.ФИО.Contains(searchText, StringComparison.OrdinalIgnoreCase);
             }).ToList() ?? [];
@@ -258,16 +266,24 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Students ??= new() { CurrentPage = 1, PageSize = 10 };
         await LoadData();
         RefDataService.TablesChanged += OnTablesChanged;
     }
 
     private async Task LoadData()
     {
-        List<int> idStudents = (await RefDataService.GetAsync<Студент>()).Select(x => x.IdПользователя).ToList();
-        studentsDisplay = (await UserService.GetStudentDisplayAsync(idStudents)).OrderBy(x => x.Пользователь.ФИО).ToList();
+        List<Студент> students = (await RefDataService.GetAsync<Студент>());
+        Students!.Items = (await StudentService.GetStudentDisplayAsync(students)).OrderBy(x => x.Пользователь.ФИО).ToList();
         users = await RefDataService.GetAsync<Пользователь>();
         snapshot = await RefDataService.GetSnapshotAsync();
+                await StudentsChanged.InvokeAsync(1);
+        StateHasChanged();
+    }
+
+    private async Task ChangePage(int page)
+    {
+        Students!.CurrentPage = page;
         StateHasChanged();
     }
 
@@ -302,7 +318,7 @@
     {
         try
         {
-            string message = await UserService.Upsert(selectedStudent) ? "Обновлено" : "Добавлено";
+            string message = await StudentService.Upsert(selectedStudent) ? "Обновлено" : "Добавлено";
             CloseModal();
             await JSRuntime.InvokeVoidAsync("alert", message + " успешно");
         }
@@ -328,7 +344,7 @@
         {
             try
             {
-                await UserService.Delete<Студент>(id);
+                await StudentService.Delete<Студент>(id, true);
                 await JSRuntime.InvokeVoidAsync("alert", "Студент удален успешно");
             }
             catch (DbUpdateException ex)
@@ -426,10 +442,50 @@
 
     private async void OnTablesChanged(object? sender, TableChangeEvent e)
     {
-        if (e.TableName == nameof(Студент))
+        await InvokeAsync(async () =>
         {
-            await InvokeAsync(async () => { await LoadData(); });
-        }
+            JsonSerializerSettings options = new()
+            { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } };
+            string json;
+
+            if (e.TableName == nameof(Студент))
+            {
+                json = e.New?.ToString() ?? e.Old!.ToString();
+                Студент? student = JsonConvert.DeserializeObject<Студент>(json, options);
+
+                if (student is null) return;
+                int index = Students!.Items.FindIndex(x => x.IdСтудента == student.IdСтудента);
+                if (index == -1) return;
+
+                if (e.ChangeType == TableChangeType.Insert)
+                {
+                    Students!.Items.Add(await StudentService.GetStudentDisplayAsync(student));
+                }
+                else if (e.ChangeType == TableChangeType.Update)
+                {
+                    Students!.Items[index] = await StudentService.GetStudentDisplayAsync(student);
+                }
+                else Students!.Items.RemoveAt(index);
+                await StudentsChanged.InvokeAsync(1);
+            }
+            else if (e.TableName == nameof(АккаунтПользователя))
+            {
+                json = e.New?.ToString() ?? e.Old!.ToString();
+                АккаунтПользователя? account = JsonConvert.DeserializeObject<АккаунтПользователя>(json, options);
+
+                if (account is null) return;
+                int index = Students!.Items.FindIndex(x => x.Пользователь.Пользователь.IdПользователя == account.IdПользователя);
+                if (index == -1) return;
+
+                if (e.ChangeType == TableChangeType.Delete)
+                {
+                    Students!.Items.RemoveAt(index);
+                    await StudentsChanged.InvokeAsync(1);
+                }
+                else await LoadData();
+            }
+            StateHasChanged();
+        });
     }
 
     public void Dispose()

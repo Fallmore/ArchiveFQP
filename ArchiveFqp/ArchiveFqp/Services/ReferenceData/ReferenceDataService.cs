@@ -485,7 +485,7 @@ namespace ArchiveFqp.Services.ReferenceData
             await semaphore.WaitAsync();
             try
             {
-                UserDtoFactory factory = new(this);
+                UserDtoFactory factory = new(this, _dbFactory);
 
                 List<Пользователь> list = await GetAsync<Пользователь>();
                 List<UserDisplayDto> result = await factory.CreateDisplayDtoAsync(list);

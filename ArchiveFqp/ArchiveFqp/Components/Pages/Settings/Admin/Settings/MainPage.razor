@@ -633,7 +633,6 @@
 
             await context.SaveChangesAsync();
             await JSRuntime.InvokeVoidAsync("alert", "Настройки сохранены");
-            Settings.SaveSettings();
             StateHasChanged();
         }
         catch (Exception ex)

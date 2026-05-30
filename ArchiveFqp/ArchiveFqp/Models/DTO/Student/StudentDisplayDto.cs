@@ -18,6 +18,7 @@ namespace ArchiveFqp.Models.DTO.Student
         public УровеньОбразования УровеньОбразования { get; set; } = new();
         public ФормаОбучения ФормаОбучения { get; set; } = new();
         public int ГодОкончания { get; set; }
+        public bool Активно { get; set; }
 
         public Студент ToStudent()
         {

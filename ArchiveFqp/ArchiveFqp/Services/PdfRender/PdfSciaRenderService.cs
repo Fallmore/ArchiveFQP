@@ -15,7 +15,6 @@ namespace ArchiveFqp.Services.PdfRender
             if (string.IsNullOrEmpty(settings.FilesRootPath))
             {
                 settings.FilesRootPath = environment.ContentRootPath;
-                settings.SaveSettings();
             }
         }
         

@@ -15,7 +15,7 @@ namespace ArchiveFqp.Services.ExpirationCheck
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
         private readonly ILogger<ReferenceDataService> _logger;
         private readonly IReferenceDataService _refDataService;
-        private SettingsArchive _settings;
+        private readonly SettingsArchive _settings;
         private List<ЗаявлениеРаботы> _workApplications = null!;
         private СтатусЗаявления _workApplicationsActiveStatus = null!;
         private СтатусЗаявления _workApplicationsRejectStatus = null!;
@@ -30,12 +30,6 @@ namespace ArchiveFqp.Services.ExpirationCheck
             _logger = logger;
             _refDataService = refDataService;
             _settings = settings;
-            _settings.SettingsChanged += SettingsChanged;
-        }
-
-        private void SettingsChanged(object? sender, SettingsArchive e)
-        {
-            _settings = e;
         }
 
         public override async Task StartAsync(CancellationToken cancellationToken)

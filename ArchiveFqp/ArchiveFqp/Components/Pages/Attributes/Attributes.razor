@@ -234,7 +234,7 @@
                 return filtered.DistinctBy(x => x.IdЗаявления).OrderBy(x => x.Новый).ToList();
             }
 
-            Преподаватель? teacher = await UserService.GetTeacherAsync(idUser);
+            Преподаватель? teacher = (await UserService.GetTeacherAsync(idUser)).FirstOrDefault(x => x.Активно == true);
 
             if (teacher == null)
             {

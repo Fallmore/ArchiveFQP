@@ -199,7 +199,6 @@
     private TeacherDisplayDto? responsible;
 
     private WorkCreateDto WorkDto { get; set; } = new();
-    private List<WorkDisplayDto>? works;
     private List<Работа> worksOriginal = new();
     private ReferenceDataSnapshot snapshot = null!;
     private int? filterTypeId;
@@ -228,7 +227,7 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         ClaimsPrincipal user = authState!.User;
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        responsible = await UserService.GetTeacherDisplayAsync(idUser);
+        responsible = (await UserService.GetTeacherDisplayAsync(idUser)).FirstOrDefault(x => x.Активно == true);
     }
 
     public async Task LoadWorksAsync()

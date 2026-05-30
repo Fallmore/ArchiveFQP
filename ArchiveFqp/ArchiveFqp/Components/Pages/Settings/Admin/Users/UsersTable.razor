@@ -1,6 +1,7 @@
 ﻿@using ArchiveFqp.Components.Components
 @using ArchiveFqp.Interfaces
 @using ArchiveFqp.Models
+@using ArchiveFqp.Models.Search
 @using ArchiveFqp.Services.ReferenceData
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
@@ -35,7 +36,7 @@
             </tr>
         </thead>
         <tbody>
-            @if (filteredUsers == null)
+            @if (Users == null)
             {
                 <tr><td colspan="6" class="text-center">Загрузка...</td></tr>
             }
@@ -45,7 +46,7 @@
             }
             else
             {
-                @foreach (var user in filteredUsers)
+                @foreach (var user in filteredUsers.Skip((Users.CurrentPage - 1) * Users.PageSize).Take(Users.PageSize).ToList())
                 {
                     <tr>
                         <td>@user.IdПользователя</td>
@@ -108,7 +109,8 @@
 </div>
 
 @code {
-    private List<Пользователь>? users;
+    [Parameter] public PaginatedResult<Пользователь>? Users { get; set; }
+    [Parameter] public EventCallback<int> UsersChanged { get; set; }
     private CrudGeneric crud = new();
     private Пользователь selectedUser = new();
     private bool showModal = false;
@@ -119,9 +121,9 @@
         get
         {
             if (string.IsNullOrWhiteSpace(searchText))
-                return users ?? [];
+                return Users?.Items ?? [];
 
-            return users?.Where(item =>
+            return Users?.Items.Where(item =>
             {
                 var text = string.Join(' ', item.Фамилия, item.Имя, item.Отчество);
                 return text.Contains(searchText, StringComparison.OrdinalIgnoreCase);
@@ -131,15 +133,17 @@
     
     protected override async Task OnInitializedAsync()
     {
+        Users ??= new() { PageSize = 10, CurrentPage = 1 };
         await LoadUsers();
     }
 
     private async Task LoadUsers()
     {
         using var context = DbFactory.CreateDbContext();
-        users = await context.Пользовательs
+        Users!.Items = await context.Пользовательs
             .OrderBy(u => u.Фамилия)
             .ToListAsync();
+        await UsersChanged.InvokeAsync(1);
         StateHasChanged();
     }
 
@@ -176,10 +180,10 @@
     {
         try
         {
-            string message = await crud.Upsert(selectedUser, DbFactory) ? "Обновлено" : "Добавлено";
+            string message = await crud.Upsert(selectedUser, DbFactory) ? "Обновлен" : "Добавлен";
             await LoadUsers();
             CloseModal();
-            await JSRuntime.InvokeVoidAsync("alert", message + "успешно");
+            await JSRuntime.InvokeVoidAsync("alert", "Пользователь успешно" + message);
         }
         catch (DbUpdateException ex)
         {
@@ -202,6 +206,8 @@
             try
             {
                 await crud.Delete<Пользователь>(id, DbFactory);
+                await LoadUsers();
+                await JSRuntime.InvokeVoidAsync("alert", "Пользователь успешно удален");
             }
             catch (DbUpdateException ex)
             {

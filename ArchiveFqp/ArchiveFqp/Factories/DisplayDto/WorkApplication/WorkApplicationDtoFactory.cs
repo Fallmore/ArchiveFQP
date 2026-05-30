@@ -61,8 +61,8 @@ namespace ArchiveFqp.Factories.DisplayDto.WorkApplication
         public async Task<WorkApplicationDto> CreateDisplayDtoAsync(ЗаявлениеРаботы wApps, WorkDisplayDto work)
         {
             _init.Wait();
-            Студент? student = await _userService.GetStudentAsync(wApps.IdПользователя);
-            Преподаватель? teacher = await _userService.GetTeacherAsync(wApps.IdПользователя);
+            Студент? student = (await _userService.GetStudentAsync(wApps.IdПользователя)).FirstOrDefault(x => x.Активно == true);
+            Преподаватель? teacher = (await _userService.GetTeacherAsync(wApps.IdПользователя)).FirstOrDefault(x => x.Активно == true);
             return new()
             {
                 IdЗаявления = wApps.IdЗаявления,

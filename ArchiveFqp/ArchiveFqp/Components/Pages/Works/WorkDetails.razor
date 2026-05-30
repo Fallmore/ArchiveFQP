@@ -387,7 +387,7 @@
             || user.IsInRole(Settings.RoleDepartmentResponsibleName) || user.IsInRole(Settings.RoleTeacherName))
         {
 
-            Преподаватель? teacher = await UserService.GetTeacherAsync(idUser);
+            Преподаватель? teacher = (await UserService.GetTeacherAsync(idUser)).FirstOrDefault(x => x.Активно == true);
 
             if (teacher == null) return false;
 
@@ -405,7 +405,7 @@
         {
             if (work.ДоступРаботы.Название == Settings.WorkAccessSecret) return false;
 
-            Студент? student = await UserService.GetStudentAsync(idUser);
+            Студент? student = (await UserService.GetStudentAsync(idUser)).FirstOrDefault(x => x.Активно == true);
 
             if (student == null) return false;
 

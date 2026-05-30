@@ -3,6 +3,7 @@ using ArchiveFqp.Factories.DisplayDto.User;
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Teacher;
+using ArchiveFqp.Models.DTO.User;
 using ArchiveFqp.Models.ReferenceData;
 
 namespace ArchiveFqp.Factories.DisplayDto.Teacher
@@ -11,18 +12,15 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
     public class TeacherDtoFactory : IDisplayDtoFactory<TeacherDisplayDto, Преподаватель>
     {
         private readonly IReferenceDataService _refDataService;
-        private readonly UserDtoFactory _userDisplayFactory;
         private readonly StructureDtoFactory _structureDisplayFactory;
 
         private ReferenceDataSnapshot _snapshot = null!;
 
         private Task _init;
 
-        public TeacherDtoFactory(IReferenceDataService refDataService,
-            UserDtoFactory? userDisplayFactory = null, StructureDtoFactory? structureDisplayFactory = null)
+        public TeacherDtoFactory(IReferenceDataService refDataService, StructureDtoFactory? structureDisplayFactory = null)
         {
             _refDataService = refDataService;
-            _userDisplayFactory = userDisplayFactory ?? new(_refDataService);
             _structureDisplayFactory = structureDisplayFactory ?? new(_refDataService);
             _init = Task.Run(InitializeLists);
         }
@@ -38,8 +36,9 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
             return new()
             {
                 IdПреподавателя = teacher.IdПреподавателя,
-                Пользователь = await _userDisplayFactory.CreateDisplayDtoAsync(teacher.IdПользователя) ?? new(),
+                Пользователь = (await _refDataService.GetAsync<UserDisplayDto>()).First(x => x.Пользователь.IdПользователя == teacher.IdПользователя) ?? new(),
                 Структура = await _structureDisplayFactory.CreateDisplayDtoAsync<Кафедра>(teacher.IdКафедры) ?? new(),
+                Активно = teacher.Активно,
                 Должность = _snapshot.Posts.FirstOrDefault(o => o.IdДолжности == teacher.IdДолжности) ?? new()
             };
         }

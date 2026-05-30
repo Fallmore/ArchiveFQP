@@ -48,32 +48,53 @@ namespace ArchiveFqp.Interfaces.User
         Task<List<UserDisplayDto>> GetUserDisplayAsync(List<Пользователь> users);
 
 
-        Task<Преподаватель?> GetTeacherAsync(int idUser);
+        /// <summary>
+        /// Получение всех записей преподавателей у пользователя
+        /// </summary>
+        /// <param name="idUser"></param>
+        /// <returns></returns>
+        Task<List<Преподаватель>> GetTeacherAsync(int idUser);
+        /// <summary>
+        /// Получение списка всех записей преподавателей у пользователей
+        /// </summary>
+        /// <param name="idUser"></param>
+        /// <returns></returns>
         Task<List<Преподаватель>> GetTeachersAsync(List<int> idUsers);
         /// <summary>
         /// Получение пользователя типа <see cref="TeacherDisplayDto"/> для отображения информации
         /// </summary>
         /// <param name="idUser"></param>
         /// <returns></returns>
-        Task<TeacherDisplayDto?> GetTeacherDisplayAsync(int idUser);
+        Task<List<TeacherDisplayDto>> GetTeacherDisplayAsync(int idUser);
         /// <inheritdoc cref="GetTeacherDisplayAsync"/>
-        Task<TeacherDisplayDto?> GetTeacherDisplayAsync(Пользователь user);
+        Task<List<TeacherDisplayDto>> GetTeacherDisplayAsync(Пользователь user);
         /// <inheritdoc cref="GetTeacherDisplayAsync"/>
         Task<List<TeacherDisplayDto>> GetTeacherDisplayAsync(List<int> idUsers);
         /// <inheritdoc cref="GetTeacherDisplayAsync"/>
         Task<List<TeacherDisplayDto>> GetTeacherDisplayAsync(List<Пользователь> users);
 
 
-        Task<Студент?> GetStudentAsync(int idUser);
-        Task<List<Студент>> GetStudentsAsync(List<int> idUsers);
         /// <summary>
-        /// Получение пользователя типа <see cref="StudentDisplayDto"/> для отображения информации
+        /// Получение всех записей студентов у пользователя
         /// </summary>
         /// <param name="idUser"></param>
         /// <returns></returns>
-        Task<StudentDisplayDto?> GetStudentDisplayAsync(int idUser);
+        Task<List<Студент>> GetStudentAsync(int idUser);
+        /// <summary>
+        /// Получение списка всех записей студентов у пользователей
+        /// </summary>
+        /// <param name="idUser"></param>
+        /// <returns></returns>
+        Task<List<Студент>> GetStudentsAsync(List<int> idUsers);
+        /// <summary>
+        /// Получение студентов типа <see cref="StudentDisplayDto"/> через пользователя
+        /// для отображения информации
+        /// </summary>
+        /// <param name="idUser"></param>
+        /// <returns></returns>
+        Task<List<StudentDisplayDto>> GetStudentDisplayAsync(int idUser);
         /// <inheritdoc cref="GetStudentDisplayAsync"/>
-        Task<StudentDisplayDto?> GetStudentDisplayAsync(Пользователь user);
+        Task<List<StudentDisplayDto>> GetStudentDisplayAsync(Пользователь user);
         /// <inheritdoc cref="GetStudentDisplayAsync"/>
         Task<List<StudentDisplayDto>> GetStudentDisplayAsync(List<int> idUsers);
         /// <inheritdoc cref="GetStudentDisplayAsync"/>
@@ -84,7 +105,7 @@ namespace ArchiveFqp.Interfaces.User
         public Task<bool> Upsert<T>(T item) where T : class;
         /// <summary> <inheritdoc cref="CrudGeneric.Delete"/> </summary>
         /// <returns><inheritdoc cref="CrudGeneric.Delete"/></returns>
-        public Task<bool> Delete<T>(int id) where T : class;
+        public Task<bool> Delete<T>(int id, bool removeRoles = false) where T : class;
 
         /// <summary>
         /// Добавляет аккаунт пользователя в БД с дефолтными данными:
@@ -95,5 +116,15 @@ namespace ArchiveFqp.Interfaces.User
         /// <param name="student"></param>
         /// <returns>Аккаунт пользователя</returns>
         public Task<АккаунтПользователя> AddAccountStudentDefault(StudentDisplayDto student);
+
+        /// <summary>
+        /// Добавляет аккаунт пользователя в БД с дефолтными данными:
+        /// <br/>Логин: "ФИО+2026"
+        /// <br/>Пароль: "ФИО+аббревиатуры кафедры+2026"
+        /// <br/>Роль: Преподаватель
+        /// </summary>
+        /// <param name="teacher"></param>
+        /// <returns>Аккаунт пользователя</returns>
+        public Task<АккаунтПользователя> AddAccountTeacherDefault(TeacherDisplayDto teacher);
     }
 }

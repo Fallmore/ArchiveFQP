@@ -233,16 +233,12 @@
             ДанныеПоАтриб? dAttr = null;
             JsonSerializerSettings options = new ()
                 { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } };
-            // Пропускаем обновление атрибутов, если изменение не относится к текущей работе
-            if (e.ChangeType == TableChangeType.Delete)
-            {
-                dAttr = JsonConvert.DeserializeObject<ДанныеПоАтриб>(e.Old!.ToString(), options);
-            }
-            else if (e.ChangeType == TableChangeType.Update || e.ChangeType == TableChangeType.Insert)
-            {
-                dAttr = JsonConvert.DeserializeObject<ДанныеПоАтриб>(e.New!.ToString(), options);
-            }
+            
+            string json = e.ChangeType == TableChangeType.Delete ? e.Old!.ToString() : e.New!.ToString();
+            dAttr = JsonConvert.DeserializeObject<ДанныеПоАтриб>(json, options);
 
+            // Пропускаем обновление атрибутов, если изменение не относится к текущей работе
+            // Или атрибутов нет (происходит, когда работа удалена)
             if (dAttr == null || Attributes == null
                     || Attributes.Count == 0 || dAttr.IdРаботы != Attributes[0].IdРаботы) return;
 

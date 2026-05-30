@@ -7,6 +7,6 @@ namespace ArchiveFqp.Interfaces.Auth
         Task<AuthResult> RegisterAsync(RegisterModel model);
         Task<AuthResult> LoginAsync(LoginModel model);
         Task<AuthResult> ChangePasswordAsync(ChangePasswordModel model);
-        Task LogoutAsync();
+        Task<bool> LogoutAsync();
     }
 }

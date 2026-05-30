@@ -18,6 +18,8 @@ public partial class Преподаватель
     [Range(1, int.MaxValue, ErrorMessage = "Выберите кафедру")]
     public int IdКафедры { get; set; }
 
+    public bool Активно { get; set; } = false;
+
     public virtual Должность IdДолжностиNavigation { get; set; } = null!;
 
     public virtual Институт IdИнститутаNavigation { get; set; } = null!;

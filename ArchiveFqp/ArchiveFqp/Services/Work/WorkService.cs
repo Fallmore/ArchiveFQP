@@ -21,7 +21,7 @@ namespace ArchiveFqp.Services.Work
     {
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
         private readonly IReferenceDataService _refDataService;
-        private SettingsArchive _settings;
+        private readonly SettingsArchive _settings;
 
         // Настройка сериалайзера для кириллицы
         private readonly JsonSerializerOptions _options = new()
@@ -36,12 +36,6 @@ namespace ArchiveFqp.Services.Work
             _dbFactory = dbFactory;
             _refDataService = referenceDataService;
             _settings = settings;
-            _settings.SettingsChanged += SettingsChanged;
-        }
-
-        private void SettingsChanged(object? sender, SettingsArchive e)
-        {
-            _settings = e;
         }
 
         public async Task<PaginatedResult<Работа>> FindWorksAsync(WorkSearchModel searchModel)

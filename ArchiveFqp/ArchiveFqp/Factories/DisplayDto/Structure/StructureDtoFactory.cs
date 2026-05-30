@@ -10,7 +10,6 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
     public class StructureDtoFactory : IDisplayDtoFactory<StructureDto, Профиль>
     {
         private readonly IReferenceDataService _refDataService;
-        private readonly UserDtoFactory _userDisplayFactory;
 
         private ReferenceDataSnapshot _snapshot = null!;
 
@@ -19,7 +18,6 @@ namespace ArchiveFqp.Factories.DisplayDto.Structure
         public StructureDtoFactory(IReferenceDataService refDataService)
         {
             _refDataService = refDataService;
-            _userDisplayFactory = new(_refDataService);
             _init = Task.Run(InitializeLists);
         }
 

@@ -638,7 +638,7 @@
         if (user.IsInRole(SettingsArchive.RoleAdminName)) return;
 
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        Преподаватель? teacher = await UserService.GetTeacherAsync(idUser);
+        Преподаватель? teacher = (await UserService.GetTeacherAsync(idUser)).FirstOrDefault(x => x.Активно == true);
 
         if (teacher == null)
         {

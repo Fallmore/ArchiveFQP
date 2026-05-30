@@ -618,7 +618,7 @@
 
     private async Task<List<WorkDisplayDto>> FilterWorks(List<WorkDisplayDto> works)
     {
-        AuthenticationState? authState = await authenticationState!;
+        AuthenticationState authState = await authenticationState!;
         ClaimsPrincipal? user = authState?.User;
         List<WorkDisplayDto> filtered;
 
@@ -641,7 +641,7 @@
         {
             showWorkStatus = showWorkAccess = true;
 
-            Преподаватель? teacher = await UserService.GetTeacherAsync(idUser);
+            Преподаватель? teacher = (await UserService.GetTeacherAsync(idUser)).FirstOrDefault(x => x.Активно == true);
 
             if (teacher == null) return filtered;
             // Доступ внутри института
@@ -672,7 +672,7 @@
         {
             showWorkAccess = true;
 
-            Студент? student = await UserService.GetStudentAsync(idUser);
+            Студент? student = (await UserService.GetStudentAsync(idUser)).FirstOrDefault(x => x.Активно == true);
 
             if (student == null) return filtered;
 

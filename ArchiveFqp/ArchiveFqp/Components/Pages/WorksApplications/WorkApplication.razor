@@ -450,8 +450,8 @@
 
         SettingsDepartment settingsDepartmnetDto = (await SettingsService.GetSettingsJson<SettingsDepartment>(settingsDepartmnet.Настройки))!;
         var userSender = (await UserService.GetUserDisplayAsync(workApplicationDto.IdПользователя))!;
-        StructureDto structureSender = (await UserService.GetTeacherDisplayAsync(workApplicationDto.IdПользователя))?.Структура
-                                    ?? (await UserService.GetStudentDisplayAsync(workApplicationDto.IdПользователя))!.Структура;
+        StructureDto structureSender = (await UserService.GetTeacherDisplayAsync(workApplicationDto.IdПользователя)).FirstOrDefault(x => x.Активно == true)?.Структура
+                                    ?? (await UserService.GetStudentDisplayAsync(workApplicationDto.IdПользователя)).First(x => x.Активно == true)!.Структура;
 
         // Проверка на автоматическое отклонение заявлений на получение работы
         if (settingsDepartmnetDto.SettingsApplications.AutoDenyWorkApplicationsEnabled)
@@ -516,7 +516,7 @@
             .ToList();
 
         appReviewers = (await UserService.GetTeacherDisplayAsync(appReviewers))
-            .Where(x => x.Структура.Кафедра == workApplicationDto.Работа.Студент.Структура.Кафедра)
+            .Where(x => x.Структура.Кафедра == workApplicationDto.Работа.Студент.Структура.Кафедра && x.Активно == true)
             .Select(x => x.Пользователь.Пользователь.IdПользователя)
             .ToList();
 

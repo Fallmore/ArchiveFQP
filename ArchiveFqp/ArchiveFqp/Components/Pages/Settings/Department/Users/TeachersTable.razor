@@ -1,15 +1,23 @@
 ﻿@using ArchiveFqp.Components.Components
 @using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Interfaces.Teacher
 @using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Models
+@using ArchiveFqp.Models.DTO.Structure
 @using ArchiveFqp.Models.DTO.Student
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.ReferenceData
+@using ArchiveFqp.Models.Search
+@using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Services.ReferenceData
 @using Microsoft.EntityFrameworkCore
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Serialization
 @inject IReferenceDataService RefDataService
+@inject ITeacherService TeacherService
 @inject IUserService UserService
+@inject SettingsArchive Settings
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -33,8 +41,9 @@
     <table class="table table-hover table-striped">
         <thead class="table-dark">
             <tr>
-                <th>ID</th>
+                <th>Статус</th>
                 <th>Пользователь</th>
+                <th>Роли</th>
                 <th>Институт</th>
                 <th>Кафедра</th>
                 <th>Должность</th>
@@ -42,7 +51,7 @@
             </tr>
         </thead>
         <tbody>
-            @if (filteredTeachers == null)
+            @if (Teachers == null)
             {
                 <tr><td colspan="6" class="text-center">Загрузка...</td></tr>
             }
@@ -52,11 +61,51 @@
             }
             else
             {
-                @foreach (var teacher in filteredTeachers)
+                @foreach (var teacher in filteredTeachers.Skip((Teachers.CurrentPage - 1) * Teachers.PageSize).Take(Teachers.PageSize).ToList())
                 {
+                    var teacherRoles = teacher.Пользователь.Роли;
+                    bool isVerifying = teacher.Пользователь.Роли.Contains(Settings.RoleTeacherOnVerifyName);
+                    
                     <tr>
-                        <td>@teacher.IdПреподавателя</td>
-                        <td>@teacher.Пользователь.ФИО</td>
+                        <td>
+                            @if (isVerifying)
+                            {
+                                <span class="badge bg-danger">Подтвердите препод-ля</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">Подтвержден</span>
+                            }
+                        </td>
+                        <td>
+                            @teacher.Пользователь.ФИО
+                            @if (teacher.IdПреподавателя == Responsible.IdПреподавателя)
+                            {
+                                <div class="mt-1">
+                                    <span class="badge bg-info">Это Вы</span>
+                                </div>
+                            }
+                        </td>
+                        <td>
+                            @if (teacherRoles.Count != 0)
+                            {
+                                foreach (var role in departmentRoles)
+                                {
+                                    if (teacherRoles.Contains(role.Название))
+                                    {
+                                        <div>
+                                            <span class="badge bg-primary me-1 mb-1">@role.Название</span>
+                                        </div>
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                <div>
+                                    <span class="badge bg-secondary me-1 mb-1">Нет аккаунта</span>
+                                </div>
+                            }
+                        </td>
                         <td>@teacher.Структура.Институт.Название</td>
                         <td>@teacher.Структура.Кафедра.Название</td>
                         <td>@teacher.Должность.Название</td>
@@ -64,9 +113,19 @@
                             <button class="btn btn-sm btn-primary" @onclick="() => OpenEditModal(teacher.ToTeacher())">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteTeacher(teacher.IdПреподавателя)">
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteTeacher(teacher.IdПреподавателя)"
+                                    disabled="@isVerifying">
                                 <i class="bi bi-trash"></i>
                             </button>
+                            @if (isVerifying)
+                            {
+                                <button class="btn btn-sm btn-success" @onclick="() => ApproveTeacher(teacher)">
+                                    <i class="bi bi-check"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => DenyTeacher(teacher)">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            }
                         </td>
                     </tr>
                 }
@@ -97,7 +156,7 @@
                                               ValueSelector="@(s => s.IdПользователя)"
                                               Placeholder="Выберите или введите пользователя..."
                                               @bind-SelectedValue="@selectedTeacher.IdПользователя"
-                                              OnCustomValue="@(() => selectedTeacher.IdПользователя = 0)" 
+                                              OnCustomValue="@(() => selectedTeacher.IdПользователя = 0)"
                                               Disabled="@isEdit" />
                             <ValidationMessage For="() => selectedTeacher.IdПользователя" />
                         </div>
@@ -136,6 +195,23 @@
                             </InputSelect>
                             <ValidationMessage For="() => selectedTeacher.IdКафедры" />
                         </div>
+                        @if (selectedTeacher.IdПреподавателя != 0 && selectedAccount != null)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Роли</label>
+                                <div class="border p-3 rounded">
+                                    @foreach (var role in departmentRoles)
+                                    {
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input"
+                                                   @onchange="@((e) => ToggleRole(role.IdРоли, (bool)e.Value!))"
+                                                   checked="@selectedAccount.Роли.Contains(role.IdРоли)" />
+                                            <label class="form-check-label">@role.Название</label>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
                     </div>
                     <div class="modal-footer">
                         <button class="btn btn-secondary" type="button" @onclick="CloseModal">Отмена</button>
@@ -148,12 +224,16 @@
 }
 @code {
     [Parameter] public TeacherDisplayDto Responsible { get; set; } = null!;
-    private List<TeacherDisplayDto>? teachersDisplay;
+    [Parameter] public PaginatedResult<TeacherDisplayDto>? Teachers { get; set; }
+    [Parameter] public EventCallback<int> TeachersChanged { get; set; }
     private List<Пользователь> users = null!;
     private Преподаватель selectedTeacher = new();
     private ReferenceDataSnapshot snapshot = null!;
     private bool showModal = false;
     private bool isEdit = false;
+
+    private List<РольПользователя> departmentRoles = null!;
+    private АккаунтПользователя? selectedAccount;
 
     private List<Кафедра> filteredDepartments = new();
 
@@ -162,30 +242,51 @@
     {
         get
         {
-            if (string.IsNullOrWhiteSpace(searchText))
-                return teachersDisplay ?? [];
+            List<TeacherDisplayDto> res = Teachers?.Items
+                .OrderByDescending(x =>
+                {
+                    int isVerifying = x.Пользователь.Роли.Contains(Settings.RoleTeacherOnVerifyName) ? 1 : 0;
+                    int isDepartmentRole = x.Пользователь.Роли.Any(x => departmentRoles.Exists(y => x == y.Название)) ? 1 : 0;
+                    return isVerifying + isDepartmentRole;
+                })
+                .ThenBy(x => x.Пользователь.ФИО).ToList() ?? [];
 
-            return teachersDisplay?.Where(item =>
-            {
-                return item.Пользователь.ФИО.Contains(searchText, StringComparison.OrdinalIgnoreCase);
-            }).ToList() ?? [];
+            if (string.IsNullOrWhiteSpace(searchText))
+                return res;
+
+            return res.Where(item =>
+                {
+                    return item.Пользователь.ФИО.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+                }).ToList() ?? [];
         }
     }
 
     protected override async Task OnInitializedAsync()
     {
+        Teachers ??= new() { CurrentPage = 1, PageSize = 10 };
         await LoadData();
         RefDataService.TablesChanged += OnTablesChanged;
+
+        List<string> temp = [Settings.RoleDepartmentHeadName,
+                          Settings.RoleDepartmentResponsibleName,
+                          Settings.RoleDepartmentClerkName];
+        departmentRoles = snapshot.RoleUsers.Where(x => temp.Contains(x.Название)).ToList();
     }
 
     private async Task LoadData()
     {
-        List<int> idTeachers = (await RefDataService.GetAsync<Преподаватель>()).Select(x => x.IdПользователя).ToList();
-        teachersDisplay = (await UserService.GetTeacherDisplayAsync(idTeachers))
-            .OrderBy(x => x.Пользователь.ФИО)
-            .Where(x => x.Структура.Кафедра == Responsible.Структура.Кафедра).ToList();
-        users = await RefDataService.GetAsync<Пользователь>();
         snapshot = await RefDataService.GetSnapshotAsync();
+        List<Преподаватель> teachers = (await RefDataService.GetAsync<Преподаватель>())
+            .Where(x => x.IdКафедры == Responsible.Структура.Кафедра.IdКафедры).ToList();
+        Teachers!.Items = await TeacherService.GetTeacherDisplayAsync(teachers);
+        users = await RefDataService.GetAsync<Пользователь>();
+        await TeachersChanged.InvokeAsync(1);
+        StateHasChanged();
+    }
+
+    private async Task ChangePage(int page)
+    {
+        Teachers!.CurrentPage = page;
         StateHasChanged();
     }
 
@@ -196,6 +297,7 @@
             IdИнститута = Responsible.Структура.Институт.IdИнститута,
             IdКафедры = Responsible.Структура.Кафедра.IdКафедры
         };
+        selectedAccount = null;
         await UpdateDependentLists();
         isEdit = false;
         showModal = true;
@@ -205,6 +307,7 @@
     private async Task OpenEditModal(Преподаватель teacher)
     {
         selectedTeacher = teacher;
+        selectedAccount = await UserService.GetUserAccountAsync((await UserService.GetUserAsync(teacher.IdПользователя))!);
         await UpdateDependentLists();
         isEdit = true;
         showModal = true;
@@ -221,7 +324,8 @@
     {
         try
         {
-            string message = await UserService.Upsert(selectedTeacher) ? "Обновлено" : "Добавлено";
+            string message = await TeacherService.Upsert(selectedTeacher) ? "Обновлено" : "Добавлено";
+            if (selectedAccount != null) await UserService.Upsert(selectedAccount);
             CloseModal();
             await JSRuntime.InvokeVoidAsync("alert", message + " успешно");
         }
@@ -241,11 +345,11 @@
 
     private async Task DeleteTeacher(int id)
     {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "Удалить пользователя?"))
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Удалить преподавателя?"))
         {
             try
             {
-                await UserService.Delete<Преподаватель>(id);
+                await TeacherService.Delete<Преподаватель>(id, true);
                 await JSRuntime.InvokeVoidAsync("alert", "Преподаватель удален успешно");
             }
             catch (DbUpdateException ex)
@@ -269,6 +373,111 @@
         }
     }
 
+    private async Task ApproveTeacher(TeacherDisplayDto teacher)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Преподаватель точно принадлежит вашей кафедре?\nЕсли какие-то данные неверны, Вы можете их изменить."))
+        {
+            АккаунтПользователя? account = null;
+            Преподаватель approvedTeacher = teacher.ToTeacher();
+            approvedTeacher.Активно = true;
+            string message = "Преподаватель подтвержден и ему была присвоена роль преподавателя.";
+            try
+            {
+                await TeacherService.Upsert(approvedTeacher);
+                await DisableOldTeachers(teacher);
+
+                if (await VerifyAccount(account, teacher))
+                {
+                    message += "\n\nУ преподавателя отсутстовал аккаунт и он был создан с базовыми логином и паролем:"
+                            + $"\nЛогин: {account!.Логин}"
+                            + $"\nПароль: {string.Join("", teacher.Пользователь.ФИО, StructureDto.Abbreviate(teacher.Структура.Кафедра.Название), 2026)}";
+                }
+                await JSRuntime.InvokeVoidAsync("alert", message);
+            }
+            catch (DbUpdateException ex)
+            {
+                string errorMessage = ex.InnerException?.Message ?? ex.Message;
+                if (errorMessage.Contains("login_key"))
+                    errorMessage = "У преподавателя отсутствует аккаунт и при добавлении базового "
+                                   + $"аккаунта, аккаунт с логином {account!.Логин} уже существует";
+
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+            }
+        }
+    }
+
+    // Ставит Активно = false всем записям преподавателей у пользователя
+    private async Task DisableOldTeachers(TeacherDisplayDto teacher)
+    {
+        List<Преподаватель> teachers = (await UserService.GetTeacherAsync(teacher.Пользователь.Пользователь.IdПользователя))
+            .Where(x => x.Активно == true && x.IdПреподавателя != teacher.IdПреподавателя).ToList();
+        foreach (Преподаватель tchr in teachers)
+        {
+            bool isDeleted = false;
+
+            // Пытаемся удалить предыдущую запись преподавателя,
+            // если она не имеет никаких связей
+            try
+            {
+                await TeacherService.Delete<Преподаватель>(tchr.IdПреподавателя);
+                isDeleted = true;
+            }
+            catch (DbUpdateException) { }
+
+            if (!isDeleted)
+            {
+                tchr.Активно = false;
+                await TeacherService.Upsert(tchr);
+            }
+        }
+    }
+
+    // Возвращает true, если аккаунт создан, false - если просто изменены роли
+    private async Task<bool> VerifyAccount(АккаунтПользователя? account, TeacherDisplayDto teacher)
+    {
+        account = await UserService.GetUserAccountAsync(teacher.Пользователь.Пользователь);
+        if (account == null)
+        {
+            account = await UserService.AddAccountTeacherDefault(teacher);
+            return true;
+        }
+        else
+        {
+            List<РольПользователя> roles = await RefDataService.GetAsync<РольПользователя>();
+                    
+            // Добавляем роль Преподаватель, если нет,
+            // и убираем Преподаватель на проверке
+            account.Роли.Remove(roles.First(x => x.Название == Settings.RoleTeacherOnVerifyName).IdРоли);
+            int idTeacherRole = account.Роли.FindIndex(x => x == roles.First(x => x.Название == Settings.RoleTeacherName).IdРоли);
+            if (idTeacherRole == -1) account.Роли.Add(roles.First(x => x.Название == Settings.RoleTeacherName).IdРоли);
+
+            await UserService.Upsert(account);
+            return false;
+        }
+    }
+
+    private async Task DenyTeacher(TeacherDisplayDto teacher)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Преподаватель точно НЕ принадлежит вашей кафедре?\nЕсли какие-то данные неверны, Вы можете их изменить."))
+        {
+            if (await TeacherService.Delete<Преподаватель>(teacher.IdПреподавателя, true))
+            {
+                // Убираем роль "Преподаватель на проверке"
+                АккаунтПользователя? account = await UserService.GetUserAccountAsync(teacher.Пользователь.Пользователь);
+                if (account != null)
+                {
+                    account.Роли.Remove((await RefDataService.GetAsync<РольПользователя>()).First(x => x.Название == Settings.RoleTeacherOnVerifyName).IdРоли);
+                    await UserService.Upsert(account);
+                }
+                await JSRuntime.InvokeVoidAsync("alert", "Преподаватель отклонен");
+            }
+        }
+    }
+
     private async Task UpdateDependentLists()
     {
         if (selectedTeacher.IdИнститута == 0)
@@ -287,12 +496,68 @@
         await UpdateDependentLists();
     }
 
+    private void ToggleRole(int role, bool isSelected)
+    {
+        if (isSelected && !selectedAccount!.Роли.Contains(role))
+        {
+            selectedAccount.Роли.Add(role);
+        }
+        else if (!isSelected && selectedAccount!.Роли.Contains(role))
+        {
+            selectedAccount.Роли.Remove(role);
+        }
+    }
+
     private async void OnTablesChanged(object? sender, TableChangeEvent e)
     {
-        if (e.TableName == nameof(Преподаватель))
+        await InvokeAsync(async () =>
         {
-            await InvokeAsync(async () => { await LoadData(); });
-        }
+            JsonSerializerSettings options = new()
+            { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } };
+            string json;
+
+            if (e.TableName == nameof(Преподаватель))
+            {
+                json = e.New?.ToString() ?? e.Old!.ToString();
+                Преподаватель? teacher = JsonConvert.DeserializeObject<Преподаватель>(json, options);
+
+                // Пропускаем, если преподавтель не относится к кафедре
+                if (teacher is null
+                    || Responsible.Структура.Кафедра.IdКафедры != teacher.IdКафедры)
+                    return;
+
+                if (e.ChangeType == TableChangeType.Insert)
+                {
+                    Teachers!.Items.Add(await TeacherService.GetTeacherDisplayAsync(teacher));
+                }
+                else
+                {
+                    int index = Teachers!.Items.FindIndex(x => x.IdПреподавателя == teacher.IdПреподавателя);
+                    if (index == -1) return;
+                    if (e.ChangeType == TableChangeType.Update)
+                        Teachers!.Items[index] = await TeacherService.GetTeacherDisplayAsync(teacher);
+                    else Teachers!.Items.RemoveAt(index);
+                }
+                await TeachersChanged.InvokeAsync(1);
+            }
+            else if (e.TableName == nameof(АккаунтПользователя))
+            {
+                json = e.New?.ToString() ?? e.Old!.ToString();
+                АккаунтПользователя? account = JsonConvert.DeserializeObject<АккаунтПользователя>(json, options);
+
+                if (account is null) return;
+                int index = Teachers!.Items.FindIndex(x => x.Пользователь.Пользователь.IdПользователя == account.IdПользователя);
+                if (index == -1) return;
+
+                if (e.ChangeType == TableChangeType.Delete)
+                {
+                    Teachers!.Items.RemoveAt(index);
+                    await TeachersChanged.InvokeAsync(1);
+                }
+                else await LoadData();
+            }
+            StateHasChanged();
+        });
     }
 
     public void Dispose()

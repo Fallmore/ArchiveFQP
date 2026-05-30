@@ -36,18 +36,9 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
             }
         }
 
-        public event Action? OnChange;
-        public event EventHandler<SettingsArchive>? SettingsChanged;
-
-        public void SaveSettings()
-        {
-            SettingsChanged?.Invoke(this, this);
-            OnChange?.Invoke();
-        }
-
         /// <summary>
         /// ВСЕГДА дополняйте при изменении полей, т.к. для глобального изменения
-        /// сервиса для всех просто присваивание не работает
+        /// сервиса просто присваивание не работает
         /// </summary>
         /// <param name="settings"></param>
         public void Copy(SettingsArchive settings)
@@ -100,7 +91,8 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
         }
 
         public string FolderDataName { get; set; } = "AppData";
-        public string FolderWorksName { get; set; } = "works";
+        public string FolderBackupsName { get; set; } = "Backups";
+        public string FolderWorksName { get; set; } = "Works";
         public string FolderTempName { get; set; } = "Temp";
         public string FilesRootPath { get; set; } = "";
         public long MaxFileSize { get; set; } = 100 * 1024 * 1024; // 100 MB

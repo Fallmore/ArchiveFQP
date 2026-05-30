@@ -1,4 +1,6 @@
 ﻿using ArchiveFqp.Interfaces.ReferenceData;
+using ArchiveFqp.Interfaces.Student;
+using ArchiveFqp.Interfaces.Teacher;
 using ArchiveFqp.Interfaces.User;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Attribute;
@@ -19,14 +21,17 @@ namespace ArchiveFqp.Services.Report
     {
         private readonly IReferenceDataService _refDataService;
         private readonly WorkFileUploadService _workFileUploadService;
-        private readonly IUserService _userService;
+        private readonly ITeacherService _teacherService;
+        private readonly IStudentService _studentService;
 
         public ReportService(IReferenceDataService refDataService,
-            WorkFileUploadService workFileUploadService, IUserService userService)
+            WorkFileUploadService workFileUploadService, ITeacherService teacherService,
+            IStudentService studentService)
         {
             _refDataService = refDataService;
             _workFileUploadService = workFileUploadService;
-            _userService = userService;
+            _teacherService = teacherService;
+            _studentService = studentService;
         }
 
         private struct Statistic
@@ -171,13 +176,13 @@ namespace ArchiveFqp.Services.Report
 
             if (searchModel.IdStudent.HasValue && searchModel.IdStudent.Value > 0)
             {
-                var student = await _userService.GetStudentDisplayAsync(searchModel.IdStudent.Value);
+                var student = await _studentService.GetStudentDisplayAsync(searchModel.IdStudent.Value);
                 params_.Add($"Студент: {student?.Пользователь.ФИО ?? "Не найден"}");
             }
 
             if (searchModel.IdTeacher.HasValue && searchModel.IdTeacher.Value > 0)
             {
-                var teacher = await _userService.GetTeacherDisplayAsync(searchModel.IdTeacher.Value);
+                var teacher = await _teacherService.GetTeacherDisplayAsync(searchModel.IdTeacher.Value);
                 params_.Add($"Руководитель: {teacher?.Пользователь.ФИО ?? "Не найден"}");
             }
 
@@ -210,17 +215,14 @@ namespace ArchiveFqp.Services.Report
                 List<int> consultants = snapshot.Consultants
                     .Where(x => searchModel.IdConsultants.Contains(x.Id))
                     .Select(x => x.IdПреподавателя)
+                    .Distinct()
                     .ToList();
-                List<int> teachers = snapshot.Teachers
+                List<Преподаватель> teachers = snapshot.Teachers
                     .Where(x => consultants.Contains(x.IdПреподавателя))
-                    .Select(x => x.IdПользователя)
                     .ToList();
-                var consultantsDto = await _userService.GetTeacherDisplayAsync(teachers);
+                var consultantsDto = await _teacherService.GetTeacherDisplayAsync(teachers);
                 params_.Add($"Консультанты: {string.Join(", ",
-                    consultantsDto!
-                        .Where(x => searchModel.IdConsultants
-                            .Contains(x.Пользователь.Пользователь.IdПользователя))
-                            .Select(x => x.Пользователь.ФИО))}"
+                    consultantsDto!.Select(x => x.Пользователь.ФИО))}"
                 );
             }
 
@@ -229,17 +231,14 @@ namespace ArchiveFqp.Services.Report
                 List<int> reviewers = snapshot.Reviewers
                     .Where(x => searchModel.IdReviewers.Contains(x.Id))
                     .Select(x => x.IdПреподавателя)
+                    .Distinct()
                     .ToList();
-                List<int> teachers = snapshot.Teachers
+                List<Преподаватель> teachers = snapshot.Teachers
                     .Where(x => reviewers.Contains(x.IdПреподавателя))
-                    .Select(x => x.IdПользователя)
                     .ToList();
-                var reviewersDto = await _userService.GetTeacherDisplayAsync(teachers);
+                var reviewersDto = await _teacherService.GetTeacherDisplayAsync(teachers);
                 params_.Add($"Консультанты: {string.Join(", ",
-                    reviewersDto!
-                        .Where(x => searchModel.IdConsultants
-                            .Contains(x.Пользователь.Пользователь.IdПользователя))
-                            .Select(x => x.Пользователь.ФИО))}"
+                    reviewersDto!.Select(x => x.Пользователь.ФИО))}"
                 );
             }
 

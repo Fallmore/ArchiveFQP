@@ -2,6 +2,8 @@
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Models.Auth;
 using ArchiveFqp.Models.Database;
+using ArchiveFqp.Models.Settings.SettingsArchive;
+using ArchiveFqp.Services.Notifications;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +18,8 @@ namespace ArchiveFqp.Services.Auth
     public class AuthService : IAuthService
     {
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
+        private readonly NotificationService _notificationService;
+        private readonly SettingsArchive _settings;
         private readonly IReferenceDataService _refDataService;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -37,15 +41,22 @@ namespace ArchiveFqp.Services.Auth
         //    }
         //}
 
-        public AuthService(IDbContextFactory<ArchiveFqpContext> dbFactory, IReferenceDataService refDataService,
+        public AuthService(IDbContextFactory<ArchiveFqpContext> dbFactory,
+            NotificationService notificationService,
+            SettingsArchive settings, IReferenceDataService refDataService,
             IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _dbFactory = dbFactory;
+            _notificationService = notificationService;
+            _settings = settings;
             _refDataService = refDataService;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
         }
-
+        // TODO: добавить валидацию модели регистрации (пароль, почта и т.д.)
+        // TODO: добавить отправку уведомления на почту при регистрации
+        // TODO: добавить обновление данных пользователя, находящегося в сессии (роли)
+        // TODO: добавить выход пользователя, находящегося в сессии, из аккаунта при смене пароля
         public async Task<AuthResult> RegisterAsync(RegisterModel model)
         {
             using ArchiveFqpContext context = _dbFactory.CreateDbContext();
@@ -83,13 +94,20 @@ namespace ArchiveFqp.Services.Auth
             context.Пользовательs.Add(user);
             await context.SaveChangesAsync();
 
+            List<РольПользователя> roles = await _refDataService.GetAsync<РольПользователя>();
+            List<int> userRoles = [];
+            if (model.UserType == UserType.Student)
+                userRoles.Add(roles.First(x => x.Название == _settings.RoleStudentOnVerifyName).IdРоли);
+            if (model.UserType == UserType.Teacher)
+                userRoles.Add(roles.First(x => x.Название == _settings.RoleTeacherOnVerifyName).IdРоли);
+
             // Создаем аккаунт с хешированным паролем
             АккаунтПользователя account = new()
             {
                 IdПользователя = user.IdПользователя,
                 Логин = model.Login,
                 Пароль = BCrypt.Net.BCrypt.HashPassword(model.Password),
-                Роли = []
+                Роли = userRoles
             };
 
             context.АккаунтПользователяs.Add(account);
@@ -221,9 +239,15 @@ namespace ArchiveFqp.Services.Auth
             };
         }
 
-        public async Task LogoutAsync()
+        public async Task<bool> LogoutAsync()
         {
-            await _httpContextAccessor.HttpContext!.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            if (_httpContextAccessor.HttpContext?.User.Identity?.IsAuthenticated ?? false)
+            {
+                await _httpContextAccessor.HttpContext!.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                return true;
+            }
+
+            return false;
         }
 
         private string GenerateJwtToken(UserSession user)

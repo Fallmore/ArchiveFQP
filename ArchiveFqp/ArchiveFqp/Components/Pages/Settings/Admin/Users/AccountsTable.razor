@@ -2,10 +2,15 @@
 @using ArchiveFqp.Interfaces
 @using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Models
+@using ArchiveFqp.Models.DatabaseNotification
+@using ArchiveFqp.Models.Search
 @using Microsoft.EntityFrameworkCore
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Serialization
 @inject IReferenceDataService RefDataService
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject IJSRuntime JSRuntime
+@implements IDisposable
 
 <div class="table-responsive">
     <div class="mb-3">
@@ -148,7 +153,8 @@
 
 @code {
     private CrudGeneric crud = new();
-    private List<АккаунтПользователя>? accounts;
+    [Parameter] public PaginatedResult<АккаунтПользователя>? Accounts { get; set; }
+    [Parameter] public EventCallback<int> AccountsChanged { get; set; }
     private List<Пользователь> users = null!;
     private List<РольПользователя> allRoles = null!;
     private АккаунтПользователя selectedAccount = null!;
@@ -160,9 +166,9 @@
         get
         {
             if (string.IsNullOrWhiteSpace(searchText))
-                return accounts ?? [];
+                return Accounts?.Items ?? [];
 
-            return accounts?.Where(item =>
+            return Accounts?.Items.Where(item =>
             {
                 var user = users?.FirstOrDefault(u => u.IdПользователя == item.IdПользователя);
                 var text = string.Join(' ', user?.Фамилия, user?.Имя, user?.Отчество);
@@ -173,17 +179,19 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Accounts ??= new() { PageSize = 10, CurrentPage = 1 };
         await LoadData();
+        RefDataService.TablesChanged += OnTablesChanged;
     }
 
     private async Task LoadData()
     {
         using var context = DbFactory.CreateDbContext();
-        accounts = await context.АккаунтПользователяs.OrderBy(x => x.IdАккаунта).ToListAsync();
+        Accounts!.Items = await context.АккаунтПользователяs.OrderBy(x => x.IdАккаунта).ToListAsync();
         users = await RefDataService.GetAsync<Пользователь>();
         allRoles = await RefDataService.GetAsync<РольПользователя>();
         selectedAccount = new() { Роли = [] };
-
+        await AccountsChanged.InvokeAsync(1);
         StateHasChanged();
     }
 
@@ -266,5 +274,53 @@
                 await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
             }
         }
+    }
+
+    private async void OnTablesChanged(object? sender, TableChangeEvent e)
+    {
+        JsonSerializerSettings options = new()
+        { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } };
+        string json;
+        int? idPerson = null;
+        bool add = false;
+        АккаунтПользователя? account = null;
+
+        if (e.TableName == nameof(АккаунтПользователя))
+        {
+            json = e.Old?.ToString() ?? e.New!.ToString();
+            account = JsonConvert.DeserializeObject<АккаунтПользователя>(json, options);
+
+            if (account is null) return;
+
+            idPerson = account.IdПользователя;
+            add = e.ChangeType == TableChangeType.Insert;
+        }
+
+        if (idPerson == null) return;
+
+        await InvokeAsync(async () =>
+        {
+            if (add)
+            {
+                Accounts!.Items.Add(account!);
+                return;
+            }
+
+            int index = Accounts!.Items.FindIndex(x => x.IdПользователя == idPerson);
+            if (index == -1) return;
+
+            using var context = DbFactory.CreateDbContext();
+            if (e.ChangeType == TableChangeType.Delete)
+                Accounts!.Items.RemoveAt(index);
+            else
+                Accounts!.Items[index] = (await context.АккаунтПользователяs.FindAsync(idPerson.Value))!;
+            await AccountsChanged.InvokeAsync(1);
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        RefDataService.TablesChanged -= OnTablesChanged;
     }
 }

@@ -17,7 +17,7 @@ namespace ArchiveFqp.Services.FileUpload
     public class WorkFileUploadService : BaseFileUploadService
     {
         private readonly IHashService _hashService;
-        private SettingsArchive _settings;
+        private readonly SettingsArchive _settings;
         private Dictionary<string, FileTypeConfig> _fileTypeConfigs = null!;
 
         public override event EventHandler<FileUploadProgressEventArgs>? ProgressChanged;
@@ -33,18 +33,11 @@ namespace ArchiveFqp.Services.FileUpload
         {
             _hashService = hashService;
             _settings = settings;
-            _settings.SettingsChanged += SettingsChanged;
 
             if (string.IsNullOrEmpty(_settings.FilesRootPath))
             {
                 _settings.FilesRootPath = environment.ContentRootPath;
-                _settings.SaveSettings();
             }
-        }
-
-        private void SettingsChanged(object? sender, SettingsArchive e)
-        {
-            _settings = e;
         }
 
         /// <summary>

@@ -304,8 +304,6 @@
     private List<Направление> filteredDirections = new();
     private List<Профиль> filteredProfiles = new();
     private List<Кафедра> filteredDepartments = new();
-    private bool showRuleModal = false;
-    private bool isAgreeRule = true;
     private StructureDto targetStructure = new();
     private List<StructureDto> sourceStructures = new();
 
@@ -324,7 +322,7 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         ClaimsPrincipal user = authState!.User;
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        responsible = await UserService.GetTeacherDisplayAsync(idUser);
+        responsible = (await UserService.GetTeacherDisplayAsync(idUser)).FirstOrDefault(x => x.Активно == true);
     }
 
     private async Task LoadSettings()

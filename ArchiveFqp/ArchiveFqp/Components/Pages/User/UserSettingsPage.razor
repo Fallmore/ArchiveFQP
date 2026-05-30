@@ -49,7 +49,6 @@ else
     [Parameter] public Пользователь? User { get; set; }
     private НастройкиПользователя? userSettings;
     private SettingsUser userSettingsFromJson = new();
-    private bool isAuthorizedByServices = false;
 
     EditContext? editContext;
     ValidationMessageStore? messageStore;

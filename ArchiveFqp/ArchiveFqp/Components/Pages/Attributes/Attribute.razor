@@ -446,7 +446,7 @@
     {
         await JS.InvokeVoidAsync("openModal", modal);
         userDisplay = await UserService.GetUserDisplayAsync(attributeApplication.IdПользователя);
-        teacherDisplay = await UserService.GetTeacherDisplayAsync(attributeApplication.IdПользователя);
+        teacherDisplay = (await UserService.GetTeacherDisplayAsync(attributeApplication.IdПользователя)).FirstOrDefault(x => x.Активно == true);
     }
 
     private void ToArrayExamples()

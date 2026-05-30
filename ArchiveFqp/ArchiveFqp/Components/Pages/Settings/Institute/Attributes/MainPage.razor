@@ -373,9 +373,6 @@
     private int idAttribute;
     private int idInstitute;
     private int idDepartment;
-    private int idUgsnStandard;
-    private int idUgsn;
-    private int idDirection;
     private bool isEdit = false;
 
     protected override async Task OnInitializedAsync()
@@ -394,7 +391,7 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         ClaimsPrincipal user = authState!.User;
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        responsible = await UserService.GetTeacherDisplayAsync(idUser);
+        responsible = (await UserService.GetTeacherDisplayAsync(idUser)).FirstOrDefault(x => x.Активно == true);
     }
 
     private async Task LoadData()
@@ -572,7 +569,7 @@
     {
         showAttributesInstituteModal =
         showAttributeDataModal = false;
-        idAttribute = idInstitute = idDepartment = idDirection = 0;
+        idAttribute = idInstitute = idDepartment = 0;
         StateHasChanged();
     }
 

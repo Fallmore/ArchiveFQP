@@ -1,4 +1,5 @@
 ﻿@page "/user/profile"
+@using ArchiveFqp.Models.DTO.Structure
 @using ArchiveFqp.Models.DTO.Student
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.User
@@ -48,7 +49,38 @@
                                     </button>
                                     <div id="collapseEducation" class="accordion-collapse collapse" aria-labelledby="headingTwo">
                                         <div class="accordion-body">
-                                            <UserEducation Student="user.Student" Teacher="user.Teacher" />
+                                            @if (user.Student != null)
+                                                foreach (StudentDisplayDto student in user.Student)
+                                                {
+                                                    <div class="accordion" id="accordionUserPage">
+                                                        <div class="accordion-item">
+                                                            <button class="accordion-button" style="height:30px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGeneral" aria-expanded="true" aria-controls="collapseGeneral">
+                                                                <strong class="fs-5">Студент @(student.Структура.Профиль?.Название ?? student.Структура.Направление.Название)</strong>
+                                                            </button>
+                                                            <div id="collapseGeneral" class="accordion-collapse collapse show" aria-labelledby="headingOne">
+                                                                <div class="accordion-body">
+                                                                    <UserEducation Student="student" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            @if (user.Teacher != null)
+                                                foreach (TeacherDisplayDto teacher in user.Teacher)
+                                                {
+                                                    <div class="accordion" id="accordionUserPage">
+                                                        <div class="accordion-item">
+                                                            <button class="accordion-button" style="height:30px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGeneral" aria-expanded="true" aria-controls="collapseGeneral">
+                                                                <strong class="fs-5">Преподаватель кафедры @(StructureDto.Abbreviate(teacher.Структура.Кафедра.Название))</strong>
+                                                            </button>
+                                                            <div id="collapseGeneral" class="accordion-collapse collapse show" aria-labelledby="headingOne">
+                                                                <div class="accordion-body">
+                                                                    <UserEducation Teacher="teacher" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }
                                         </div>
                                     </div>
                                 </div>
@@ -73,7 +105,7 @@
                                     </button>
                                     <div id="collapseSettings" class="accordion-collapse collapse" aria-labelledby="headingFour">
                                         <div class="accordion-body">
-                                            <UserSettingsPage User="user.User"/>
+                                            <UserSettingsPage User="user.User" />
                                         </div>
                                     </div>
                                 </div>
@@ -140,9 +172,9 @@
         public АккаунтПользователя? Account { get; set; } = null!;
 
         public UserDisplayDto? UserDisplay { get; set; }
-        public StudentDisplayDto? Student { get; set; }
+        public List<StudentDisplayDto>? Student { get; set; }
         public bool IsStudent => Student != null;
-        public TeacherDisplayDto? Teacher { get; set; }
+        public List<TeacherDisplayDto>? Teacher { get; set; }
         public bool IsTeacher => Teacher != null;
 
         public bool IsInited { get; set; } = false;

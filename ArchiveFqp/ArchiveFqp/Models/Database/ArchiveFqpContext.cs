@@ -855,6 +855,9 @@ public partial class ArchiveFqpContext : DbContext
             entity.Property(e => e.IdИнститута).HasColumnName("id_института");
             entity.Property(e => e.IdКафедры).HasColumnName("id_кафедры");
             entity.Property(e => e.IdПользователя).HasColumnName("id_пользователя");
+            entity.Property(e => e.Активно)
+                .HasDefaultValueSql("false")
+                .HasColumnName("активно");
 
             entity.HasOne(d => d.IdДолжностиNavigation).WithMany(p => p.Преподавательs)
                 .HasForeignKey(d => d.IdДолжности)
@@ -1152,6 +1155,9 @@ public partial class ArchiveFqpContext : DbContext
             entity.Property(e => e.IdУровняОбразования).HasColumnName("id_уровня_образования");
             entity.Property(e => e.IdФормыОбучения).HasColumnName("id_формы_обучения");
             entity.Property(e => e.ГодОкончания).HasColumnName("год_окончания");
+            entity.Property(e => e.Активно)
+                .HasDefaultValueSql("false")
+                .HasColumnName("активно");
 
             entity.HasOne(d => d.IdИнститутаNavigation).WithMany(p => p.Студентs)
                 .HasForeignKey(d => d.IdИнститута)

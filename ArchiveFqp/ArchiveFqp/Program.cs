@@ -9,11 +9,13 @@ using ArchiveFqp.Interfaces.FileUpload;
 using ArchiveFqp.Interfaces.Hash;
 using ArchiveFqp.Interfaces.PdfRender;
 using ArchiveFqp.Interfaces.ReferenceData;
+using ArchiveFqp.Interfaces.Schedule;
 using ArchiveFqp.Interfaces.Settings;
 using ArchiveFqp.Interfaces.Student;
 using ArchiveFqp.Interfaces.Teacher;
 using ArchiveFqp.Interfaces.User;
 using ArchiveFqp.Interfaces.Work;
+using ArchiveFqp.Jobs;
 using ArchiveFqp.Models.Auth;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.Settings.SettingsArchive;
@@ -21,7 +23,8 @@ using ArchiveFqp.Services.Applications;
 using ArchiveFqp.Services.Attributes;
 using ArchiveFqp.Services.Auth;
 using ArchiveFqp.Services.Auth.ThreeKL;
-using ArchiveFqp.Services.DatabaseNotification;
+using ArchiveFqp.Services.Database;
+using ArchiveFqp.Services.Email;
 using ArchiveFqp.Services.ExpirationCheck;
 using ArchiveFqp.Services.FileUpload;
 using ArchiveFqp.Services.Hash;
@@ -29,6 +32,7 @@ using ArchiveFqp.Services.Notifications;
 using ArchiveFqp.Services.PdfRender;
 using ArchiveFqp.Services.ReferenceData;
 using ArchiveFqp.Services.Report;
+using ArchiveFqp.Services.Schedule;
 using ArchiveFqp.Services.Settings;
 using ArchiveFqp.Services.Student;
 using ArchiveFqp.Services.Teacher;
@@ -39,6 +43,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Quartz;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +55,8 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSignalR();
 builder.Services.AddControllers();
 
+#warning Впишите свой пароль в appsettings.json
+#warning Впишите свои настройки почты в appsettings.json
 // Подключение к БД
 string conString = builder.Configuration.GetConnectionString("ArchiveFqpContext") ??
      throw new InvalidOperationException("Connection string 'ArchiveFqpContext'" +
@@ -60,6 +67,7 @@ builder.Services.AddDbContextFactory<ArchiveFqpContext>(options =>
 builder.Services.AddSingleton<SettingsArchive>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IDatabaseNotificationService, DatabaseNotificationService>();
+builder.Services.AddSingleton<DatabaseBackupService>();
 builder.Services.AddSingleton<ReferenceDataService>();
 builder.Services.AddSingleton<IReferenceDataService>(sp => sp.GetRequiredService<ReferenceDataService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ReferenceDataService>());
@@ -72,6 +80,7 @@ builder.Services.AddScoped<ITeacherService, TeacherService>();
 builder.Services.AddScoped<IWorkService, WorkService>();
 builder.Services.AddScoped<IAttributeService, AttributeService>();
 builder.Services.AddScoped<IApplicationsService, ApplicationsService>();
+builder.Services.AddScoped<EmailService>();
 
 builder.Services.AddScoped<IPdfRenderService, PdfSciaRenderService>();
 builder.Services.AddScoped<ReportService>();
@@ -130,6 +139,26 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
     options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(1);
 });
+#endregion
+
+#region Настройка Quartz.NET
+
+builder.Services.AddQuartz(q =>
+{
+    JobKey jobKey = new(nameof(PostgresBackupJob));
+    q.AddJob<PostgresBackupJob>(opts => opts.WithIdentity(jobKey));
+
+    q.AddTrigger(opts => opts
+        .ForJob(jobKey)
+        .WithIdentity(nameof(PostgresBackupJob) + "Trigger")
+        // Каждый день в 00:00
+        .WithCronSchedule("0 0 0 * * ?")
+    );
+});
+
+builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
+builder.Services.AddScoped<IScheduleService, ScheduleService>();
+
 #endregion
 
 // Раскомментируйте, если приложение работает за прокси-сервером и в компоненте Components/Components/InspectUser.razor

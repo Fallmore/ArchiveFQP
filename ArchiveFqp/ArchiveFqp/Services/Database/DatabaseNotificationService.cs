@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 using Npgsql;
 using System.Collections.Concurrent;
 
-namespace ArchiveFqp.Services.DatabaseNotification
+namespace ArchiveFqp.Services.Database
 {
     /// <summary>
     /// Класс, отвечающий за подписки на уведомления изменений таблиц БД

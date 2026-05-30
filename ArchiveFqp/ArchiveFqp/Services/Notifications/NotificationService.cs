@@ -3,7 +3,7 @@ using ArchiveFqp.Interfaces.Settings;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.Settings.SettingsArchive;
 using ArchiveFqp.Models.Settings.User;
-using ArchiveFqp.Services.Settings;
+using ArchiveFqp.Services.Email;
 using DocumentFormat.OpenXml.Office2010.Excel;
 using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
@@ -15,29 +15,31 @@ namespace ArchiveFqp.Services.Notifications
         private readonly IHubContext<NotificationHub> _hubContext;
         private readonly UserConnectionManager _connectionManager;
         private readonly SettingsArchive _settingsArchive;
+        private readonly EmailService _emailService;
         private readonly ISettingsService _settingsService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<NotificationService> _logger;
 
         public NotificationService(IHubContext<NotificationHub> hubContext,
             UserConnectionManager connectionManager, SettingsArchive settingsArchive,
-            ISettingsService settingsService, IHttpContextAccessor httpContextAccessor,
-            ILogger<NotificationService> logger)
+            EmailService emailService, ISettingsService settingsService,
+            IHttpContextAccessor httpContextAccessor, ILogger<NotificationService> logger)
         {
             _hubContext = hubContext;
             _connectionManager = connectionManager;
             _settingsArchive = settingsArchive;
+            _emailService = emailService;
             _settingsService = settingsService;
             _httpContextAccessor = httpContextAccessor;
             _logger = logger;
         }
 
         // Отправка уведомления конкретному пользователю по ID
-        public async Task SendToUserAsync(string userId, string title, string message, string? url = null, bool onlyEmail = false)
+        public async Task SendToUserAsync(string idUser, string title, string message, string? url = null, bool onlyEmail = false)
         {
-            var connectionIds = _connectionManager.GetConnectionIds(userId);
+            var connectionIds = _connectionManager.GetConnectionIds(idUser);
 
-            if (connectionIds.Count != 0 && !onlyEmail && _settingsArchive.SendNotificationsOnEmail)
+            if (connectionIds.Count != 0 && !onlyEmail && _settingsArchive.SendNotifications)
             {
                 foreach (var connectionId in connectionIds)
                 {
@@ -46,23 +48,28 @@ namespace ArchiveFqp.Services.Notifications
                 }
                 //_logger.LogInformation($"Уведомление отправлено пользователю {userId} через {connectionIds.Count} соединений");
             }
-            else // Отправка письма, если пользователь не на сайте
+            else if (_settingsArchive.SendNotificationsOnEmail) // Отправка письма, если пользователь не на сайте
             {
-                НастройкиПользователя? userSettings = await _settingsService.GetSettings<НастройкиПользователя>(int.Parse(userId));
-                if (userSettings != null && _settingsArchive.SendNotifications)
+                НастройкиПользователя? userSettings = await _settingsService.GetSettings<НастройкиПользователя>(int.Parse(idUser));
+                int id = int.Parse(idUser);
+                if (userSettings != null)
                 {
                     SettingsUser? settings = await _settingsService.GetSettingsJson<SettingsUser>(userSettings?.Настройки ?? "");
                     if (settings != null)
                     {
                         if (settings.ReceiveEmailNotifications)
                         {
-                            //TODO отправка письма на почту
+                            await _emailService.SendEmailAsync(id, title, message);
                         }
                     }
                     else
                     {
-                        //TODO отправка письма на почту
+                        await _emailService.SendEmailAsync(id, title, message);
                     }
+                }
+                else
+                {
+                    await _emailService.SendEmailAsync(id, title, message);
                 }
             }
         }

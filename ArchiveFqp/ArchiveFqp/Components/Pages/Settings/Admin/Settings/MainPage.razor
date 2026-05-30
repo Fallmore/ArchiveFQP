@@ -1,12 +1,16 @@
 ﻿@page "/admin/settings"
 @using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Interfaces.Schedule
+@using ArchiveFqp.Jobs
 @using Newtonsoft.Json
 @using ArchiveFqp.Models
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
+@using Quartz
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject IReferenceDataService RefDataService
+@inject IScheduleService ScheduleService
 @inject SettingsArchive Settings
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -48,6 +52,10 @@
                                         <input type="text" class="form-control" @bind="Settings.FolderWorksName" />
                                     </div>
                                     <div class="mb-3">
+                                        <label class="form-label">Имя папки бэкапов</label>
+                                        <input type="text" class="form-control" @bind="Settings.FolderBackupsName" />
+                                    </div>
+                                    <div class="mb-3">
                                         <label class="form-label">Корневой путь к файлам</label>
                                         <div class="input-group">
                                             <input type="text" class="form-control" @bind="filesRootPathDisplay" />
@@ -63,6 +71,12 @@
                                         <label class="form-label">Максимальный размер файла (Мбайт)</label>
                                         <input type="number" class="form-control" min="1" max="500"
                                                @bind="maxFileSize" @bind:after="() => Settings.MaxFileSize = (int)(maxFileSize * 1024 * 1024)" />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Хранить бэкапы (дней)</label>
+                                        <input type="number" class="form-control" min="1" max="365"
+                                               @bind="Settings.BackupRetentionDays" />
+                                        <small class="text-muted">Старые бэкапы будут автоматически удаляться</small>
                                     </div>
                                 </div>
                             </div>
@@ -82,6 +96,111 @@
                                     <div class="form-check mb-1">
                                         <input type="checkbox" class="form-check-input" @bind="Settings.SendNotificationsOnEmail" />
                                         <label class="form-check-label">Отправлять уведомления на email</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Настройки заявлений -->
+                            <div class="col-md-12">
+                                <div class="card mb-3">
+                                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">
+                                            <i class="bi bi-database-backup me-2"></i>Резервное копирование базы данных
+                                        </h6>
+                                        <span class="badge @(isBackupRunning ? "bg-warning" : "bg-success")">
+                                            @(isBackupRunning ? "Выполняется..." : "Готов")
+                                        </span>
+                                    </div>
+                                    <div class="card-body">
+                                        <!-- Включение/отключение бэкапа -->
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" id="autoBackupSwitch"
+                                                   @bind="Settings.AutoBackupEnabled"/>
+                                            <label class="form-check-label fw-bold" for="autoBackupSwitch">
+                                                Автоматическое резервное копирование
+                                            </label>
+                                        </div>
+
+                                        @if (Settings.AutoBackupEnabled)
+                                        {
+                                            <!-- Настройка расписания -->
+                                            <div class="row mb-3">
+                                                <div class="col-12">
+                                                    <label class="form-label fw-bold">Расписание бэкапа</label>
+                                                    <div class="row g-2">
+                                                        <div class="col-md-2">
+                                                            <label class="form-label small">Секунды</label>
+                                                            <input type="number" class="form-control" min="0" max="59"
+                                                                   @bind="backupSeconds" @bind:event="oninput"
+                                                                   @onchange="UpdateCronExpression" />
+                                                        </div>
+                                                        <div class="col-md-2">
+                                                            <label class="form-label small">Минуты</label>
+                                                            <input type="number" class="form-control" min="0" max="59"
+                                                                   @bind="backupMinutes" @bind:event="oninput"
+                                                                   @onchange="UpdateCronExpression" />
+                                                        </div>
+                                                        <div class="col-md-2">
+                                                            <label class="form-label small">Часы</label>
+                                                            <input type="number" class="form-control" min="0" max="23"
+                                                                   @bind="backupHours" @bind:event="oninput"
+                                                                   @onchange="UpdateCronExpression" />
+                                                        </div>
+                                                        <div class="col-md-2">
+                                                            <label class="form-label small">День месяца</label>
+                                                            <input type="number" class="form-control" min="0" max="31"
+                                                                   @bind="backupDayMonth" @bind:event="oninput"
+                                                                   @onchange="UpdateCronExpression"
+                                                                   placeholder="*" />
+                                                        </div>
+                                                        <div class="col-md-2">
+                                                            <label class="form-label small">Месяц</label>
+                                                            <input type="number" class="form-control" min="0" max="12"
+                                                                   @bind="backupMonth" @bind:event="oninput"
+                                                                   @onchange="UpdateCronExpression"
+                                                                   placeholder="*" />
+                                                        </div>
+                                                        <div class="col-md-2">
+                                                            <label class="form-label small">День недели</label>
+                                                            <input type="number" class="form-control" min="0" max="7"
+                                                                   @bind="backupDayWeek" @bind:event="oninput"
+                                                                   @onchange="UpdateCronExpression"
+                                                                   placeholder="*" />
+                                                            <small class="text-muted">1=ПН, 7=ВС</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mt-2">
+                                                        <code class="bg-light p-2 d-inline-block rounded">
+                                                            Cron: @currentCronExpression
+                                                        </code>
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" @onclick="ResetToDefault">
+                                                            <i class="bi bi-arrow-repeat"></i> По умолчанию (00:00)
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Кнопки управления -->
+                                            <div class="row">
+                                                <div class="col-12">
+                                                    <button type="button" class="btn btn-warning" @onclick="RunBackupNow" disabled="@isBackupRunning">
+                                                        @if (isBackupRunning)
+                                                        {
+                                                            <span class="spinner-border spinner-border-sm me-1"></span>
+                                                        }
+                                                        <i class="bi bi-play-fill"></i> Запустить бэкап сейчас
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+        
+                                        <!-- Информация о последнем бэкапе -->
+                                        <div class="mt-3 pt-3 border-top">
+                                            <small class="text-muted">
+                                                <i class="bi bi-info-circle"></i>
+                                                Бэкап создается утилитой pg_dump. Убедитесь, что она установлена на сервере.
+                                            </small>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -547,24 +666,35 @@
     private Dictionary<string, string> newExtensionInputs = new();
     private Dictionary<string, string> newRequiredFileInputs = new();
     private Dictionary<string, string> workTypeSelections = new();
-    
+
     // Модальные окна
     private bool showAddFileTypeModal = false;
     private bool showAddWorkTypeModal = false;
-    
+
     // Данные для нового типа файла
     private string newFileTypeName = "";
     private string newFileTypeExtensions = "";
-    
+
     // Данные для нового типа работы
     private string newWorkTypeForRequirement = "";
     private List<string> selectedFilesForNewWorkType = new();
+
+    private int backupSeconds = 0;
+    private int backupMinutes = 0;
+    private int backupHours = 0;
+    private int backupDayMonth = 0;
+    private int backupMonth = 0;
+    private int backupDayWeek = 0;
+    private string currentCronExpression = "";
+    private bool isSaving = false;
+    private bool isBackupRunning = false;
 
     protected override async Task OnInitializedAsync()
     {
         if (RendererInfo.IsInteractive)
         {
             await LoadData();
+            await LoadCurrentSchedule();
         }
     }
 
@@ -586,6 +716,19 @@
         InitializeDictionaries();
 
         StateHasChanged();
+    }
+
+    private async Task LoadCurrentSchedule()
+    {
+        try
+        {
+            currentCronExpression = await ScheduleService.GetCurrentScheduleAsync<PostgresBackupJob>();
+            ParseCronExpression(currentCronExpression);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка загрузки расписания: {ex.Message}");
+        }
     }
 
     private void InitializeDictionaries()
@@ -614,6 +757,15 @@
             if (!string.IsNullOrEmpty(filesRootPathDisplay))
             {
                 Settings.FilesRootPath = filesRootPathDisplay;
+            }
+
+            if (Settings.AutoBackupEnabled)
+            {
+                await ScheduleService.UpdateScheduleAsync<PostgresBackupJob>(currentCronExpression, true);
+            }
+            else
+            {
+                await ScheduleService.UpdateScheduleAsync<PostgresBackupJob>(currentCronExpression, false);
             }
 
             using var context = DbFactory.CreateDbContext();
@@ -645,6 +797,75 @@
     {
         NavigationManager.NavigateTo("/admin");
     }
+
+    #region Бэкап
+
+    private void ParseCronExpression(string cron)
+    {
+        var parts = cron.Split(' ');
+        if (parts.Length >= 6)
+        {
+            backupSeconds = int.Parse(parts[0]);
+            backupMinutes = int.Parse(parts[1]);
+            backupHours = int.Parse(parts[2]);
+            backupDayMonth = parts[3] == "*" ? 0 : int.Parse(parts[3]);
+            backupMonth = parts[4] == "*" ? 0 : int.Parse(parts[4]);
+            backupDayWeek = parts[5] == "?" ? 0 : (parts[5] == "*" ? 0 : int.Parse(parts[5]));
+        }
+    }
+
+    private void UpdateCronExpression()
+    {
+        var seconds = backupSeconds.ToString();
+        var minutes = backupMinutes.ToString();
+        var hours = backupHours.ToString();
+        var dayMonth = backupDayMonth == 0 ? "*" : backupDayMonth.ToString();
+        var month = backupMonth == 0 ? "*" : backupMonth.ToString();
+        var dayWeek = backupDayWeek == 0 ? "?" : backupDayWeek.ToString();
+        
+        currentCronExpression = $"{seconds} {minutes} {hours} {dayMonth} {month} {dayWeek}";
+    }
+
+    private async Task ResetToDefault()
+    {
+        backupSeconds = 0;
+        backupMinutes = 0;
+        backupHours = 0;
+        backupDayMonth = 0;
+        backupMonth = 0;
+        backupDayWeek = 0;
+        UpdateCronExpression();
+    }
+
+    private async Task RunBackupNow()
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Запустить бэкап сейчас? Это может занять некоторое время."))
+        {
+            isBackupRunning = true;
+            StateHasChanged();
+            
+            try
+            {
+                await ScheduleService.TriggerNowAsync<PostgresBackupJob>();
+                await JSRuntime.InvokeVoidAsync("alert", "Бэкап запущен. Проверьте логи для получения результата.");
+                
+                // Проверяем статус через несколько секунд
+                await Task.Delay(3000);
+                isBackupRunning = await ScheduleService.IsJobRunningAsync<PostgresBackupJob>();
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+            }
+            finally
+            {
+                isBackupRunning = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    #endregion
 
     private async Task SelectFolder()
     {

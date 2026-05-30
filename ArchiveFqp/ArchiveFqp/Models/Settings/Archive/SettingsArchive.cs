@@ -43,8 +43,14 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
         /// <param name="settings"></param>
         public void Copy(SettingsArchive settings)
         {
+            FilesRootPath = settings.FilesRootPath;
             FolderDataName = settings.FolderDataName;
+            FolderBackupsName = settings.FolderBackupsName;
+            FolderTempName = settings.FolderTempName;
             FolderWorksName = settings.FolderWorksName;
+            BackupSchedule = settings.BackupSchedule;
+            BackupRetentionDays = settings.BackupRetentionDays;
+            AutoBackupEnabled = settings.AutoBackupEnabled;
             MinDayWatchWorks = settings.MinDayWatchWorks;
             MaxDayWatchWorks = settings.MaxDayWatchWorks;
             SendNotifications = settings.SendNotifications;
@@ -55,7 +61,9 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
             RoleDepartmentResponsibleName = settings.RoleDepartmentResponsibleName;
             RoleDepartmentClerkName = settings.RoleDepartmentClerkName;
             RoleTeacherName = settings.RoleTeacherName;
+            RoleTeacherOnVerifyName = settings.RoleTeacherOnVerifyName;
             RoleStudentName = settings.RoleStudentName;
+            RoleStudentOnVerifyName = settings.RoleStudentOnVerifyName;
             ApplicationTimeCheckMinutes = settings.ApplicationTimeCheckMinutes;
             ApplicationsInProcessStatus = settings.ApplicationsInProcessStatus;
             ApplicationsRejectStatus = settings.ApplicationsRejectStatus;
@@ -83,24 +91,27 @@ namespace ArchiveFqp.Models.Settings.SettingsArchive
             FqpWorksEducationLevels = settings.FqpWorksEducationLevels;
             StorageTimeWorks = settings.StorageTimeWorks;
 
-            FilesRootPath = settings.FilesRootPath;
             MaxFileSize = settings.MaxFileSize;
             AllowedFiles = settings.AllowedFiles;
             RequiredFiles = settings.RequiredFiles;
 
         }
 
+        public string FilesRootPath { get; set; } = "";
         public string FolderDataName { get; set; } = "AppData";
+        public string FolderTempName { get; set; } = "Temp";
         public string FolderBackupsName { get; set; } = "Backups";
         public string FolderWorksName { get; set; } = "Works";
-        public string FolderTempName { get; set; } = "Temp";
-        public string FilesRootPath { get; set; } = "";
         public long MaxFileSize { get; set; } = 100 * 1024 * 1024; // 100 MB
+        
+        public bool AutoBackupEnabled { get; set; } = true;
+        public string BackupSchedule { get; set; } = "0 0 0 * * ?";
+        public int BackupRetentionDays { get; set; } = 30;  // Сколько хранить бэкапов
 
         public int MinDayWatchWorks { get; set; } = 3;
         public int MaxDayWatchWorks { get; set; } = 14;
-        public bool SendNotifications { get; set; }
-        public bool SendNotificationsOnEmail { get; set; }
+        public bool SendNotifications { get; set; } = true;
+        public bool SendNotificationsOnEmail { get; set; } = true;
         public int ApplicationTimeCheckMinutes { get; set; } = 1;
 
         #region Для удобства доступа к данным, которые не предполагается менять в процессе работы программы

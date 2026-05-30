@@ -1,6 +1,7 @@
 ﻿@using ArchiveFqp.Models.DTO.User
 @using ArchiveFqp.Interfaces.User
 @using System.Security.Claims
+@using Microsoft.EntityFrameworkCore
 @inject IUserService UserService
 @inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
@@ -86,6 +87,7 @@ else
         {
             currentUser = new()
             {
+                IdПользователя = User.IdПользователя,
                 Фамилия = User.Фамилия,
                 Имя = User.Имя,
                 Отчество = User.Отчество,
@@ -134,6 +136,14 @@ else
             User!.Имя = currentUser!.Имя;
             User!.Отчество = currentUser!.Отчество;
             User!.Email = currentUser!.Email;
+        }
+        catch (DbUpdateException ex)
+        {
+            errorMessage = ex.InnerException?.Message ?? "";
+            if (errorMessage.Contains("email"))
+                errorMessage = "Введенный email уже существует";
+
+            errorMessage = "Ошибка при отправке:" + errorMessage;
         }
         catch (Exception ex)
         {

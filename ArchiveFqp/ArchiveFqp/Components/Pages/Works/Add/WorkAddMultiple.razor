@@ -1,0 +1,247 @@
+﻿@using ArchiveFqp.Models.DTO.Work
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedLocalStorage ProtectedSessionStore
+@rendermode @(new InteractiveServerRenderMode(prerender: true))
+
+@if (RendererInfo.IsInteractive)
+{
+    <div class="container my-4">
+        <!-- Информационный блок о порядке работ -->
+        <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-arrow-up-down fs-3 me-3"></i>
+                <div>
+                    <strong class="fs-6">Упорядочивание работ</strong><br />
+                    <span class="small">Используйте кнопки <i class="bi bi-arrow-up"></i> и <i class="bi bi-arrow-down"></i> чтобы изменить порядок добавления работ.</span>
+                </div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+        <!-- Информация о количестве работ -->
+        <div class="row mt-2 mb-1">
+            <div class="col-12">
+                <div class="text-muted text-center small">
+                    <i class="bi bi-info-circle"></i>
+                    Всего работ: <strong>@WorkDtos.Count</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Контейнер для списка работ с поддержкой drag-and-drop -->
+        <div class="row">
+            <div class="col-12">
+                @for (int i = 0; i < WorkDtos.Count; i++)
+                {
+                    int currentIndex = i;
+                    bool isFirst = currentIndex == 0;
+                    bool isLast = currentIndex == WorkDtos.Count - 1;
+
+                    <div class="card mb-3 shadow-sm border-0 work-item">
+                        
+                        <div class="card-body p-0">
+                            <div class="container-fluid p-3">
+                                <div class="row align-items-center">
+                                    <!-- Порядковый номер -->
+                                    <div class="col-auto">
+                                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center"
+                                             style="width: 40px; height: 40px;">
+                                            <span class="fw-bold text-secondary">@(currentIndex + 1)</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Содержимое работы -->
+                                    <div class="col">
+                                        <WorkAddOne SessionStoreNameWorkDTO="@(SessionStoreNameWorkDTO + currentIndex)"
+                                                    @bind-WorkDto="WorkDtos[currentIndex]"
+                                                    IsMultiple="true"
+                                                    EndAdd="EndAddOne"
+                                                    @key="currentIndex" />
+                                    </div>
+
+                                    <!-- Кнопки управления -->
+                                    <div class="col-auto">
+                                        <div class="d-flex flex-column gap-1">
+                                            <!-- Кнопка вверх -->
+                                            <button type="button"
+                                                    class="btn btn-outline-secondary btn-sm"
+                                                    style="width: 36px; height: 36px;"
+                                                    @onclick="@(() => MoveWorkUp(currentIndex))"
+                                                    disabled="@isFirst"
+                                                    title="Переместить выше">
+                                                <i class="bi bi-arrow-up"></i>
+                                            </button>
+                                            
+                                            <!-- Кнопка вниз -->
+                                            <button type="button"
+                                                    class="btn btn-outline-secondary btn-sm"
+                                                    style="width: 36px; height: 36px;"
+                                                    @onclick="@(() => MoveWorkDown(currentIndex))"
+                                                    disabled="@isLast"
+                                                    title="Переместить ниже">
+                                                <i class="bi bi-arrow-down"></i>
+                                            </button>
+                                            
+                                            <!-- Кнопка удаления -->
+                                            <button type="button"
+                                                    class="btn btn-outline-danger btn-sm"
+                                                    style="width: 36px; height: 36px;"
+                                                    @onclick="@(() => RemoveWork(currentIndex))"
+                                                    title="Удалить работу"
+                                                    disabled="@(WorkDtos[currentIndex].IdРаботы != 0)">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Разделитель между работами -->
+                    @if (currentIndex < WorkDtos.Count - 1)
+                    {
+                        <div class="text-center my-1">
+                            <i class="bi bi-arrow-down-short text-muted fs-5"></i>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Кнопка добавления новой работы -->
+        <div class="row mt-2 d-flex justify-content-center">
+            <div class="col-6">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary btn-lg border-2 border-dashed py-3"
+                            type="button"
+                            @onclick="AddNewWork">
+                        <i class="bi bi-plus-circle me-2 fs-5"></i>
+                        <span class="fw-bold">Добавить еще одну работу</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public List<WorkCreateDto> WorkDtos { get; set; } = [];
+    [Parameter] public EventCallback<List<WorkCreateDto>> WorkDtosChanged { get; set; }
+    [Parameter] public Func<Task>? EndAdd { get; set; }
+    [Parameter] public string SessionStoreNameWorkDTO { get; set; } = "workDTOMultiple";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RendererInfo.IsInteractive)
+        {
+            await LoadWorkItems();
+        }
+    }
+
+    private async Task LoadWorkItems()
+    {
+        // Получаем количество работ из хранилища
+        var result = await ProtectedSessionStore.GetAsync<int>(SessionStoreNameWorkDTO);
+        if (result.Success)
+        {
+            int countWorks = result.Value!;
+
+            // Не перезаписываем существующие данные, если их уже есть нужное количество
+            if (WorkDtos.Count != countWorks)
+            {
+                var oldDtos = WorkDtos.ToList();
+                WorkDtos.Clear();
+                
+                for (int i = 0; i < countWorks; i++)
+                {
+                    if (i < oldDtos.Count)
+                        WorkDtos.Add(oldDtos[i]);
+                    else
+                        WorkDtos.Add(new());
+                }
+            }
+        }
+
+        await WorkDtosChanged.InvokeAsync(WorkDtos);
+    }
+
+    private async Task MoveWorkUp(int index)
+    {
+        if (index <= 0) return;
+        
+        // Меняем местами элементы
+        (WorkDtos[index], WorkDtos[index - 1]) = (WorkDtos[index - 1], WorkDtos[index]);
+        
+        // Обновляем порядок в хранилище
+        await UpdateStorageOrder(index - 1, index);
+        await WorkDtosChanged.InvokeAsync(WorkDtos);
+        StateHasChanged();
+    }
+
+    private async Task MoveWorkDown(int index)
+    {
+        if (index >= WorkDtos.Count - 1) return;
+        
+        // Меняем местами элементы
+        (WorkDtos[index], WorkDtos[index + 1]) = (WorkDtos[index + 1], WorkDtos[index]);
+        
+        // Обновляем порядок в хранилище
+        await UpdateStorageOrder(index, index + 1);
+        await WorkDtosChanged.InvokeAsync(WorkDtos);
+        StateHasChanged();
+    }
+
+    private async Task EndAddOne()
+    {
+        
+    }
+
+    private async Task RemoveWork(int index)
+    {
+        if (index < 0 || index >= WorkDtos.Count) return;
+        
+        WorkDtos.RemoveAt(index);
+        
+        // Удаляем данные из хранилища для этого индекса
+        await ProtectedSessionStore.DeleteAsync(SessionStoreNameWorkDTO + index);
+        
+        // Сдвигаем индексы для последующих элементов
+        for (int i = index; i < WorkDtos.Count; i++)
+        {
+            var nextData = await ProtectedSessionStore.GetAsync<WorkCreateDto>(SessionStoreNameWorkDTO + (i + 1));
+            if (nextData.Success && nextData.Value != null)
+            {
+                await ProtectedSessionStore.SetAsync(SessionStoreNameWorkDTO + i, nextData.Value);
+                await ProtectedSessionStore.DeleteAsync(SessionStoreNameWorkDTO + (i + 1));
+            }
+        }
+
+        // Убеждаемся, что всегда есть хотя бы одна работа
+        if (WorkDtos.Count == 0)
+            WorkDtos.Add(new());
+
+        await ProtectedSessionStore.SetAsync(SessionStoreNameWorkDTO, WorkDtos.Count);
+        await WorkDtosChanged.InvokeAsync(WorkDtos);
+        StateHasChanged();
+    }
+
+    private async Task AddNewWork()
+    {
+        WorkDtos.Add(new());
+        await ProtectedSessionStore.SetAsync(SessionStoreNameWorkDTO, WorkDtos.Count);
+        await WorkDtosChanged.InvokeAsync(WorkDtos);
+        StateHasChanged();
+    }
+
+    private async Task UpdateStorageOrder(int currentIndex, int nextIndex)
+    {
+        var currentData = await ProtectedSessionStore.GetAsync<WorkCreateDto>(SessionStoreNameWorkDTO + currentIndex);
+        var nextData = await ProtectedSessionStore.GetAsync<WorkCreateDto>(SessionStoreNameWorkDTO + nextIndex);
+        if (currentData.Success && currentData.Value != null && nextData.Success && nextData.Value != null)
+        {
+            await ProtectedSessionStore.SetAsync(SessionStoreNameWorkDTO + currentIndex, nextData.Value);
+            await ProtectedSessionStore.SetAsync(SessionStoreNameWorkDTO + nextIndex, currentData.Value);
+        }
+    }
+}

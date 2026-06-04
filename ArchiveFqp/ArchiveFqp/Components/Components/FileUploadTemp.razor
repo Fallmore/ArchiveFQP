@@ -1,0 +1,129 @@
+﻿@using ArchiveFqp.Models.DTO.Work
+@using ArchiveFqp.Models.FileUpload
+@using ArchiveFqp.Models.Settings.SettingsArchive
+@using ArchiveFqp.Services.FileUpload
+@inject SettingsArchive Settings
+@inject WorkFileUploadService WorkFileUploadService
+@inject IJSRuntime JSRuntime
+
+<div class="border rounded p-3 bg-light">
+    <div class="d-flex gap-2 align-items-start">
+        <div class="flex-grow-1">
+            <InputFile OnChange="@OnFileChanged"
+                       class="form-control"
+                       accept=".pdf" />
+            <small class="text-muted mt-1 d-block">
+                <i class="bi bi-info-circle"></i> Поддерживаются только PDF файлы
+            </small>
+        </div>
+        <button type="button"
+                class="btn btn-primary @(selectedFile == null ? "disabled" : "")"
+                @onclick="ConfirmSelection"
+                disabled="@(selectedFile == null)">
+            <i class="bi bi-cloud-upload"></i> Загрузить
+        </button>
+    </div>
+
+    @if (isUploading)
+    {
+        <div class="mt-3">
+            <div class="progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                     role="progressbar"
+                     style="width: @((int)(uploadProgress*100))%">
+                </div>
+            </div>
+            <small class="text-muted mt-1 d-block">Загрузка файла...</small>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public TempFileInfo? TempUploadedFile { get; set; }
+    [Parameter] public EventCallback<TempFileInfo> TempUploadedFileChanged { get; set; }
+    [Parameter] public WorkCreateDto? WorkDto { get; set; }
+    [Parameter] public EventCallback<WorkCreateDto> WorkDtoChanged { get; set; }
+    [Parameter] public List<SelectedFileInfo>? SelectedFiles { get; set; } = new();
+    [Parameter] public EventCallback<List<SelectedFileInfo>> SelectedFilesChanged { get; set; }
+    [Parameter] public string CurrentSessionId { get; set; } = Guid.NewGuid().ToString();
+
+    private IBrowserFile? selectedFile;
+    private bool isUploading;
+    private decimal uploadProgress;
+    private TempFileInfo? uploadedFileInfo;
+
+    private async Task OnFileChanged(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+        selectedFile = file;
+    }
+
+    private async Task ConfirmSelection()
+    {
+        try
+        {
+            isUploading = true;
+            uploadProgress = 0;
+            StateHasChanged();
+
+            // Временная загрузка
+            WorkFileUploadService.ProgressChanged += OnUploadProgressChanged;
+            WorkFileUploadService.InitializeFileTypeConfigs(Settings, Settings.FqpWorks[0]); // по сути, без разницы, какой тип работы
+            var result = await WorkFileUploadService.UploadTempFileAsync(
+                selectedFile!,
+                FileType.ExplanatoryNotePdf.Key,
+                cancellationToken: default);
+            WorkFileUploadService.ProgressChanged -= OnUploadProgressChanged;
+
+            if (result.Success)
+            {
+                TempUploadedFile = result;
+
+                // Добавляем в список выбранных файлов для отображения
+                SelectedFiles?.Add(new SelectedFileInfo
+                {
+                    Name = result.OriginalFileName,
+                    Size = result.FileSize,
+                    Extension = Path.GetExtension(result.OriginalFileName),
+                    RelativePath = result.RelativePath,
+                    DetectedTypeKey = result.FileTypeKey,
+                    SelectedTypeKey = result.FileTypeKey,
+                    IsTempFile = true,
+                    TempFileInfo = result
+                });
+
+                WorkDto?.TempFileWithTitle = result;
+                await WorkDtoChanged.InvokeAsync(WorkDto);
+
+                await TempUploadedFileChanged.InvokeAsync(TempUploadedFile);
+                await SelectedFilesChanged.InvokeAsync(SelectedFiles);
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", result.ErrorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка загрузки: {ex.Message}");
+        }
+        finally
+        {
+            isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async void OnUploadProgressChanged(object? sender, FileUploadProgressEventArgs e)
+    {
+        await InvokeAsync(() =>
+        {
+            if (selectedFile!.Name == e.FileName)
+            {
+                uploadProgress = e.ProgressPercent;
+                StateHasChanged();
+            }
+        });
+    }
+}

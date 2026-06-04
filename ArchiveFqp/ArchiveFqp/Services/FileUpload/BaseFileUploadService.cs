@@ -13,7 +13,7 @@ namespace ArchiveFqp.Services.FileUpload
     {
         protected readonly IWebHostEnvironment _environment;
         protected readonly ILogger<BaseFileUploadService> _logger;
-        protected readonly string _baseUploadPath;
+        protected string _baseUploadPath;
 
         public abstract event EventHandler<FileUploadProgressEventArgs>? ProgressChanged;
 
@@ -21,14 +21,14 @@ namespace ArchiveFqp.Services.FileUpload
         {
             _environment = environment;
             _logger = logger;
-            _baseUploadPath = Path.Combine(_environment.ContentRootPath, "AppData", "works");
+            _baseUploadPath = Path.Combine(_environment.ContentRootPath, "AppData", "Works");
         }
 
         public abstract Task<FileUploadResult> UploadFileAsync(IFileUploadContext context, CancellationToken cancellationToken = default);
 
         public abstract Task<IEnumerable<FileUploadResult>> UploadFilesAsync(IFileUploadContext context, CancellationToken cancellationToken = default);
 
-        public abstract bool ValidateFile(IBrowserFile file, FileType fileType, out string? errorMessage);
+        public abstract bool ValidateFile(IBrowserFile file, FileTypeConfig config, out string? errorMessage);
 
         public abstract Task<FileUploadWithHashResult> UploadFileWithHashAsync(IFileUploadContext context, CancellationToken cancellationToken = default);
 

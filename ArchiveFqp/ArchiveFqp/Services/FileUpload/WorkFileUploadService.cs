@@ -35,9 +35,9 @@ namespace ArchiveFqp.Services.FileUpload
             _settings = settings;
 
             if (string.IsNullOrEmpty(_settings.FilesRootPath))
-            {
                 _settings.FilesRootPath = environment.ContentRootPath;
-            }
+
+            _baseUploadPath = Path.Combine(_settings.FilesRootPath, _settings.FolderDataName, _settings.FolderWorksName);
         }
 
         /// <summary>
@@ -57,8 +57,8 @@ namespace ArchiveFqp.Services.FileUpload
                     DisplayName = extensionMapping.Key,
                     AllowedExtensions = extensionMapping.Value,
                     // Определяем префикс и другие свойства на основе имени
-                    FilePrefix = GenerateFilePrefix(extensionMapping.Key),
-                    IsRequired = requiredFiles == null ? false : requiredFiles.Contains(extensionMapping.Key)
+                    FilePrefix = extensionMapping.Key,
+                    IsRequired = requiredFiles != null && requiredFiles.Contains(extensionMapping.Key)
                 };
 
                 _fileTypeConfigs[config.Key] = config;
@@ -83,12 +83,6 @@ namespace ArchiveFqp.Services.FileUpload
         {
             return displayName switch
             {
-                var name when name.Contains("Word", StringComparison.OrdinalIgnoreCase) => "explanation_word",
-                var name when name.Contains("Pdf", StringComparison.OrdinalIgnoreCase) => "explanation_pdf",
-                var name when name.Contains("Презентация", StringComparison.OrdinalIgnoreCase) => "presentation",
-                var name when name.Contains("Исходный код", StringComparison.OrdinalIgnoreCase) => "source",
-                var name when name.Contains("База данных", StringComparison.OrdinalIgnoreCase) => "database",
-                var name when name.Contains("Пароли", StringComparison.OrdinalIgnoreCase) => "passwords",
                 _ => GenerateKey(displayName).ToLower()
             };
         }
@@ -126,8 +120,7 @@ namespace ArchiveFqp.Services.FileUpload
             {
                 // Строим путь к папке
                 string relativeFolderPath = BuildFolderPath(context);
-#warning Раскоментировать после всех проверок
-                if (!workContext.IsTemp || DirectoryExists(relativeFolderPath))
+                if (!workContext.IsTemp && DirectoryExists(relativeFolderPath))
                 {
                     result.FileResults = [new FileUploadResult{
                         Success = false,
@@ -156,7 +149,6 @@ namespace ArchiveFqp.Services.FileUpload
                             file,
                             fullFolderPath,
                             relativeFolderPath,
-                            fileTypeKey,
                             config,
                             cancellationToken));
                     }
@@ -201,7 +193,7 @@ namespace ArchiveFqp.Services.FileUpload
         /// </summary>
         private async Task<FileUploadResult> UploadSpecificFile(
             IBrowserFile file, string fullFolderPath, string relativeFolderPath,
-            string fileTypeKey, FileTypeConfig config, CancellationToken cancellationToken)
+            FileTypeConfig config, CancellationToken cancellationToken)
         {
             FileUploadResult result = new()
             {
@@ -224,7 +216,7 @@ namespace ArchiveFqp.Services.FileUpload
 
                 // Генерация имени файла
                 string extension = Path.GetExtension(file.Name);
-                string storedFileName = $"{config.DisplayName}{extension}";
+                string storedFileName = $"{config.FilePrefix}{extension}";
 
                 // Если файл с таким именем уже существует - добавляем номер
                 // Если нужно - расскоментируйте
@@ -285,7 +277,7 @@ namespace ArchiveFqp.Services.FileUpload
         /// <summary>
         /// Валидация файла с динамической конфигурацией
         /// </summary>
-        public bool ValidateFile(IBrowserFile file, FileTypeConfig config, out string? errorMessage)
+        public override bool ValidateFile(IBrowserFile file, FileTypeConfig config, out string? errorMessage)
         {
             errorMessage = null;
 
@@ -306,36 +298,6 @@ namespace ArchiveFqp.Services.FileUpload
             }
 
             return true;
-        }
-
-        public override bool ValidateFile(IBrowserFile file, FileType fileType, out string? errorMessage)
-        {
-            // Для обратной совместимости со старым кодом
-            // Находим конфигурацию по старому типу
-            var config = _fileTypeConfigs.Values.FirstOrDefault(c =>
-                c.DisplayName.Contains(GetDisplayNameFromOldFileType(fileType)));
-
-            if (config != null)
-            {
-                return ValidateFile(file, config, out errorMessage);
-            }
-
-            errorMessage = "Неизвестный тип файла";
-            return false;
-        }
-
-        private string GetDisplayNameFromOldFileType(FileType fileType)
-        {
-            return fileType switch
-            {
-                var ft when ft == FileType.ExplanatoryNoteWord => "Пояснительная записка Word",
-                var ft when ft == FileType.ExplanatoryNotePdf => "Пояснительная записка Pdf",
-                var ft when ft == FileType.Presentation => "Презентация",
-                var ft when ft == FileType.SourceCode => "Исходный код",
-                var ft when ft == FileType.DatabaseBackup => "База данных",
-                var ft when ft == FileType.PasswordFile => "Пароли",
-                _ => string.Empty
-            };
         }
 
         /// <summary>
@@ -365,29 +327,12 @@ namespace ArchiveFqp.Services.FileUpload
 
             try
             {
-                string fullFolderPath = Path.Combine(_settings.FilesRootPath, _settings.FolderDataName, _settings.FolderWorksName, relativeFolderPath);
-
-                if (!Directory.Exists(fullFolderPath))
+                string? hash = await ComputeCompositeFilesHashAsync(relativeFolderPath, cancellationToken);
+                if (hash is null)
                 {
                     result.Message = "Папка не найдена";
                     return result;
                 }
-
-                string[] storedFiles = Directory.GetFiles(fullFolderPath);
-                string hash = "";
-                List<string> hashes = [];
-
-                // Проверяем хеши существующих файлов
-                foreach (string storedFile in storedFiles)
-                {
-                    string fileName = Path.GetFileName(storedFile);
-                    await using FileStream fileStream = new(storedFile, FileMode.Open, FileAccess.Read);
-
-                    hash = await ComputeFileHashAsync(fileStream, cancellationToken);
-                    hashes.Add(hash);
-                }
-
-                hash = _hashService.ComputeCompositeHash(hashes);
 
                 result.IsValid = string.Equals(sourceHash, hash, StringComparison.OrdinalIgnoreCase);
                 result.Message = result.IsValid ? "Все файлы целы и не были изменены" : "Некоторые файлы изменены или отсутствуют!";
@@ -399,6 +344,35 @@ namespace ArchiveFqp.Services.FileUpload
             }
 
             return result;
+        }
+
+
+        /// <summary>
+        /// Вычисляет хэш файлов в директории работы
+        /// </summary>
+        /// <param name="relativePath"></param>
+        /// <returns></returns>
+        public async Task<string?> ComputeCompositeFilesHashAsync(string relativeFolderPath, CancellationToken cancellationToken = default)
+        {
+            string fullFolderPath = Path.Combine(_baseUploadPath, relativeFolderPath);
+
+            if (!Directory.Exists(fullFolderPath))
+                return "Папка не найдена";
+
+            string[] storedFiles = Directory.GetFiles(fullFolderPath);
+            List<string> hashes = [];
+
+            // Проверяем хеши существующих файлов
+            foreach (string storedFile in storedFiles)
+            {
+                string fileName = Path.GetFileName(storedFile);
+                await using FileStream fileStream = new(storedFile, FileMode.Open, FileAccess.Read);
+
+                string hash = await ComputeFileHashAsync(fileStream, cancellationToken);
+                hashes.Add(hash);
+            }
+
+            return _hashService.ComputeCompositeHash(hashes);
         }
 
         private async Task<string> ComputeFileHashAsync(Stream fileStream, CancellationToken cancellationToken)
@@ -433,6 +407,31 @@ namespace ArchiveFqp.Services.FileUpload
             DirectoryDelete(path);
         }
 
+        public void DeleteFile(string relativePath, string fileName)
+        {
+            string fullPath = Path.Combine(_baseUploadPath, relativePath, fileName);
+            try
+            {
+                File.Delete(fullPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Внимание: файл {file} не был удален: {ex}", fileName, ex.Message);
+            }
+        }
+
+        public void DeleteFile(string fullName)
+        {
+            try
+            {
+                File.Delete(fullName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Внимание: файл {file} не был удален: {ex}", fullName, ex.Message);
+            }
+        }
+
         /// <summary>
         /// Перемещает папку с файлами работы из временной папки в основную папку.
         /// </summary>
@@ -443,15 +442,30 @@ namespace ArchiveFqp.Services.FileUpload
         {
             try
             {
-                string root = Path.Combine(_settings.FilesRootPath, _settings.FolderDataName, _settings.FolderWorksName);
-                string sourceFullPath = Path.Combine(root, sourceRelativePath, _settings.FolderTempName);
-                string destinationFullPath = Path.Combine(root, destinationRelativePath);
+                string sourceFullPath = Path.Combine(_baseUploadPath, sourceRelativePath, _settings.FolderTempName);
+                string destinationFullPath = Path.Combine(_baseUploadPath, destinationRelativePath);
                 if (!Directory.Exists(sourceFullPath))
                 {
                     _logger.LogWarning("Временная папка не найдена: {SourcePath}", sourceFullPath);
                     return false;
                 }
-                Directory.Move(sourceFullPath, destinationFullPath);
+
+                string[] files = Directory.GetFiles(sourceFullPath);
+
+                foreach (string file in files)
+                {
+                    string fileName = Path.GetFileName(file);
+                    string destinationFile = Path.Combine(destinationFullPath, fileName);
+
+                    File.Move(file, destinationFile, true);
+                }
+
+                if (Directory.GetFiles(sourceFullPath).Length == 0 &&
+                    Directory.GetDirectories(sourceFullPath).Length == 0)
+                {
+                    Directory.Delete(sourceFullPath);
+                }
+
                 _logger.LogInformation("Папка успешно перемещена из {Source} в {Destination}", sourceFullPath, destinationFullPath);
                 return true;
             }
@@ -470,12 +484,10 @@ namespace ArchiveFqp.Services.FileUpload
         public List<FileInfo> GetFiles(string relativeDirectoryPath)
         {
             var result = new List<FileInfo>();
-
+            
             try
             {
-                // Формируем полный путь
-                string root = Path.Combine(_settings.FilesRootPath, _settings.FolderDataName, _settings.FolderWorksName);
-                string fullPath = Path.Combine(root, relativeDirectoryPath);
+                string fullPath = Path.Combine(_baseUploadPath, relativeDirectoryPath);
 
                 if (!Directory.Exists(fullPath))
                 {
@@ -499,27 +511,165 @@ namespace ArchiveFqp.Services.FileUpload
 
             return result;
         }
-    }
 
-    /// <summary>
-    /// Конфигурация типа файла
-    /// </summary>
-    public class FileTypeConfig
-    {
-        public string Key { get; set; } = string.Empty;
-        public string DisplayName { get; set; } = string.Empty;
-        public List<string> AllowedExtensions { get; set; } = new();
-        public string FilePrefix { get; set; } = string.Empty;
-        public bool IsRequired { get; set; } = false;
-        public string? Description { get; set; }
-
-        public FileTypeConfig() { }
-
-        public FileTypeConfig(string key, string displayName, List<string> allowedExtensions)
+        /// <summary>
+        /// Временная загрузка файла для предварительного просмотра
+        /// </summary>
+        /// <param name="file">Загружаемый файл</param>
+        /// <param name="fileTypeKey">Тип файла</param>
+        /// <param name="cancellationToken">Токен отмены</param>
+        /// <returns>Информация о временном файле</returns>
+        public async Task<TempFileInfo> UploadTempFileAsync(
+            IBrowserFile file,
+            string fileTypeKey,
+            CancellationToken cancellationToken = default)
         {
-            Key = key;
-            DisplayName = displayName;
-            AllowedExtensions = allowedExtensions;
+            var result = new TempFileInfo();
+
+            try
+            {
+                if (!_fileTypeConfigs.TryGetValue(fileTypeKey, out var config))
+                {
+                    result.Success = false;
+                    result.ErrorMessage = $"Неизвестный тип файла: {fileTypeKey}";
+                    return result;
+                }
+
+                // Валидация файла
+                if (!ValidateFile(file, config, out string? errorMessage))
+                {
+                    result.Success = false;
+                    result.ErrorMessage = errorMessage;
+                    return result;
+                }
+
+                // Создаем временную директорию для сессии
+                var sessionId = Guid.NewGuid().ToString();
+                var tempDir = Path.Combine(_baseUploadPath, _settings.FolderTempName, sessionId);
+                Directory.CreateDirectory(tempDir);
+
+                // Генерируем имя файла
+                string extension = Path.GetExtension(file.Name);
+                string storedFileName = $"{config.FilePrefix}_{DateTime.Now:yyyyMMddHHmmss}{extension}";
+                string tempFilePath = Path.Combine(tempDir, storedFileName);
+
+                // Сохраняем файл
+                using Stream stream = file.OpenReadStream(_settings.MaxFileSize, cancellationToken);
+                using FileStream fileStream = new(tempFilePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, 81920, true);
+
+                byte[] buffer = new byte[81920];
+                int bytesRead;
+                long totalBytesRead = 0;
+
+                while ((bytesRead = await stream.ReadAsync(buffer, cancellationToken)) != 0)
+                {
+                    await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
+                    totalBytesRead += bytesRead;
+
+                    // Уведомляем о прогрессе
+                    OnProgressChanged(new FileUploadProgressEventArgs
+                    {
+                        FileName = file.Name,
+                        ProgressPercent = (decimal)totalBytesRead / file.Size,
+                        BytesUploaded = totalBytesRead,
+                        TotalBytes = file.Size,
+                        FileType = config.DisplayName,
+                        IsTemp = true
+                    });
+                }
+
+                result.Success = true;
+                result.SessionId = sessionId;
+                result.TempFilePath = tempFilePath;
+                result.RelativePath = $"/{sessionId}/{storedFileName}";
+                result.OriginalFileName = file.Name;
+                result.StoredFileName = storedFileName;
+                result.FileSize = file.Size;
+                result.FileTypeKey = fileTypeKey;
+                result.FileTypeName = config.DisplayName;
+                result.UploadedAt = DateTime.Now;
+
+                _logger.LogDebug("Временный файл загружен: {Path}", tempFilePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка временной загрузки файла {FileName}", file.Name);
+                result.Success = false;
+                result.ErrorMessage = ex.Message;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Перемещение временного файла в постоянное хранилище
+        /// </summary>
+        /// <param name="tempFileInfo">Информация о временном файле</param>
+        /// <param name="workPath">относительный путь к работе</param>
+        /// <returns>Новый путь к файлу</returns>
+        public async Task<string?> MoveTempFileToWorkAsync(TempFileInfo tempFileInfo, string workPath)
+        {
+            if (!tempFileInfo.Success || string.IsNullOrEmpty(tempFileInfo.TempFilePath))
+                return null;
+
+            try
+            {
+                // Проверяем существование временного файла
+                if (!File.Exists(tempFileInfo.TempFilePath))
+                {
+                    _logger.LogWarning("Временный файл не найден: {Path}", tempFileInfo.TempFilePath);
+                    return null;
+                }
+
+                var targetDir = Path.Combine(_baseUploadPath, workPath);
+                Directory.CreateDirectory(targetDir);
+
+                // Генерируем постоянное имя файла
+                string extension = Path.GetExtension(tempFileInfo.StoredFileName);
+                string permanentFileName = $"{tempFileInfo.FileTypeName}{extension}";
+                string targetPath = Path.Combine(targetDir, permanentFileName);
+
+                // Перемещаем файл
+                File.Move(tempFileInfo.TempFilePath, targetPath);
+
+                // Удаляем временную директорию, если она пуста
+                var tempDir = Path.GetDirectoryName(tempFileInfo.TempFilePath);
+                if (tempDir != null && Directory.Exists(tempDir) && Directory.GetFiles(tempDir).Length == 0)
+                {
+                    Directory.Delete(tempDir);
+                }
+
+                string relativePath = $"/{workPath}/{permanentFileName}";
+
+                _logger.LogDebug("Файл перемещен из временной в постоянную папку: {Path}", relativePath);
+
+                return relativePath;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка перемещения временного файла");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Очистка временных файлов по сессии
+        /// </summary>
+        public void CleanupTempFilesAsync(string sessionId)
+        {
+            try
+            {
+                var tempDir = Path.Combine(_baseUploadPath, _settings.FolderTempName, sessionId);
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                    _logger.LogDebug("Временные файлы сессии {SessionId} удалены", sessionId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка очистки временных файлов сессии {SessionId}", sessionId);
+            }
         }
     }
 }

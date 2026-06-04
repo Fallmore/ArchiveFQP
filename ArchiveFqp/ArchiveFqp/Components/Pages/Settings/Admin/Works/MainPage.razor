@@ -135,9 +135,9 @@
                                         <td>@work.ДатаДобавления.ToString("dd.MM.yyyy")</td>
                                         <td>@(work.ДатаИзменения?.ToString("dd.MM.yyyy") ?? "-")</td>
                                         <td>
-                                            @* <button class="btn btn-sm btn-primary" @onclick="() => OpenEditModal(work)">
+                                            <button class="btn btn-sm btn-primary" @onclick="() => OpenEditModal(work)">
                                                 <i class="bi bi-pencil"></i>
-                                            </button> *@
+                                            </button>
                                             <button class="btn btn-sm btn-danger" @onclick="() => DeleteWork(work.IdРаботы)">
                                                 <i class="bi bi-trash"></i>
                                             </button>
@@ -180,10 +180,9 @@
         </div>
     </div>
 
-    <!-- TODO: Отладьте изменение, т.к. я его сделал, а потом понял, что он вне функционала диплома...-->
     <!-- Модальное окно для редактирования -->
-    @* <div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
-        <div class="modal-dialog modal-lg">
+    <div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">Редактирование работы</h5>
@@ -194,23 +193,24 @@
                         <div class="card shadow-sm">
                             <div class="card-header bg-primary">
                                 <h4 class="mb-0 text-white">
-                                    <i class="bi bi-plus-circle me-2"></i>Добавление новой работы
+                                    <i class="bi bi-plus-circle me-2"></i>Редактирование работы
                                 </h4>
                             
                             </div>
                             <div class="card-body">
                                 <WorkDataAdd @bind-WorkDto="@WorkDto"
+                                             EndEdit="CompleteModal"
                                              IsEdit="true" />
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="CloseModal">Отмена</button>
+                    <button class="btn btn-secondary" @onclick="CloseModal">Закрыть редактирование</button>
                 </div>
             </div>
         </div>
-    </div> *@
+    </div>
 }
 
 
@@ -254,11 +254,12 @@
                 .Where(item => (string.IsNullOrWhiteSpace(searchText) || item.Тема.Contains(searchText, StringComparison.OrdinalIgnoreCase))
                         || (string.IsNullOrWhiteSpace(searchText) || (item.IdСтудентаNavigation.IdПользователяNavigation.Фамилия + " " + item.IdСтудентаNavigation.IdПользователяNavigation.Имя + " " + item.IdСтудентаNavigation.IdПользователяNavigation.Отчество).Contains(searchText, StringComparison.OrdinalIgnoreCase))
                         || (string.IsNullOrWhiteSpace(searchText) || (item.IdПреподавателяNavigation.IdПользователяNavigation.Фамилия + " " + item.IdПреподавателяNavigation.IdПользователяNavigation.Имя + " " + item.IdПреподавателяNavigation.IdПользователяNavigation.Отчество).Contains(searchText, StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(item => item.Тема)
                 .ToList();
 
         filteredWorks = await WorkService.GetWorkDisplayAsync(works!.Items
-                .Skip((works!.CurrentPage - 1) * works!.PageSize)
-                .Take(works!.PageSize).ToList(), []);
+            .Skip((works!.CurrentPage - 1) * works!.PageSize)
+            .Take(works!.PageSize).ToList(), []);
     }
 
     private async Task LoadData()
@@ -281,6 +282,13 @@
     {
         WorkDto = new(work);
         showModal = true;
+        StateHasChanged();
+    }
+
+    private async Task CompleteModal()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Работа обновлена");
+        showModal = false;
         StateHasChanged();
     }
 

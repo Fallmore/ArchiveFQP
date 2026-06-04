@@ -8,6 +8,7 @@
 @using ArchiveFqp.Models.DTO.Work
 @using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.ReferenceData
+@using ArchiveFqp.Models.Search
 @using ArchiveFqp.Services.FileUpload
 @using ArchiveFqp.Services.ReferenceData
 @using Microsoft.AspNetCore.Authorization
@@ -42,6 +43,14 @@
                 </div>
             </div>
             <div class="card-body">
+                <div class="row mb-0">
+                    <div class="col">
+                        <p class="text-muted">
+                            Всего работ: @works?.TotalCount
+                        </p>
+                    </div>
+                </div>
+
                 <!-- Поиск -->
                 <div class="row mb-3">
                     <div class="col-md-4">
@@ -98,7 +107,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @if (filteredWorks == null)
+                            @if (filteredWorks == null || works == null)
                             {
                                 <tr><td colspan="8" class="text-center">Загрузка...</td></tr>
                             }
@@ -129,9 +138,9 @@
                                         <td>@work.ДатаДобавления.ToString("dd.MM.yyyy")</td>
                                         <td>@(work.ДатаИзменения?.ToString("dd.MM.yyyy") ?? "-")</td>
                                         <td>
-                                            @* <button class="btn btn-sm btn-primary" @onclick="() => OpenEditModal(work)">
+                                            <button class="btn btn-sm btn-primary" @onclick="() => OpenEditModal(work)">
                                                 <i class="bi bi-pencil"></i>
-                                            </button> *@
+                                            </button>
                                             <button class="btn btn-sm btn-danger" @onclick="() => DeleteWork(work.IdРаботы)">
                                                 <i class="bi bi-trash"></i>
                                             </button>
@@ -144,16 +153,29 @@
                 </div>
 
                 <!-- Пагинация -->
-                @if (totalPages > 1)
+                @if (works != null && works.TotalPages > 1)
                 {
                     <nav>
                         <ul class="pagination justify-content-center">
-                            @for (int i = 1; i <= totalPages; i++)
+                            <li class="page-item @(works.CurrentPage == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(1)">Первая</button>
+                            </li>
+                            <li class="page-item @(works.CurrentPage == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(works.CurrentPage - 1)">Предыдущая</button>
+                            </li>
+                            @for (int i = Math.Max(1, works.CurrentPage - 2); i <= Math.Min(works.TotalPages, works.CurrentPage + 2); i++)
                             {
-                                <li class="page-item @(currentPage == i ? "active" : "")">
-                                    <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                int index = i;
+                                <li class="page-item @(works.CurrentPage == i ? "active" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(index)">@index</button>
                                 </li>
                             }
+                            <li class="page-item @(works.CurrentPage == works.TotalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(works.CurrentPage + 1)">Следующая</button>
+                            </li>
+                            <li class="page-item @(works.CurrentPage == works.TotalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(works.TotalPages)">Последняя</button>
+                            </li>
                         </ul>
                     </nav>
                 }
@@ -161,10 +183,9 @@
         </div>
     </div>
 
-    <!-- TODO: Отладьте изменение, т.к. я его сделал, а потом понял, что он вне функционала диплома...-->
     <!-- Модальное окно для редактирования -->
-    @* <div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
-        <div class="modal-dialog modal-lg">
+    <div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">Редактирование работы</h5>
@@ -175,23 +196,24 @@
                         <div class="card shadow-sm">
                             <div class="card-header bg-primary">
                                 <h4 class="mb-0 text-white">
-                                    <i class="bi bi-plus-circle me-2"></i>Добавление новой работы
+                                    <i class="bi bi-plus-circle me-2"></i>Редактирование работы
                                 </h4>
                             
                             </div>
                             <div class="card-body">
                                 <WorkDataAdd @bind-WorkDto="@WorkDto"
+                                             EndEdit="CompleteModal"
                                              IsEdit="true" />
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="CloseModal">Отмена</button>
+                    <button class="btn btn-secondary" @onclick="CloseModal">Закрыть редактирование</button>
                 </div>
             </div>
         </div>
-    </div> *@
+    </div>
 }
 
 
@@ -199,7 +221,7 @@
     private TeacherDisplayDto? responsible;
 
     private WorkCreateDto WorkDto { get; set; } = new();
-    private List<Работа> worksOriginal = new();
+    private PaginatedResult<Работа>? works;
     private ReferenceDataSnapshot snapshot = null!;
     private int? filterTypeId;
     private int? filterStatusId;
@@ -216,6 +238,7 @@
     {
         if (RendererInfo.IsInteractive)
         {
+            works ??= new() { CurrentPage = 1, PageSize = 10 };
             await GetStructureInfo();
             await LoadData();
             RefDataService.TablesChanged += OnTablesChanged;
@@ -235,7 +258,7 @@
         using ArchiveFqpContext context = DbFactory.CreateDbContext();
 
         // TODO: если нагружает БД, то воспользуйтесь ReferenceDataService
-        worksOriginal = context.Работаs
+        works!.Items = context.Работаs
                 .Include(s => s.IdСтудентаNavigation).ThenInclude(s => s.IdПользователяNavigation)
                 .Include(s => s.IdПреподавателяNavigation).ThenInclude(s => s.IdПользователяNavigation)
                 .Include(s => s.IdТипаРаботыNavigation)
@@ -251,9 +274,9 @@
                         || (string.IsNullOrWhiteSpace(searchText) || (item.IdПреподавателяNavigation.IdПользователяNavigation.Фамилия + " " + item.IdПреподавателяNavigation.IdПользователяNavigation.Имя + " " + item.IdПреподавателяNavigation.IdПользователяNavigation.Отчество).Contains(searchText, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
 
-        filteredWorks = await WorkService.GetWorkDisplayAsync(worksOriginal
-                .Skip((currentPage - 1) * pageSize)
-                .Take(pageSize).ToList(), []);
+        filteredWorks = await WorkService.GetWorkDisplayAsync(works!.Items
+            .Skip((works!.CurrentPage - 1) * works!.PageSize)
+            .Take(works!.PageSize).ToList(), []);
     }
 
     private async Task LoadData()
@@ -266,9 +289,9 @@
     private async Task ChangePage(int page)
     {
         currentPage = page;
-        filteredWorks = await WorkService.GetWorkDisplayAsync(worksOriginal
-                .Skip((currentPage - 1) * pageSize)
-                .Take(pageSize).ToList(), []);
+        filteredWorks = await WorkService.GetWorkDisplayAsync(works!.Items
+            .Skip((works!.CurrentPage - 1) * works!.PageSize)
+            .Take(works!.PageSize).ToList(), []);
         StateHasChanged();
     }
 
@@ -276,6 +299,13 @@
     {
         WorkDto = new(work);
         showModal = true;
+        StateHasChanged();
+    }
+
+    private async Task CompleteModal()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Работа обновлена");
+        showModal = false;
         StateHasChanged();
     }
 

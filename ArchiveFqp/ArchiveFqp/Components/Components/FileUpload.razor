@@ -1,4 +1,6 @@
-﻿<div class="mb-3">
+﻿@inject IJSRuntime JSRuntime
+
+<div class="mb-3">
     <label class="form-label fw-bold">@Label</label>
 
     <InputFile OnChange="@OnFileChanged"
@@ -58,7 +60,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in file upload: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка загрузки файла: {ex.Message}");
             SelectedFiles = null;
         }
     }

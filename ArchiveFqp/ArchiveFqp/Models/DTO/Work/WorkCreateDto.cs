@@ -1,4 +1,5 @@
 ﻿using ArchiveFqp.Models.DTO.Attribute;
+using ArchiveFqp.Models.FileUpload;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
@@ -72,9 +73,15 @@ namespace ArchiveFqp.Models.DTO.Work
         public string? Эцп { get; set; }
         public string? Местоположение { get; set; }
 
+
+        public TempFileInfo? TempFileWithTitle { get; set; }
+        public bool WithoutFileWithTitle { get; set; } = false;
+
         public bool AttributesValuesAdded { get; set; } = false;
 
         private List<AttributeDto>? attributes;
+
+        public List<AttributeDto>? Attributes { get => attributes; set => SetAttibutes(value); }
 
         public WorkCreateDto()
         {
@@ -82,6 +89,42 @@ namespace ArchiveFqp.Models.DTO.Work
         }
 
         public WorkCreateDto(WorkCreateDto work)
+        {
+            Copy(work);
+        }
+
+        public WorkCreateDto(WorkDisplayDto work)
+        {
+            Copy(work);
+        }
+
+
+        /// <summary>
+        /// Обновляет список атрибутов, добавляя новые, оставляя старые
+        /// и удаляя те, которых нет в новом списке.
+        /// </summary>
+        /// <param name="value"></param>
+        private void SetAttibutes(List<AttributeDto>? value)
+        {
+            if (attributes == default || value == default)
+            {
+                attributes = value;
+                return;
+            }
+
+            attributes.RemoveAll(f => !value.Contains(f));
+            attributes = attributes.Union(value).ToList();
+            foreach (AttributeDto item in value)
+            {
+                if (!string.IsNullOrWhiteSpace(item.Данные))
+                {
+                    attributes.First(x => x.Название == item.Название).Данные = item.Данные;
+                }
+            }
+        }
+
+
+        public void Copy(WorkCreateDto work)
         {
             IdРаботы = work.IdРаботы;
             Тема = work.Тема;
@@ -108,11 +151,15 @@ namespace ArchiveFqp.Models.DTO.Work
             IdТипаРаботы = work.IdТипаРаботы;
             IdДоступаРаботы = work.IdДоступаРаботы;
             IdСтатусаРаботы = work.IdСтатусаРаботы;
+            ДатаДобавления = work.ДатаДобавления;
+            ДатаИзменения = work.ДатаИзменения;
+            Местоположение = work.Местоположение;
+            Эцп = work.Эцп;
             AttributesValuesAdded = work.AttributesValuesAdded;
             this.attributes = work.attributes;
         }
 
-        public WorkCreateDto(WorkDisplayDto work)
+        public void Copy(WorkDisplayDto work)
         {
             IdРаботы = work.IdРаботы;
             Тема = work.Тема;
@@ -131,39 +178,14 @@ namespace ArchiveFqp.Models.DTO.Work
             IdКафедры = work.Студент.Структура.Кафедра.IdКафедры;
             ГодВыпуска = work.Студент.ГодОкончания;
             Аннотация = work.Аннотация;
+            ДатаДобавления = work.ДатаДобавления;
+            ДатаИзменения = work.ДатаИзменения;
+            Местоположение = work.Местоположение;
+            Эцп = work.Эцп;
             КоличСтраниц = work.КоличСтраниц;
             IdТипаРаботы = work.ТипРаботы.IdТипаРаботы;
             IdДоступаРаботы = work.ДоступРаботы.IdДоступаРаботы;
             IdСтатусаРаботы = work.СтатусРаботы.IdСтатусаРаботы;
         }
-
-        public List<AttributeDto>? Attributes { get => attributes; set => SetAttibutes(value); }
-
-        /// <summary>
-        /// Обновляет список атрибутов, добавляя новые, оставляя старые
-        /// и удаляя те, которых нет в новом списке.
-        /// </summary>
-        /// <param name="value"></param>
-        private void SetAttibutes(List<AttributeDto>? value)
-        {
-            if (attributes == default || value == default)
-            {
-                attributes = value;
-                return;
-            }
-
-            attributes.RemoveAll(f => !value.Contains(f));
-            attributes = attributes.Union(value).ToList();
-            foreach (AttributeDto item in value)
-            {
-                if (!string.IsNullOrWhiteSpace(item.Данные))
-                {
-                    attributes.First(x => x.Название == item.Название).Данные = item.Данные;
-                }
-            }
-        }
-
-        
-
     }
 }

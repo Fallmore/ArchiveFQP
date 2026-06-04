@@ -1,14 +1,18 @@
-﻿@using ArchiveFqp.Models.DTO
+﻿@using ArchiveFqp.Components.Components
+@using ArchiveFqp.Models.DTO
 @using ArchiveFqp.Models.DTO.Work
 @using ArchiveFqp.Models.DatabaseNotification
+@using ArchiveFqp.Models.FileUpload
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Interfaces.Work
+@using ArchiveFqp.Services.FileUpload
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Serialization
 @inject NavigationManager Navigation
 @inject ProtectedLocalStorage ProtectedSessionStore
+@inject WorkFileUploadService FileUploadService
 @inject IReferenceDataService RefDataService
 @inject IWorkService WorkService
 @inject IJSRuntime JSRuntime
@@ -23,24 +27,31 @@
                 <div class="col-12">
                     <div class="card shadow-sm">
                         <div class="card-header bg-primary">
-                            @if (WorkDto.Attributes == null)
+                            @if (WorkDto.Attributes == null && !IsMultiple)
                             {
                                 <h4 class="mb-0 text-white">
                                     <i class="bi bi-plus-circle me-2"></i>Добавление новой работы
+                                    <button class="btn btn-primary" @onclick="Reset">
+                                        Сбросить данные
+                                    </button>
                                 </h4>
                             }
                             else
                             {
-                                <button class="accordion-button bg-transparent" style="height:20px;" type="button"
-                                        data-bs-toggle="collapse" data-bs-target="#collapseWorkData"
-                                        aria-expanded="true" aria-controls="collapseWorkData">
+                                <button class="accordion-button bg-transparent collapsed" style="height:20px;" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#@SessionStoreNameWorkDTO"
+                                        aria-expanded="false" aria-controls="@SessionStoreNameWorkDTO">
                                     <h4 class="mb-0 text-white">
-                                        <i class="bi bi-plus-circle me-2"></i>Добавление новой работы
+                                        @if (!IsMultiple)
+                                        {
+                                            <i class="bi bi-plus-circle me-2"></i>
+                                        }
+                                        Добавление @(IsMultiple? GetTitleName() : "новой работы")
                                     </h4>
                                 </button>
                             }
                         </div>
-                        @if (WorkDto.Attributes == null)
+                        @if (WorkDto.Attributes == null && !IsMultiple)
                         {
                             <div class="card-body">
                                 <WorkDataAdd @bind-WorkDto="@WorkDto" @bind-WorkDto:after="OnWorkDTOChanged"
@@ -49,7 +60,7 @@
                         }
                         else
                         {
-                            <div id="collapseWorkData" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionWork">
+                            <div id="@SessionStoreNameWorkDTO" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionWork">
                                 <div class="accordion-body">
                                     <div class="card-body">
                                         <WorkDataAdd @bind-WorkDto="@WorkDto" @bind-WorkDto:after="OnWorkDTOChanged"
@@ -96,7 +107,9 @@
 
 @code {
     [Parameter] public WorkCreateDto WorkDto { get; set; } = new();
-    [Parameter] public EventCallback<WorkCreateDto> WorkDTOChanged { get; set; }
+    [Parameter] public EventCallback<WorkCreateDto> WorkDtoChanged { get; set; }
+    [Parameter] public Func<Task>? EndAdd { get; set; }
+    [Parameter] public bool IsMultiple { get; set; } = false;
     [Parameter] public string SessionStoreNameWorkDTO { get; set; } = "workDTO";
 
     private Dictionary<int, List<string>> attributesValues = [];
@@ -110,14 +123,11 @@
             Работа? work = (await RefDataService.GetAsync<Работа>()).FirstOrDefault(x => x.IdРаботы == WorkDto.IdРаботы);
             if (work == null)
             {
-                await ProtectedSessionStore.DeleteAsync(SessionStoreNameWorkDTO);
                 await JSRuntime.InvokeVoidAsync("alert", "Работа была удалена");
-                WorkDto = new();
-                StateHasChanged();
+                await Reset();
             }
         }
     }
-
 
     private async Task OnWorkDTOChanged()
     {
@@ -138,13 +148,10 @@
                 WorkDto.AttributesValuesAdded = true;
                 await End();
             }
-            else
-            {
-                StateHasChanged();
-            }
         }
-        StateHasChanged(); await WorkDTOChanged.InvokeAsync(WorkDto);
-        // await InvokeAsync(async () => { StateHasChanged(); await WorkDTOChanged.InvokeAsync(WorkDto); });
+
+        StateHasChanged();
+        await WorkDtoChanged.InvokeAsync(WorkDto);
     }
 
     private async Task OnAttributesChanged()
@@ -154,7 +161,7 @@
         {
             await End();
         }
-        await WorkDTOChanged.InvokeAsync(WorkDto);
+        await WorkDtoChanged.InvokeAsync(WorkDto);
     }
 
     private async Task End()
@@ -165,6 +172,25 @@
 
         // Даем пользователю время на просмотр результата перед очисткой данных
         await Task.Delay(2000);
+
+        await Reset();
+    }
+
+    private async Task Reset()
+    {
+        if (WorkDto.TempFileWithTitle != null)
+            FileUploadService.CleanupTempFilesAsync(WorkDto.TempFileWithTitle.SessionId);
+        WorkDto = new();
+        await ProtectedSessionStore.SetAsync(SessionStoreNameWorkDTO, WorkDto);
+        await WorkDtoChanged.InvokeAsync(WorkDto);
+        StateHasChanged();
+    }
+
+    private string GetTitleName()
+    {
+        if (string.IsNullOrWhiteSpace(WorkDto.Тема)) return "новой работы";
+        string title = WorkDto.Тема.Length < 21 ? WorkDto.Тема : WorkDto.Тема[..20];
+        return "«" + title + "»";
     }
 
     private async void OnTablesChanged(object? sender, TableChangeEvent e)
@@ -178,10 +204,8 @@
                                 new JsonSerializerSettings { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } });
                     if (work != null && work.IdРаботы == WorkDto.IdРаботы)
                     {
-                        await ProtectedSessionStore.DeleteAsync(SessionStoreNameWorkDTO);
                         await JSRuntime.InvokeVoidAsync("alert", "Работа была удалена");
-                        WorkDto = new();
-                        StateHasChanged();
+                        await Reset();
                     }
                 }
             });

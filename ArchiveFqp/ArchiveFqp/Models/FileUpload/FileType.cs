@@ -14,44 +14,44 @@
         // Для совместимости со старым написанным кодом
         public static readonly FileType ExplanatoryNoteWord = new()
         {
-            Key = "ExplanatoryNoteWord",
+            Key = "Пояснительная записка (Word)",
             DisplayName = "Пояснительная записка (Word)",
-            FilePrefix = "explanation_word"
+            FilePrefix = "Пояснительная записка (Word)"
         };
 
         public static readonly FileType ExplanatoryNotePdf = new()
         {
-            Key = "ExplanatoryNotePdf",
+            Key = "Пояснительная записка (Pdf)",
             DisplayName = "Пояснительная записка (Pdf)",
-            FilePrefix = "explanation_pdf"
+            FilePrefix = "Пояснительная записка (Pdf)"
         };
 
         public static readonly FileType Presentation = new()
         {
-            Key = "Presentation",
+            Key = "Презентация",
             DisplayName = "Презентация",
-            FilePrefix = "presentation"
+            FilePrefix = "Презентация"
         };
 
         public static readonly FileType SourceCode = new()
         {
-            Key = "SourceCode",
+            Key = "Исходный код",
             DisplayName = "Исходный код",
-            FilePrefix = "source",
+            FilePrefix = "Исходный код",
         };
 
         public static readonly FileType DatabaseBackup = new()
         {
-            Key = "DatabaseBackup",
+            Key = "База данных",
             DisplayName = "База данных",
-            FilePrefix = "database"
+            FilePrefix = "База данных"
         };
 
         public static readonly FileType PasswordFile = new()
         {
-            Key = "PasswordFile",
+            Key = "Пароли",
             DisplayName = "Пароли",
-            FilePrefix = "passwords"
+            FilePrefix = "Пароли"
         };
 
         public static IEnumerable<FileType> GetDefaultFileTypes()

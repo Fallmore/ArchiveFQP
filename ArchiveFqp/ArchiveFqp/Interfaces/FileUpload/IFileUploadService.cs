@@ -34,10 +34,10 @@ namespace ArchiveFqp.Interfaces.FileUpload
         /// Проверка файла
         /// </summary>
         /// <param name="file"></param>
-        /// <param name="fileType"></param>
+        /// <param name="config"></param>
         /// <param name="errorMessage"></param>
         /// <returns><c>true</c>, если файл прошел проверку, в ином случае <c>false</c></returns>
-        bool ValidateFile(IBrowserFile file, FileType fileType, out string? errorMessage);
+        bool ValidateFile(IBrowserFile file, FileTypeConfig config, out string? errorMessage);
 
         /// <summary>
         /// Загружает файл с формированием хеша содержимого файла

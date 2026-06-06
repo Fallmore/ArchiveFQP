@@ -133,6 +133,9 @@ public partial class ArchiveFqpContext : DbContext
             entity.Property(e => e.Название)
                 .HasColumnType("character varying")
                 .HasColumnName("название");
+            entity.Property(e => e.Настройки)
+                .HasColumnType("json")
+                .HasColumnName("настройки");
         });
 
         modelBuilder.Entity<АтрибутИнститута>(entity =>
@@ -491,12 +494,16 @@ public partial class ArchiveFqpContext : DbContext
             entity.Property(e => e.Название)
                 .HasColumnType("character varying")
                 .HasColumnName("название");
+            entity.Property(e => e.НазваниеИтог)
+                .HasColumnType("character varying")
+                .HasColumnName("название_итог");
             entity.Property(e => e.Описание)
                 .HasColumnType("character varying")
                 .HasColumnName("описание");
             entity.Property(e => e.Новый)
                 .HasColumnType("boolean")
                 .HasColumnName("новый");
+            entity.Property(e => e.КлючевыеСлова).HasColumnName("ключевые_слова");
             entity.Property(e => e.Примеры).HasColumnName("примеры");
 
             entity.HasOne(d => d.IdПользователяNavigation).WithMany(p => p.ЗаявлениеАтрибутаs)

@@ -27,7 +27,7 @@
                 @if (Settings.FqpWorks.Contains(displayDto.ТипРаботы.Название))
                 {
                     <a class="btn btn-outline-primary"
-                           href="@($"/works/applications/send?w={displayDto.IdРаботы}")">
+                           href="@urlWatchWork">
                         <i class="bi bi-eye-fill"></i> Посмотреть ПЗ
                     </a>
                 }
@@ -304,11 +304,14 @@
     private int? lastIdWork;
     private WorkDisplayDto displayDto = new();
 
+    private string urlWatchWork = "/works/applications/send?w=";
+
     private bool isLoading = true;
     private bool accessDenied = false;
 
     protected override async Task OnInitializedAsync()
     {
+        urlWatchWork += displayDto.IdРаботы;
         await LoadWorkDetails();
     }
 
@@ -345,7 +348,7 @@
             if (work != null)
             {
                 displayDto = await WorkService.GetWorkDisplayAsync(work);
-                
+
                 accessDenied = !(await CheckAccessAndClaims(displayDto));
             }
         }
@@ -371,15 +374,20 @@
 
     private async Task<bool> CheckAccessAndClaims(WorkDisplayDto work)
     {
-        if (work.ДоступРаботы.Название == Settings.WorkAccessAll) return true;
         AuthenticationState? authState = await authenticationState!;
         ClaimsPrincipal? user = authState?.User;
 
-        if (user == null || !user.Identity!.IsAuthenticated) return false;
+        if (user == null || !user.Identity!.IsAuthenticated)
+        {
+            if (work.ДоступРаботы.Название == Settings.WorkAccessAll) return true;
+            return false;
+        }
 
-        if (user.IsInRole(Settings.RoleAdminName)) return true;
-
-        if (work.ДоступРаботы.Название == Settings.WorkAccessOrganization) return true;
+        if (user.IsInRole(Settings.RoleAdminName))
+        {
+            urlWatchWork = "/works/read/" + displayDto.IdРаботы;
+            return true;
+        }
 
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
 
@@ -391,23 +399,52 @@
 
             if (teacher == null) return false;
 
+            // Даём сразу смотреть ПЗ, если это ответственный института
+            if (work.Студент.Структура.Институт.IdИнститута == teacher.IdИнститута)
+            {
+                if (user.IsInRole(Settings.RoleInstituteResponsibleName))
+                    urlWatchWork = "/works/read/" + displayDto.IdРаботы;
+            }
+            // Даём сразу смотреть ПЗ, если это завкафедрой или ответственный кафедры
+            if (work.Студент.Структура.Кафедра.IdКафедры == teacher.IdКафедры)
+            {
+                if (user.IsInRole(Settings.RoleDepartmentHeadName) || user.IsInRole(Settings.RoleDepartmentResponsibleName))
+                    urlWatchWork = "/works/read/" + displayDto.IdРаботы;
+            }
+
+            // Руководитель работы
+            if (work.Руководитель.Пользователь.Пользователь.IdПользователя == teacher.IdПользователя)
+            {
+                urlWatchWork = "/works/read/" + displayDto.IdРаботы;
+                return true;
+            }
+
+            if (work.ДоступРаботы.Название == Settings.WorkAccessAll ||
+                work.ДоступРаботы.Название == Settings.WorkAccessOrganization) return true;
+
             // Доступ внутри института
             if (work.ДоступРаботы.Название == Settings.WorkAccessInstitute
                     && work.Студент.Структура.Институт.IdИнститута == teacher.IdИнститута) return true;
 
             // Доступ внутри кафедры
             if (work.Студент.Структура.Кафедра.IdКафедры == teacher.IdКафедры) return true;
-
-            // Руководитель работы
-            if (work.Руководитель.Пользователь.Пользователь.IdПользователя == teacher.IdПользователя) return true;
         }
         else if (user.IsInRole(Settings.RoleStudentName))
         {
-            if (work.ДоступРаботы.Название == Settings.WorkAccessSecret) return false;
-
             Студент? student = (await UserService.GetStudentAsync(idUser)).FirstOrDefault(x => x.Активно == true);
 
             if (student == null) return false;
+
+            // Работа студента
+            if (work.Студент.Пользователь.Пользователь.IdПользователя == student!.IdПользователя)
+            {
+                urlWatchWork = "/works/read/" + displayDto.IdРаботы;
+                return true;
+            }
+
+            if (work.ДоступРаботы.Название == Settings.WorkAccessAll ||
+                work.ДоступРаботы.Название == Settings.WorkAccessOrganization) return true;
+            if (work.ДоступРаботы.Название == Settings.WorkAccessSecret) return false;
 
             if ((work.ДоступРаботы.Название == Settings.WorkAccessInstitute
                 && work.Студент.Структура.Институт.IdИнститута == student.IdИнститута)
@@ -424,9 +461,6 @@
             if (work.ДоступРаботы.Название == Settings.WorkAccessProfile
                 && work.Студент.Структура?.Профиль?.IdПрофиля == null
                 || work.Студент.Структура?.Профиль?.IdПрофиля == student?.IdПрофиля) return true;
-            
-            // Работа студента
-            if (work.Студент.Пользователь.Пользователь.IdПользователя == student!.IdПользователя) return true;
         }
         
         return false;

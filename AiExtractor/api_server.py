@@ -410,7 +410,7 @@ async def cancel_search(task_id: str):
     return _cancel_task(task_id)
 
 
-@app.post("/api/process-work/start")
+@app.post("/ai-extract/process-work/start")
 async def start_process_work(request: ProcessWorkRequest):
     """
     Главный эндпоинт для обработки работы.
@@ -419,7 +419,7 @@ async def start_process_work(request: ProcessWorkRequest):
     2. Для каждого атрибута выполняет combined_search + LLM
     3. Сохраняет найденные значения в данные_по_атриб
     
-    POST /api/process-work/start
+    POST /ai-extract/process-work/start
     Body: { "file_path": "...", "work_id": 123 }
     """
     
@@ -469,13 +469,13 @@ async def start_process_work(request: ProcessWorkRequest):
     }
 
 
-@app.get("/api/process-work/status/{task_id}")
+@app.get("/ai-extract/process-work/status/{task_id}")
 async def get_process_work_status(task_id: str):
     """Статус обработки работы."""
     return _get_task_status(task_id, "process_work")
 
 
-@app.post("/api/process-work/cancel/{task_id}")
+@app.post("/ai-extract/process-work/cancel/{task_id}")
 async def cancel_process_work(task_id: str):
     """Отмена обработки работы."""
     return _cancel_task(task_id)
@@ -542,7 +542,7 @@ def _sync_search_chunks(file_path: str) -> list[str]:
     all_docs, seen = [], set()
 
     for config in ATTRIBUTE_SEARCH_CONFIGS.values():
-        for content in combined_search(vectordb, config["query"], config["keywords"], file_path):
+        for content in combined_search(vectordb, config["query"], config["keywords"], file_path, 2):
             if content not in seen:
                 seen.add(content)
                 all_docs.append(content)

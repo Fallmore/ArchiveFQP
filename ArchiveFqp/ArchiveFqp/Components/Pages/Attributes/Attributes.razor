@@ -221,9 +221,11 @@
         ClaimsPrincipal user = authState!.User;
 
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        List<ЗаявлениеАтрибута> filtered = app.Where(x => x.Новый == false).ToList();
+        List<ЗаявлениеАтрибута> filtered = app;
         if (IsReviewMode)
         {
+            filtered = filtered.Where(x => x.Новый == false).ToList();
+
             if (user.IsInRole(Settings.RoleAdminName))
             {
                 // Все заявления с новыми атрибутами и атрибутами на всю организацию

@@ -101,6 +101,16 @@
                                        rows="3"
                                        placeholder="Введите через запятую примеры данных" />
                     </div>
+
+                    <div class="row-md-6 mb-1">
+                        <!-- Ключевые слова -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Ключевые слова <span class="text-danger">*</span></label>
+                        <InputTextArea class="form-control" @bind-Value="attributeKeywords"
+                                       disabled="@(!attributeApplication.Новый)"
+                                       @onfocusout="ToArrayKeywords"
+                                       rows="3"
+                                       placeholder="Введите через запятую слова/фразы, окружающие атрибут в тексте" />
+                    </div>
                 }
 
                 <!-- Тип работы -->
@@ -162,7 +172,7 @@
                 </div>
 
                 <div class="row-md-6">
-                    <button type="submit" class="btn btn-success mt-3">
+                    <button type="submit" class="btn btn-success mt-3" disabled="@(isSubmitting)">
                         Подать заявку
                     </button>
                 </div>
@@ -191,6 +201,15 @@
                     <label class="form-label mb-0 mx-1 fw-bold">Атрибут</label>
                     <br />
                     <span class="mx-1">@(attributeApplication.Название)</span>
+                    @if (attributeApplication.НазваниеИтог != null && attributeApplication.НазваниеИтог != attributeApplication.Название)
+                    {
+                        <span class="mx-1">Предложенное название: @(attributeApplication.Название)</span>
+                        <span class="mx-1">Итоговое название: @(attributeApplication.НазваниеИтог)</span>
+                    }
+                    else
+                    {
+                        <span class="mx-1">@(attributeApplication.Название)</span>
+                    }
                 </div>
 
                 <div class="row-md-6 mb-1">
@@ -207,6 +226,13 @@
                         <label class="form-label mb-0 mx-1 fw-bold">Примеры</label>
                         <br />
                         <span class="mx-1">@(string.Join(", ", attributeApplication.Примеры ?? ["Примеры отсутствуют"]))</span>
+                    </div>
+
+                    <div class="row-md-6 mb-1">
+                        <!-- Ключевые слова -->
+                        <label class="form-label mb-0 mx-1 fw-bold">Примеры</label>
+                        <br />
+                        <span class="mx-1">@(string.Join(", ", attributeApplication.КлючевыеСлова ?? ["Ключевые слова отсутствуют"]))</span>
                     </div>
                 }
 
@@ -314,11 +340,30 @@
                         <br />
                         <span class="mx-1">@(attributeApplication.Ответ)</span>
                     </div>
-
                     
                 }
                 else if (IsReviewMode)
                 {
+                    if (attributeApplication.Новый)
+                    {
+                        <div class="row-md-6 mb-1">
+                            <!-- Итоговое название -->
+                            <label class="form-label mb-0 mx-1 fw-bold">Итоговое название</label>
+                            <InputText class="form-control " @bind-Value="attributeApplication.НазваниеИтог"
+                                       placeholder="@attributeApplication.Название" />
+
+                        </div>
+
+                        <div class="row-md-6 mb-1">
+                            <!-- Запрос к векторной базе -->
+                            <label class="form-label mb-0 mx-1 fw-bold">Запрос к векторной базе</label>
+                            <InputTextArea class="form-control " @bind-Value="attributeQuery"
+                                           rows="3"
+                                           placeholder="Например, для атрибута 'среда разработки' это 'среда разработки программный продукт разработан'" />
+
+                        </div>
+                    }
+
                     <div class="row-md-6 mb-1">
                         <!-- Ответ -->
                         <label class="form-label mb-0 mx-1 fw-bold">Ответ <span class="text-danger">*</span></label>
@@ -345,7 +390,7 @@
                     </div>
 
                     <div class="row-md-6">
-                        <button type="submit" class="btn btn-success mt-3">
+                        <button type="submit" class="btn btn-success mt-3" disabled="@(isSubmitting)">
                             Отправить ответ
                         </button>
                     </div>
@@ -374,12 +419,15 @@
     [Parameter] public ЗаявлениеАтрибута? AttributeApplication { get; set; }
     private ЗаявлениеАтрибута attributeApplication = new();
     private string attributeExamples = "";
+    private string attributeKeywords = "";
+    private string attributeQuery = "";
     private TeacherDisplayDto? teacherDisplay;
     private UserDisplayDto? userDisplay;
     private List<СтатусЗаявления> applicationStatuses = null!;
     private List<Атрибут> attributes = null!;
     private int currentStatusId;
     private bool isAnswered = false;
+    private bool isSubmitting = false;
 
     private ReferenceDataSnapshot snapshot = new();
     InputSelectSctructure<Кафедра>? issDep;
@@ -458,10 +506,25 @@
             return;
         }
         attributeApplication.Примеры = attributeExamples.Split(',')
-        .Select(x => x.Trim())
-        .Where(x => !string.IsNullOrEmpty(x))
-        .ToArray();
+            .Select(x => x.Trim())
+            .Where(x => !string.IsNullOrEmpty(x))
+            .ToArray();
         attributeExamples = string.Join(',', attributeApplication.Примеры);
+    }
+
+    private void ToArrayKeywords()
+    {
+        attributeKeywords = attributeKeywords.Trim();
+        if (string.IsNullOrWhiteSpace(attributeKeywords))
+        {
+            attributeApplication.КлючевыеСлова = null;
+            return;
+        }
+        attributeApplication.КлючевыеСлова = attributeKeywords.Split(',')
+            .Select(x => x.Trim())
+            .Where(x => !string.IsNullOrEmpty(x))
+            .ToArray();
+        attributeKeywords = string.Join(',', attributeApplication.КлючевыеСлова);
     }
 
     private void GetAttributeName()
@@ -473,6 +536,8 @@
     private async Task HandleValidSubmit()
     {
         errorMessage = successMessage = null;
+        isSubmitting = true;
+        StateHasChanged();
         if (!IsReviewMode)
         {
             await AddAttributeApplication();
@@ -481,6 +546,8 @@
         {
             await AddAnswer();
         }
+        isSubmitting = false;
+        StateHasChanged();
     }
 
     private void HandleValidationRequested(object? sender, ValidationStateChangedEventArgs args)
@@ -569,13 +636,16 @@
             {
                 if (attributeApplication.IdСтатуса == applicationStatuses.First(w => w.Название == Settings.ApplicationsAcceptStatus).IdСтатуса)
                 {
-                    await ApplicationsService.CompleteAttributeApplication(attributeApplication);
+                    await ApplicationsService.CompleteAttributeApplication(attributeApplication, attributeQuery);
                     successMessage = "Атрибут успешно добавлен!";
+                    await SendNotificationToSenderAsync(true);
                 }
                 else
+                {
                     successMessage = "Ответ успешно отправлен!";
+                    await SendNotificationToSenderAsync(false);
+                }
 
-                await SendNotificationToSenderAsync();
             }
 
             isAnswered = true;
@@ -595,14 +665,11 @@
         }
     }
 
-    private async Task SendNotificationToSenderAsync()
+    private async Task SendNotificationToSenderAsync(bool accepted)
     {
         string title = "Заявления на добавление атрибута";
-        СтатусЗаявления status = (await ApplicationsService.GetApplicationsStatusesAsync()).First(x => x.IdСтатуса == attributeApplication.IdСтатуса);
         string message = $"Ваше заявление на добавление атрибута \"{attributeApplication.Название}\" было "
-            + (status.Название == Settings.ApplicationsActiveStatus
-            ? "одобрено."
-            : "отклонено.");
+            + (accepted ? "одобрено." : "отклонено.");
 
         await NotificationService.SendToUserAsync(attributeApplication!.IdПользователя.ToString(), title, message, "works/applications/send");
     }
@@ -627,7 +694,7 @@
             .Select(x => x.Пользователь.IdПользователя)
             .ToList();
         List<int> idDepartmentReviewers = appReviewers
-            .Where(x => (x.Роли.Contains(Settings.RoleDepartmentResponsibleName) 
+            .Where(x => (x.Роли.Contains(Settings.RoleDepartmentResponsibleName)
                     || x.Роли.Contains(Settings.RoleDepartmentHeadName))
                     && x.Пользователь.IdПользователя != attributeApplication!.IdПользователя)
             .Select(x => x.Пользователь.IdПользователя)

@@ -61,7 +61,7 @@ namespace ArchiveFqp.Interfaces.Applications
         /// </summary>
         /// <param name="attributeApplication"></param>
         /// <returns></returns>
-        Task<bool> CompleteAttributeApplication(ЗаявлениеАтрибута attributeApplication);
+        Task<bool> CompleteAttributeApplication(ЗаявлениеАтрибута attributeApplication, string attributeQuery);
 
         /// <summary>
         /// Завершение просмотра у заявления на просмотр работы

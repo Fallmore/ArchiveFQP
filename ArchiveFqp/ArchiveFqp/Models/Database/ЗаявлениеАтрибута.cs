@@ -14,11 +14,15 @@ public partial class ЗаявлениеАтрибута
 
     public string Название { get; set; } = null!;
 
+    public string? НазваниеИтог { get; set; }
+
     public bool Новый { get; set; } = false;
 
     [Required(ErrorMessage = "Введите описание")]
     [MinLength(3, ErrorMessage = "Минимальная длина описания 3 символа")]
     public string? Описание { get; set; }
+
+    public string[]? КлючевыеСлова { get; set; }
 
     public string[]? Примеры { get; set; }
 

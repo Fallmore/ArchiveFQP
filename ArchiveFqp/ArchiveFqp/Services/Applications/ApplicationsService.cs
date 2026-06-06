@@ -6,13 +6,17 @@ using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Interfaces.User;
 using ArchiveFqp.Interfaces.Work;
 using ArchiveFqp.Models.Database;
+using ArchiveFqp.Models.DTO.Attribute;
 using ArchiveFqp.Models.DTO.Work;
 using ArchiveFqp.Models.DTO.WorkApplication;
 using ArchiveFqp.Models.Settings.SettingsArchive;
 using ArchiveFqp.Services.Attributes;
 using ArchiveFqp.Services.User;
 using DocumentFormat.OpenXml.Drawing;
+using DocumentFormat.OpenXml.InkML;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 namespace ArchiveFqp.Services.Applications
 {
@@ -107,12 +111,13 @@ namespace ArchiveFqp.Services.Applications
             app.Ответ = attributeApplication.Ответ;
             app.ДатаОтвета = DateTime.Now;
             app.IdСтатуса = attributeApplication.IdСтатуса;
+            app.НазваниеИтог = attributeApplication.НазваниеИтог;
 
             await context.SaveChangesAsync();
             return true;
         }
 
-        public async Task<bool> CompleteAttributeApplication(ЗаявлениеАтрибута attributeApplication)
+        public async Task<bool> CompleteAttributeApplication(ЗаявлениеАтрибута attributeApplication, string attributeQuery)
         {
             Атрибут attr = new()
             {
@@ -122,8 +127,21 @@ namespace ArchiveFqp.Services.Applications
 
             if (attributeApplication.Новый)
             {
+                AttributeSettings settings = new()
+                {
+                    Query = attributeQuery,
+                    Examples = attributeApplication.Примеры,
+                    Keywords = attributeApplication.КлючевыеСлова
+                };
+                attr.Настройки = JsonConvert.SerializeObject(settings, new JsonSerializerSettings
+                    {
+                        // наименование полей с маленькой буквы
+                        ContractResolver = new CamelCasePropertyNamesContractResolver(),
+                    });
+
                 await _attributeService.Upsert(attr);
             }
+
 
             if (attributeApplication.IdИнститута != null)
             {

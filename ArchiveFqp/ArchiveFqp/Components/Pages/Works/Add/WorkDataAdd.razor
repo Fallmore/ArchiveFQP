@@ -48,7 +48,13 @@
 {
     @if (aiError != null)
     {
-        <div class="alert alert-warning">@aiError</div>
+        <div class="alert alert-warning">
+            @aiError
+            <button type="button" class="btn btn-warning"
+                    @onclick="StartTitleExtraction">
+                <i class="bi bi-arrow-repeat"></i> Попробовать снова
+            </button>
+        </div>
     }
     @if (aiStatus != null)
     {
@@ -80,7 +86,7 @@
         <div class="alert alert-success">@successMessage</div>
     }
 
-    @if (WorkDto.TempFileWithTitle == null && !WorkDto.WithoutFileWithTitle)
+    @if (WorkDto.TempFileWithTitle == null && !WorkDto.WithoutFileWithTitle && !IsEdit)
     {
         <div class="d-flex justify-content-between align-items-center mb-3">
             <span>Вы можете загрузить PDF файл для считывания данных с титульника</span>
@@ -549,30 +555,35 @@
                 </div>
             }
 
-            
-            <div class="container mb-4">
-                <span class="fw-bold">Как будут добавлены атрибуты работы?</span>
-                <div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio1" value="option1"
-                               checked="@(typeAddAttributes == TypeAddAttributes.Handle)"
-                               @onchange="@(() => typeAddAttributes = TypeAddAttributes.Handle)" />
-                        <label class="form-check-label" for="inlineRadio1">Вручную</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="option2"
-                               checked="@(typeAddAttributes == TypeAddAttributes.AI)"
-                               @onchange="@(() => typeAddAttributes = TypeAddAttributes.AI)" />
-                        <label class="form-check-label" for="inlineRadio2">С помощью ИИ</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"
-                               checked="@(typeAddAttributes == TypeAddAttributes.Template)"
-                               @onchange="@(() => typeAddAttributes = TypeAddAttributes.Template)" />
-                        <label class="form-check-label" for="inlineRadio3">С помощью характеристики работы</label>
+            @if (!IsEdit)
+            {
+                <div class="container mb-4">
+                    <span class="fw-bold">Как будут добавлены атрибуты работы?</span>
+                    <div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio1" value="option1"
+                                   checked="@(WorkDto.TypeAddAttributes == TypeAddAttributes.Handle)"
+                                   @onchange="@(() => WorkDto.TypeAddAttributes = TypeAddAttributes.Handle)"
+                                   disabled="@disabled" />
+                            <label class="form-check-label" for="inlineRadio1">Вручную</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio2" value="option2"
+                                   checked="@(WorkDto.TypeAddAttributes == TypeAddAttributes.AI)"
+                                   @onchange="@(() => WorkDto.TypeAddAttributes = TypeAddAttributes.AI)"
+                                   disabled="@disabled" />
+                            <label class="form-check-label" for="inlineRadio2">С помощью ИИ</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"
+                                   checked="@(WorkDto.TypeAddAttributes == TypeAddAttributes.Template)"
+                                   @onchange="@(() => WorkDto.TypeAddAttributes = TypeAddAttributes.Template)"
+                                   disabled="@(disabled || true)" />
+                            <label class="form-check-label" for="inlineRadio3">С помощью характеристики у работы</label>
+                        </div>
                     </div>
                 </div>
-            </div>
+            }
 
             <!-- Кнопки действий -->
             <div class="row mt-1">
@@ -662,14 +673,6 @@
 
     CancellationTokenSource cancelTokenSource = new CancellationTokenSource();
     CancellationToken token;
-
-    TypeAddAttributes typeAddAttributes = TypeAddAttributes.Handle;
-    enum TypeAddAttributes
-    {
-        Handle,
-        AI,
-        Template
-    };
 
     #endregion
 
@@ -1041,9 +1044,9 @@
         {
             errorMessage = null;
             successMessage = "Работа успешно добавлена!";
-            await SaveStateWorkDTO();
             waitAddWork = false;
             StateHasChanged();
+            await SaveStateWorkDTO();
         }
     }
 
@@ -1317,11 +1320,12 @@
                     }
 
                     WorkDto.IdРаботы = work.IdРаботы;
+                    WorkDto.Эцп = work.Эцп;
+                    WorkDto.Местоположение = work.Местоположение;
                     waitAddWork = true;
                     while (waitAddWork)
                     {
-                        await Task.Delay(300);
-                        await Task.Delay(300);
+                        await Task.Delay(600);
                         if (!waitAddWork) break;
                         else await CheckWorkAdded();
                     }
@@ -1638,58 +1642,61 @@
             aiResult = null;
             aiStatus = "Извлечение титульника...";
 
-            var task = await AiExtractorService.StartTitleExtractionAsync(WorkDto.TempFileWithTitle!.RelativePath, true, WorkDto.TempFileWithTitle.StoredFileName);
-            if (!string.IsNullOrEmpty(task.Error))
-            {
-                aiError = task.Error;
-                aiStatus = null;
-                return;
-            }
-            else if (token.IsCancellationRequested)
-            {
-                aiStatus = "Извлечение титульника отменено";
-                aiConnecting = false;
-                return;
-            }
+            // var task = await AiExtractorService.StartTitleExtractionAsync(WorkDto.TempFileWithTitle!.RelativePath, true, WorkDto.TempFileWithTitle.StoredFileName);
+            // if (!string.IsNullOrEmpty(task.Error))
+            // {
+            //     aiError = task.Error;
+            //     aiStatus = null;
+            //     return;
+            // }
+            // else if (token.IsCancellationRequested)
+            // {
+            //     aiStatus = "Извлечение титульника отменено";
+            //     aiConnecting = false;
+            //     return;
+            // }
 
-            aiTaskId = task.TaskId;
+            // aiTaskId = task.TaskId;
 
-            aiConnecting = false;
-            aiRunning = true;
-            StateHasChanged();
-            aiResult = await PollUntilComplete(
-                aiTaskId, () => AiExtractorService.GetTitleExtractionStatusAsync(aiTaskId)
-            );
+            // aiConnecting = false;
+            // aiRunning = true;
+            // StateHasChanged();
+            // aiResult = await PollUntilComplete(
+            //     aiTaskId, () => AiExtractorService.GetTitleExtractionStatusAsync(aiTaskId)
+            // );
 
             // Используйте для быстрой проверки
-//             string res = """
-// {
-//   "raw_text": "",
-//     "title": {
-//         "институт": "Институт Информационных технологий и коммуникаций",
-//         "кафедра": "Автоматизированные системы об аботки информации и управления",
-//         "направление": "09.03.04 Программная инженерия",
-//         "профиль": "Разработка программно-информационных систем",
-//         "типРаботы": "Бакалаврская работа",
-//         "тема": "Информатическая система планирования выгрузки товаров из центрального грузового порта г. Астрахань",
-//         "группа": "ДИПРб-41",
-//         "автор": "Хизри Хи Хо Хузыроч",
-//         "руководитель": "Куркурин Николай Дмитриевич",
-//         "должностьРуководителя": "ст. преп.",
-//         "год": "Н/Д"
-//   }
-// }
-// """;
-//             aiResult = JsonConvert.DeserializeObject<ExtractTitleResult>(res);
+            string res = """
+            {
+              "raw_text": "",
+                "title": {
+                    "институт": "Институт Информационных технологий и коммуникаций",
+                    "кафедра": "Автоматизированные системы об аботки информации и управления",
+                    "направление": "09.03.04 Программная инженерия",
+                    "профиль": "Разработка программно-информационных систем",
+                    "типРаботы": "Бакалаврская работа",
+                    "тема": "Информатическая система планирования выгрузки товаров из центрального грузового порта г. Астрахань",
+                    "группа": "ДИПРб-41",
+                    "автор": "Магомедов Гаджимурад Камильевич",
+                    "руководитель": "Куркурин Николай Дмитриевич",
+                    "должностьРуководителя": "ст. преп.",
+                    "год": "Н/Д"
+              }
+            }
+            """;
+            aiResult = JsonConvert.DeserializeObject<ExtractTitleResult>(res);
         },
         async () =>
         {
-            aiStatus = "Перенос извлеченных данных...";
             aiRunning = false;
-            StateHasChanged();
-            await SetExtractedDatas(aiResult);
-            aiStatus = "Данные извлечены и перенесены";
-            aiSuccess = true;
+            if (aiResult != null)
+            {
+                aiStatus = "Перенос извлеченных данных...";
+                StateHasChanged();
+                await SetExtractedDatas(aiResult);
+                aiStatus = "Данные извлечены и перенесены";
+                aiSuccess = true;
+            }
         });
     }
 
@@ -1702,7 +1709,7 @@
 
             if (status.Status == "completed")
             {
-                aiStatus = "Титульник извлечён";
+                aiStatus = "Титульник извлечен";
                 return status.Result;
             }
 
@@ -1774,7 +1781,9 @@
         List<TeacherDisplayDto> teachersDto = await teacherDtoFactory!.CreateDisplayDtoAsync(filteredTeachers);
         (string? teacherFio, _) = StringSimilarity.FindBest(title.Руководитель, [.. teachersDto.Select(x => x.Пользователь.ФИО)], threshold);
         if (teacherFio != null)
-            WorkDto.IdПреподавателя = teachersDto.First(x => x.Пользователь.ФИО == teacherFio).IdПреподавателя;
+        {
+            await OnTeacherChanged(teachersDto.First(x => x.Пользователь.ФИО == teacherFio).IdПреподавателя);
+        }
 
         if (title.ТипРаботы != "Н/Д")
         {
@@ -1788,8 +1797,7 @@
 
         if (studentFio != null)
         {
-            WorkDto.IdСтудента = studentsDto.First(x => x.Пользователь.ФИО == studentFio).IdСтудента;
-            await OnStudentChanged(WorkDto.IdСтудента);
+            await OnStudentChanged(studentsDto.First(x => x.Пользователь.ФИО == studentFio).IdСтудента);
         }
         else
         {
@@ -1814,6 +1822,8 @@
             if (profile != null && profile.IdПрофиля != WorkDto.IdПрофиля) WorkDto.IdПрофиля = profile.IdПрофиля;
 
             if (title.Год != "Н/Д") WorkDto.ГодВыпуска = int.Parse(title.Год);
+
+            await SaveStateWorkDTO();
         }
     }
 

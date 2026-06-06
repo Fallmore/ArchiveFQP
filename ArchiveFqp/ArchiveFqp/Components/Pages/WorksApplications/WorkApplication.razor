@@ -93,7 +93,7 @@
                 </div>
 
                 <div class="row-md-6">
-                    <button type="submit" class="btn btn-success mt-3" disabled="@(workApplicationDto.IdРаботы == null)">
+                    <button type="submit" class="btn btn-success mt-3" disabled="@(workApplicationDto.IdРаботы == null || isSubmitting)">
                         Подать заявку
                     </button>
                 </div>
@@ -249,7 +249,7 @@
                         </div>
 
                         <div class="row-md-6">
-                            <button type="submit" class="btn btn-success mt-3" disabled="@(workApplicationDto.IdРаботы == null)">
+                            <button type="submit" class="btn btn-success mt-3" disabled="@(isSubmitting)">
                                 Отправить ответ
                             </button>
                         </div>
@@ -281,6 +281,7 @@
     private List<СтатусЗаявления> applicationStatuses = [];
     private СтатусЗаявления currentStatus = null!;
     private bool isAnswered = false;
+    private bool isSubmitting = false;
     private bool isClickedWatch = false;
 
     EditContext? editContext;
@@ -334,6 +335,8 @@
     private async Task HandleValidSubmit()
     {
         errorMessage = successMessage = null;
+        isSubmitting = true;
+        StateHasChanged();
         if (!IsReviewMode)
         {
             await AddWorkApplication();
@@ -343,6 +346,8 @@
         {
             await AddAnswer();
         }
+        isSubmitting = false;
+        StateHasChanged();
     }
 
     private void HandleValidationRequested(object? sender, ValidationStateChangedEventArgs args)

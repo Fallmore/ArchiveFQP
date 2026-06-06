@@ -77,11 +77,12 @@ namespace ArchiveFqp.Models.DTO.Work
         public TempFileInfo? TempFileWithTitle { get; set; }
         public bool WithoutFileWithTitle { get; set; } = false;
 
+
         public bool AttributesValuesAdded { get; set; } = false;
-
         private List<AttributeDto>? attributes;
-
         public List<AttributeDto>? Attributes { get => attributes; set => SetAttibutes(value); }
+        public TypeAddAttributes TypeAddAttributes { get; set; } = TypeAddAttributes.Handle;
+        public bool AttributesSearched { get; set; } = false;
 
         public WorkCreateDto()
         {
@@ -188,4 +189,11 @@ namespace ArchiveFqp.Models.DTO.Work
             IdСтатусаРаботы = work.СтатусРаботы.IdСтатусаРаботы;
         }
     }
+
+    public enum TypeAddAttributes
+    {
+        Handle,
+        AI,
+        Template
+    };
 }

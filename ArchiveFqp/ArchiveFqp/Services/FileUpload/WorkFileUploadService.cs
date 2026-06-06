@@ -638,7 +638,7 @@ namespace ArchiveFqp.Services.FileUpload
                 string targetPath = Path.Combine(targetDir, permanentFileName);
 
                 // Перемещаем файл
-                File.Move(tempFileInfo.TempFilePath, targetPath);
+                File.Move(tempFileInfo.TempFilePath, targetPath, true);
 
                 // Удаляем временную директорию, если она пуста
                 var tempDir = Path.GetDirectoryName(tempFileInfo.TempFilePath);

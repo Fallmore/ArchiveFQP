@@ -6,6 +6,8 @@ public partial class Атрибут
 
     public string Название { get; set; } = null!;
 
+    public string? Настройки { get; set; }
+
     public virtual ICollection<АтрибутИнститута> АтрибутИнститутаs { get; set; } = new List<АтрибутИнститута>();
 
     public virtual ICollection<АтрибутКафедры> АтрибутКафедрыs { get; set; } = new List<АтрибутКафедры>();

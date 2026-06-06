@@ -10,6 +10,8 @@
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Serialization
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject NavigationManager NavigationManager
 @inject IReferenceDataService RefDataService
@@ -90,15 +92,23 @@
                                 <tr>
                                     <th>ID</th>
                                     <th>Название</th>
+                                    <th>Запрос к векторной базе</th>
+                                    <th>Примеры</th>
+                                    <th>Ключевые слова</th>
                                     <th>Действия</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var attr in attributes)
                                 {
+                                    AttributeSettings attributeSettings = JsonConvert.DeserializeObject<AttributeSettings>(attr.Настройки ?? "") ?? new();
+
                                     <tr>
                                         <td>@attr.IdАтрибута</td>
                                         <td>@attr.Название</td>
+                                        <td>@attributeSettings.Query</td>
+                                        <td>@string.Join(", ", attributeSettings.Examples?[..3] ?? [])</td>
+                                        <td>@string.Join(", ", attributeSettings.Keywords?[..3] ?? [])</td>
                                         <td>
                                             <button class="btn btn-sm btn-primary" @onclick="() => OpenAttributeModal(attr)">
                                                 <i class="bi bi-pencil"></i>
@@ -431,6 +441,31 @@
                         <label class="form-label">Название *</label>
                         <input type="text" class="form-control" @bind="selectedAttribute.Название" />
                     </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Запрос к векторной базе</label>
+                        <InputTextArea class="form-control " @bind-Value="selectedAttributeSettings.Query"
+                                       rows="3"
+                                       placeholder="Например, для атрибута 'среда разработки' это 'среда разработки программный продукт разработан'" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Примеры</label>
+                        <InputTextArea class="form-control" @bind-Value="attributeExamples"
+                                       @onfocusout="ToArrayExamples"
+                                       rows="3"
+                                       placeholder="Введите через запятую примеры данных" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Ключевые слова</label>
+                        <InputTextArea class="form-control" @bind-Value="attributeKeywords"
+                                       @onfocusout="ToArrayKeywords"
+                                       rows="3"
+                                       placeholder="Введите через запятую слова/фразы, окружающие атрибут в тексте" />
+                    </div>
+
+                    
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="CloseModal">Отмена</button>
@@ -945,6 +980,9 @@
     // Основные атрибуты
     private List<Атрибут> attributes = new();
     private Атрибут selectedAttribute = new();
+    private AttributeSettings selectedAttributeSettings = new();
+    private string attributeExamples = "";
+    private string attributeKeywords = "";
     private bool showAttributeModal = false;
 
     // Атрибуты университета
@@ -978,10 +1016,10 @@
     {
         get
         {
-            return attributeData.Where(x => 
+            return attributeData.Where(x =>
             {
                 bool matchesWork = filterAttributeDataWork == null || x.IdРаботы == filterAttributeDataWork;
-                bool matchesAttr = filterAttributeDataAttr == null 
+                bool matchesAttr = filterAttributeDataAttr == null
                     || allStructures
                         .Where(a => a.Атрибут.IdАтрибута == filterAttributeDataAttr)
                             .Select(x => x.IdСтруктуры).Contains(x.IdСтруктуры);
@@ -1068,6 +1106,16 @@
     {
         try
         {
+            if (typeof(T).Name == nameof(Атрибут))
+            {
+                selectedAttribute.Настройки = JsonConvert.SerializeObject(selectedAttributeSettings, new JsonSerializerSettings
+                {
+                    // наименование полей с маленькой буквы
+                    ContractResolver = new CamelCasePropertyNamesContractResolver(),
+                }
+                );
+            }
+
             string message = await AttributeService.Upsert(item) ? "Обновлено" : "Добавлено";
             await JSRuntime.InvokeVoidAsync("alert", message);
         }
@@ -1103,6 +1151,17 @@
             catch (DbUpdateException ex)
             {
                 string errorMessage = ex.InnerException?.Message ?? ex.Message;
+                if (errorMessage.Contains("учреждения"))
+                    errorMessage = "Атрибут уже используется учреждением";
+                else if (errorMessage.Contains("института"))
+                    errorMessage = "Атрибут уже используется одним из институтов";
+                else if (errorMessage.Contains("кафедры"))
+                    errorMessage = "Атрибут уже используется одним из кафедр";
+                else if (errorMessage.Contains("направления"))
+                    errorMessage = "Атрибут уже используется одним из направлений";
+                else if (errorMessage.Contains("профиля"))
+                    errorMessage = "Атрибут уже используется одним из профилей";
+
                 await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
             }
             catch (Exception ex)
@@ -1168,6 +1227,36 @@
         return res.DistinctBy(x => x.Атрибут.Название).ToList();
     }
 
+    private void ToArrayExamples()
+    {
+        attributeExamples = attributeExamples.Trim();
+        if (string.IsNullOrWhiteSpace(attributeExamples))
+        {
+            selectedAttributeSettings.Examples = null;
+            return;
+        }
+        selectedAttributeSettings.Examples = attributeExamples.Split(',')
+            .Select(x => x.Trim())
+            .Where(x => !string.IsNullOrEmpty(x))
+            .ToArray();
+        attributeExamples = string.Join(',', selectedAttributeSettings.Examples);
+    }
+
+    private void ToArrayKeywords()
+    {
+        attributeKeywords = attributeKeywords.Trim();
+        if (string.IsNullOrWhiteSpace(attributeKeywords))
+        {
+            selectedAttributeSettings.Keywords = null;
+            return;
+        }
+        selectedAttributeSettings.Keywords = attributeKeywords.Split(',')
+            .Select(x => x.Trim())
+            .Where(x => !string.IsNullOrEmpty(x))
+            .ToArray();
+        attributeKeywords = string.Join(',', selectedAttributeSettings.Keywords);
+    }
+
     private void CloseModal()
     {
         showAttributesOrganizationModal =
@@ -1186,6 +1275,8 @@
         if (attribute == null)
         {
             selectedAttribute = new();
+            selectedAttributeSettings = new();
+            attributeExamples = attributeKeywords = "";
             isEdit = false;
         }
         else
@@ -1195,6 +1286,9 @@
                 IdАтрибута = attribute.IdАтрибута,
                 Название = attribute.Название
             };
+            selectedAttributeSettings = JsonConvert.DeserializeObject<AttributeSettings>(attribute.Настройки ?? "") ?? new();
+            attributeExamples = string.Join(",", selectedAttributeSettings.Examples ?? []);
+            attributeKeywords = string.Join(",", selectedAttributeSettings.Keywords ?? []);
             isEdit = true;
         }
         showAttributeModal = true;

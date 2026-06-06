@@ -280,38 +280,65 @@
                 return true;
             }
 
-            Преподаватель? teacher = (await UserService.GetTeacherAsync(idUser)).FirstOrDefault(x => x.Активно == true);
-
-            if (teacher == null)
+            if (user.IsInRole(Settings.RoleInstituteResponsibleName) || user.IsInRole(Settings.RoleDepartmentHeadName)
+                || user.IsInRole(Settings.RoleDepartmentResponsibleName) || user.IsInRole(Settings.RoleTeacherName))
             {
-                errorMessage = "Вы не числитесь в университете";
-                return false;
-            }
+                List<Преподаватель> teachers = await UserService.GetTeacherAsync(idUser);
 
-            Работа work = (await RefDataService.GetAsync<Работа>()).First(x => x.IdРаботы == IdWork);
-            StructureDtoFactory factory = new(RefDataService);
-            StructureDto structure = await factory.CreateDisplayDtoAsync(work);
-            watermarkText = "ДЛЯ ПРОСМОТРА " + user.Identity.Name;
-
-            if (user.IsInRole(Settings.RoleInstituteResponsibleName))
-            {
-                if (structure.Институт.IdИнститута != teacher.IdИнститута)
+                if (teachers.Count == 0)
                 {
-                    errorMessage = $"Вы не числитесь в {structure.Институт.Название.Insert(structure.Институт.Название.IndexOf(' '), "е")}";
-                    return false;
-                }
-                return true;
-            }
-
-            if (user.IsInRole(Settings.RoleDepartmentResponsibleName))
-            {
-                if (structure.Кафедра.IdКафедры != teacher.IdКафедры)
-                {
-                    errorMessage = $"Вы не числитесь на кафедре \"{structure.Кафедра.Название}\" {structure.Институт.Название.Insert(structure.Институт.Название.IndexOf(' '), "а")}";
+                    errorMessage = "Вы не числитесь в университете";
                     return false;
                 }
 
-                return true;
+                Работа work = (await RefDataService.GetAsync<Работа>()).First(x => x.IdРаботы == IdWork);
+                watermarkText = $"ТОЛЬКО ПРОСМОТР ДЛЯ {user.Identity!.Name!.ToUpper()}";
+
+                // Предоставляем доступ просмотра руководителю работы
+                if (teachers.Exists(x => x.IdПреподавателя == work.IdПреподавателя))
+                    return true;
+
+                StructureDtoFactory factory = new(RefDataService);
+                StructureDto structure = await factory.CreateDisplayDtoAsync(work);
+
+                // Предоставляем доступ просмотра ответственному института
+                if (user.IsInRole(Settings.RoleInstituteResponsibleName))
+                {
+                    if (structure.Институт.IdИнститута != teachers.FirstOrDefault(x => x.Активно)?.IdИнститута)
+                    {
+                        errorMessage = $"Вы не числитесь в {structure.Институт.Название.Insert(structure.Институт.Название.IndexOf(' '), "е")}";
+                        return false;
+                    }
+                    return true;
+                }
+
+                // Предоставляем доступ просмотра завкафедрой и ответственному кафедры
+                if (user.IsInRole(Settings.RoleDepartmentResponsibleName) || user.IsInRole(Settings.RoleDepartmentHeadName))
+                {
+                    if (structure.Кафедра.IdКафедры != teachers.FirstOrDefault(x => x.Активно)?.IdКафедры)
+                    {
+                        errorMessage = $"Вы не числитесь на кафедре \"{structure.Кафедра.Название}\" {structure.Институт.Название.Insert(structure.Институт.Название.IndexOf(' '), "а")}";
+                        return false;
+                    }
+
+                    return true;
+                }
+            }
+            else if (user.IsInRole(Settings.RoleStudentName))
+            {
+                List<Студент> students = await UserService.GetStudentAsync(idUser);
+
+                if (students.Count == 0)
+                {
+                    errorMessage = "Вы не числитесь в университете";
+                    return false;
+                }
+                
+                Работа work = (await RefDataService.GetAsync<Работа>()).First(x => x.IdРаботы == IdWork);
+
+                // Предоставляем доступ просмотра автору работы
+                if (students.Exists(x => x.IdСтудента == work.IdСтудента))
+                    return true;
             }
         }
 

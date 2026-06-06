@@ -96,8 +96,8 @@ def create_extraction_prompt_dynamic(retrieved_text: str, attributes: list[dict]
         {
             "название": "среда разработки",
             "query": "среда разработки ide",
-            "keywords": ["intellij", "visual studio"],
-            "examples": "IntelliJ IDEA, Visual Studio"
+            "keywords": ["среда", "разработан", "программный", "платформа", "серверная", "клиентская"],
+            "examples": ["IntelliJ IDEA", "Visual Studio"]
         },
         ...
     ]
@@ -108,11 +108,9 @@ def create_extraction_prompt_dynamic(retrieved_text: str, attributes: list[dict]
     attr_list_lines = []
     for attr in attributes:
         name = attr["название"]
-        examples = attr.get("examples", "")
-        line = f'- "{name}"'
+        examples = attr.get("examples", [])
         if examples:
-            line += f" (например, {examples})"
-        attr_list_lines.append(line)
+            attr_list_lines.append(f'- "{name}" (например, {", ".join(examples)})')
 
     # Подсказки из keywords
     hints_lines = []
@@ -142,6 +140,9 @@ def create_extraction_prompt_dynamic(retrieved_text: str, attributes: list[dict]
 4. Не используй примеры как ответ — только реальные данные из текста.
 5. Не пиши ничего кроме JSON.
 6. Если у атрибута есть 2 и более ответа, впиши их через запятую ",".
+
+ФОРМАТ ОТВЕТА (СКОПИРУЙ ТОЧНО):
+{{"атрибут": "найденное или Н/Д", "атрибут": "найденное или Н/Д" ...}}
 
 Подсказки для поиска:
 {chr(10).join(hints_lines) if hints_lines else "отсутствуют"}
@@ -204,7 +205,7 @@ def extract_json_from_chunks_dynamic(
 
     system_msg, user_msg = create_extraction_prompt_dynamic(retrieved_text, attributes)
 
-    print(f"  Отправляю в {model_ai}... (фрагмент: {len(retrieved_text)} симв.)")
+    print(f"{datetime.now()} 5. Отправляю в {model_ai}... (фрагмент: {len(retrieved_text)} симв.)")
     response = chat(
         model=model_ai,
         messages=[
@@ -266,7 +267,7 @@ async def extract_json_from_chunks_dynamic_async(
 
     system_msg, user_msg = create_extraction_prompt_dynamic(retrieved_text, attributes)
 
-    print(f"  Отправляю в {model_ai}... (фрагмент: {len(retrieved_text)} симв.)")
+    print(f"{datetime.now()} 5. Отправляю в {model_ai}... (фрагмент: {len(retrieved_text)} симв.)")
     answer = await ollama_chat_async(
         model=model_ai,
         messages=[

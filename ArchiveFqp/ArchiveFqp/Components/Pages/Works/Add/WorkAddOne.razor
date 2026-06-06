@@ -31,7 +31,7 @@
                             {
                                 <h4 class="mb-0 text-white">
                                     <i class="bi bi-plus-circle me-2"></i>Добавление новой работы
-                                    <button class="btn btn-primary" @onclick="Reset">
+                                    <button class="btn btn-primary" @onclick="@(async () => await Reset(true))">
                                         Сбросить данные
                                     </button>
                                 </h4>
@@ -51,24 +51,14 @@
                                 </button>
                             }
                         </div>
-                        @if (WorkDto.Attributes == null && !IsMultiple)
-                        {
-                            <div class="card-body">
-                                <WorkDataAdd @bind-WorkDto="@WorkDto" @bind-WorkDto:after="OnWorkDTOChanged"
-                                             SessionStoreNameWorkDTO="@SessionStoreNameWorkDTO" />
-                            </div>
-                        }
-                        else
-                        {
-                            <div id="@SessionStoreNameWorkDTO" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionWork">
-                                <div class="accordion-body">
-                                    <div class="card-body">
-                                        <WorkDataAdd @bind-WorkDto="@WorkDto" @bind-WorkDto:after="OnWorkDTOChanged"
-                                                     SessionStoreNameWorkDTO="@SessionStoreNameWorkDTO" />
-                                    </div>
+                        <div id="@SessionStoreNameWorkDTO" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#accordionWork">
+                            <div class="accordion-body">
+                                <div class="card-body">
+                                    <WorkDataAdd @bind-WorkDto="@WorkDto" @bind-WorkDto:after="OnWorkDTOChanged"
+                                                 SessionStoreNameWorkDTO="@SessionStoreNameWorkDTO" />
                                 </div>
                             </div>
-                        }
+                        </div>
                     </div>
                 </div>
             </div>
@@ -113,20 +103,11 @@
     [Parameter] public string SessionStoreNameWorkDTO { get; set; } = "workDTO";
 
     private Dictionary<int, List<string>> attributesValues = [];
+    private bool firstCheck = true;
 
     protected override async Task OnInitializedAsync()
     {
         RefDataService.TablesChanged += OnTablesChanged;
-
-        if (WorkDto.IdРаботы != 0)
-        {
-            Работа? work = (await RefDataService.GetAsync<Работа>()).FirstOrDefault(x => x.IdРаботы == WorkDto.IdРаботы);
-            if (work == null)
-            {
-                await JSRuntime.InvokeVoidAsync("alert", "Работа была удалена");
-                await Reset();
-            }
-        }
     }
 
     private async Task OnWorkDTOChanged()
@@ -143,10 +124,29 @@
                     return a;
                 }).ToList();
 
+            await ProtectedSessionStore.SetAsync(SessionStoreNameWorkDTO, WorkDto);
+
             if (WorkDto.Attributes == null)
             {
                 WorkDto.AttributesValuesAdded = true;
                 await End();
+            }
+            else
+            {
+                StateHasChanged();
+                // Закрываем аккордеон данных и открываем - атрибутов
+                await JSRuntime.InvokeVoidAsync("eval",
+                $"document.querySelector('[data-bs-target=\"#{SessionStoreNameWorkDTO}\"]').click()");
+            }
+        }
+        else if (WorkDto.IdРаботы != 0 && firstCheck)
+        {
+            firstCheck = false;
+            Работа? work = (await RefDataService.GetAsync<Работа>()).FirstOrDefault(x => x.IdРаботы == WorkDto.IdРаботы);
+            if (work == null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Работа была удалена");
+                await Reset();
             }
         }
 
@@ -170,14 +170,27 @@
                 .GetWorkStatusesAsync())
                     .First(sw => sw.Название == Settings.WorkInArchiveStatus).IdСтатусаРаботы);
 
-        // Даем пользователю время на просмотр результата перед очисткой данных
-        await Task.Delay(2000);
+        if (!IsMultiple)
+        {
+            // Даем пользователю время на просмотр результата перед очисткой данных
+            await Task.Delay(2000);
 
-        await Reset();
+            await Reset();
+        }
+
+        EndAdd?.Invoke();
     }
 
-    private async Task Reset()
+    private async Task Reset(bool fromButton = false)
     {
+        if (fromButton && (WorkDto.TempFileWithTitle != null || WorkDto.WithoutFileWithTitle))
+        {
+            if (!(await JSRuntime.InvokeAsync<bool>("confirm", "Вы действительно хотите сбросить данныые?")))
+            {
+                return;
+            }
+        }
+
         if (WorkDto.TempFileWithTitle != null)
             FileUploadService.CleanupTempFilesAsync(WorkDto.TempFileWithTitle.SessionId);
         WorkDto = new();

@@ -3,7 +3,9 @@
 @using ArchiveFqp.Factories.DisplayDto.Teacher
 @using ArchiveFqp.Interfaces.Settings
 @using ArchiveFqp.Interfaces.User
+@using ArchiveFqp.Models.AiExtractor
 @using ArchiveFqp.Models.DTO
+@using ArchiveFqp.Models.DTO.Student
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.Work
 @using ArchiveFqp.Models.DatabaseNotification
@@ -16,7 +18,9 @@
 @using ArchiveFqp.Models.Settings.Institute
 @using ArchiveFqp.Models.Settings.Profile
 @using ArchiveFqp.Models.Settings.SettingsArchive
+@using ArchiveFqp.Services.AiExtractor
 @using ArchiveFqp.Services.FileUpload
+@using ArchiveFqp.Services.FuzzySearch
 @using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Interfaces.Work
 @using Microsoft.EntityFrameworkCore
@@ -24,6 +28,7 @@
 @using System.Security.Claims
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Serialization
+@using System.Text.Json
 @inject NavigationManager Navigation
 @inject ProtectedLocalStorage ProtectedSessionStore
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
@@ -34,11 +39,38 @@
 @inject IReferenceDataService RefDataService
 @inject SettingsArchive Settings
 @inject ISettingsService SettingsService
+@inject AiExtractorService AiExtractorService
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 @if (editContext != null)
 {
+    @if (aiError != null)
+    {
+        <div class="alert alert-warning">@aiError</div>
+    }
+    @if (aiStatus != null)
+    {
+        <div class="text-center alert alert-@(aiSuccess ? "success" : "info")">
+            @if (aiRunning)
+            {
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden"></span>
+                </div>
+                
+            }
+            <p class="mt-2 mb-0">@aiStatus</p>
+            @if (aiRunning || aiConnecting)
+            {
+                <button type="button" class="btn btn-secondary"
+                        @onclick="CancelCurrentOperation" disabled="@token.IsCancellationRequested">
+                    <i class="bi bi-x-circle"></i> Отменить
+                </button>
+            }
+        </div>
+    }
+
     @if (errorMessage != null && successMessage == null)
     {
         <div class="alert alert-danger">@errorMessage</div>
@@ -58,7 +90,7 @@
         </div>
 
         <FileUploadTemp @bind-WorkDto="WorkDto"
-                        @bind-WorkDto:after="AddTempFile" />
+                        @bind-WorkDto:after="AddTempFileAndExtract" />
     }
 
     @if (WorkDto.TempFileWithTitle != null || WorkDto.WithoutFileWithTitle || IsEdit || WorkDto.IdРаботы != 0)
@@ -579,6 +611,7 @@
     [Parameter] public string SessionStoreNameWorkDTO { get; set; } = "workDTO";
     [Parameter] public Func<Task>? EndEdit { get; set; }
     [Parameter] public bool IsEdit { get; set; } = false;
+    [Parameter] public bool JustWatch { get; set; } = false;
 
     private TeacherDtoFactory? teacherDtoFactory;
     private StudentDtoFactory? studentDtoFactory;
@@ -614,7 +647,13 @@
     private FileUploadWithHashResult? uploadResult;
     private List<SelectedFileInfo> selectedFiles = new();
 
-    private string currentSessionId = Guid.NewGuid().ToString();
+    private string? aiError;
+    private ExtractTitleResult? aiResult;
+    private string? aiStatus;
+    private string? aiTaskId;
+    private bool aiSuccess;
+    private bool aiRunning;
+    private bool aiConnecting;
 
     EditContext? editContext;
     ValidationMessageStore? messageStore;
@@ -682,7 +721,7 @@
 
         if (WorkDto.TempFileWithTitle != null)
         {
-            await AddTempFile();
+            AddTempFile();
         }
 
         if (WorkDto.IdСтатусаРаботы == -1)
@@ -702,15 +741,20 @@
                 FileUploadService.CleanupTempFilesAsync(WorkDto.TempFileWithTitle.SessionId);
                 WorkDto.TempFileWithTitle = null;
             }
+            aiStatus = aiError = aiTaskId = null;
+            aiSuccess = false;
             successMessage = null;
             selectedFiles = new();
             isFqp = hasCR = false;
+            workType = "";
             WorkDto.IdСтатусаРаботы = snapshot.WorkStatuses.First(ws => ws.Название == Settings.WorkOnReviewStatus).IdСтатусаРаботы;
             await SetStructuresByRole();
+            editContext = new(WorkDto);
+            messageStore = new(editContext);
         }
-        else if (WorkDto.TempFileWithTitle != null && !selectedFiles.Exists(x => x.IsTempFile))
+        else if (WorkDto.TempFileWithTitle != null && !selectedFiles.Exists(x => x.IsTempFile) && WorkDto.IdРаботы == 0)
         {
-            await AddTempFile();
+            AddTempFile();
             await SetStructuresByRole();
         }
         else if (IsEdit)
@@ -877,8 +921,8 @@
                     .Where(x => filteredEducationLevels.Select(y => y.IdУровняОбразования).Contains(x.IdУровняОбразования))
                     .OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия)
                     .ToList();
-                if (!IsEdit) // и исключение студентов, у которых уже есть выпускные работы
-                {
+                if (!IsEdit && WorkDto.IdРаботы == 0)
+                { // и исключение студентов, у которых уже есть выпускные работы
                     List<Работа> works = await RefDataService.GetAsync<Работа>();
                     filteredStudents = filteredStudents
                         .Where(x => !works
@@ -887,8 +931,8 @@
                         .ToList();
                 }
 
-                // Если указан существующий студент, но него не оказалось в списке,
-                // то очищаем и обновляем список
+                // Если указан существующий студент, но его не оказалось в списке,
+                // то очищаем его и обновляем поля
                 if (WorkDto.IdСтудента != null && !WorkDto.IsNewUser
                     && !filteredStudents.Exists(s => s.IdСтудента == WorkDto.IdСтудента))
                 {
@@ -962,9 +1006,10 @@
         StateHasChanged();
     }
 
-    private async Task AddTempFile()
+    private void AddTempFile()
     {
-        if (WorkDto.TempFileWithTitle == null) return;
+        if (WorkDto.TempFileWithTitle == null
+            || selectedFiles.Exists(x => x.Name == WorkDto.TempFileWithTitle.OriginalFileName)) return;
 
         TempFileInfo file = WorkDto.TempFileWithTitle;
         selectedFiles.Add(new SelectedFileInfo
@@ -978,6 +1023,28 @@
             IsTempFile = true,
             TempFileInfo = file
         });
+    }
+
+    private async Task AddTempFileAndExtract()
+    {
+        AddTempFile();
+        WorkDto.КоличСтраниц = WorkDto.TempFileWithTitle?.PageCount;
+        await SaveStateWorkDTO();
+        await StartTitleExtraction();
+    }
+
+    private async Task CheckWorkAdded(Работа? work = null)
+    {
+        work ??= (await RefDataService.GetAsync<Работа>()).FirstOrDefault(x => x.IdРаботы == WorkDto.IdРаботы);
+
+        if (work != null && work.IdРаботы == WorkDto.IdРаботы)
+        {
+            errorMessage = null;
+            successMessage = "Работа успешно добавлена!";
+            await SaveStateWorkDTO();
+            waitAddWork = false;
+            StateHasChanged();
+        }
     }
 
     private async Task OnStudentChanged(int? id)
@@ -1067,6 +1134,7 @@
     private async Task OnFilesConfirmed(List<SelectedFileInfo> selectedFiles)
     {
         this.selectedFiles = new(selectedFiles);
+        AddTempFile();
         selectedFiles.Clear();
 
         StateHasChanged();
@@ -1090,14 +1158,7 @@
                 {
                     Работа? work = JsonConvert.DeserializeObject<Работа>(e.New!.ToString(),
                                 new JsonSerializerSettings { ContractResolver = new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() } });
-                    if (work != null && work.IdРаботы == WorkDto.IdРаботы)
-                    {
-                        errorMessage = null;
-                        successMessage = "Работа успешно добавлена!";
-                        await SaveStateWorkDTO();
-                        waitAddWork = false;
-                        StateHasChanged();
-                    }
+                    await CheckWorkAdded(work);
                 }
 
                 if (WorkDto.IdРаботы != 0) return;
@@ -1159,6 +1220,14 @@
 
     private async Task HandleValidSubmit()
     {
+        if (WorkDto.TempFileWithTitle != null && selectedFiles.Count == 1)
+        {
+            if (!(await JSRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что загрузили все файлы работы?")))
+            {
+                return;
+            }
+        }
+
         isSubmitting = true;
         StateHasChanged();
         Работа work = new();
@@ -1213,7 +1282,15 @@
                     }
                     else
                     {
-                        work.Эцп = res.HashesInfo.CompositeHash;
+                        if (WorkDto.TempFileWithTitle != null)
+                        {
+                            FileUploadService.MoveTempFileToWorkAsync(WorkDto.TempFileWithTitle, work.Местоположение);
+                            work.Эцп = await FileUploadService.ComputeCompositeFilesHashAsync(work.Местоположение, token);
+                        }
+                        else
+                        {
+                            work.Эцп = res.HashesInfo.CompositeHash;
+                        }
                         context.Работаs.Add(work);
                     }
 
@@ -1244,6 +1321,9 @@
                     while (waitAddWork)
                     {
                         await Task.Delay(300);
+                        await Task.Delay(300);
+                        if (!waitAddWork) break;
+                        else await CheckWorkAdded();
                     }
                 }
             }
@@ -1471,7 +1551,7 @@
                 IsTemp = IsEdit
             };
 
-            foreach (var file in selectedFiles)
+            foreach (var file in selectedFiles.Where(x => !x.IsTempFile))
             {
                 uploadContext.AddFile(file.DisplaySelectedType, file.BrowserFile!);
             }
@@ -1522,6 +1602,223 @@
 
     #endregion
 
+    #region Взаимодействие с сервисом локальной ИИ
+
+    private async Task<HealthResponse> GetHealth()
+    {
+        return await AiExtractorService.Health();
+    }
+
+    private async Task StartTitleExtraction()
+    {
+        aiSuccess = false;
+        aiStatus = "Соединение с сервисом...";
+        token = cancelTokenSource.Token;
+        aiError = null;
+        aiConnecting = true;
+        StateHasChanged();
+
+        HealthResponse response = await GetHealth();
+        if (response.Status == "error" || !string.IsNullOrEmpty(response.Ollama.Error))
+        {
+            aiError = "Сервис извлечения данных с титульников недоступен. Приносим извинения";
+            aiStatus = null;
+            return;
+        }
+
+        await RunWithCancellation(async () =>
+        {
+            if (token.IsCancellationRequested)
+            {
+                aiStatus = "Извлечение титульника отменено";
+                aiConnecting = false;
+                return;
+            }
+
+            aiResult = null;
+            aiStatus = "Извлечение титульника...";
+
+            var task = await AiExtractorService.StartTitleExtractionAsync(WorkDto.TempFileWithTitle!.RelativePath, true, WorkDto.TempFileWithTitle.StoredFileName);
+            if (!string.IsNullOrEmpty(task.Error))
+            {
+                aiError = task.Error;
+                aiStatus = null;
+                return;
+            }
+            else if (token.IsCancellationRequested)
+            {
+                aiStatus = "Извлечение титульника отменено";
+                aiConnecting = false;
+                return;
+            }
+
+            aiTaskId = task.TaskId;
+
+            aiConnecting = false;
+            aiRunning = true;
+            StateHasChanged();
+            aiResult = await PollUntilComplete(
+                aiTaskId, () => AiExtractorService.GetTitleExtractionStatusAsync(aiTaskId)
+            );
+
+            // Используйте для быстрой проверки
+//             string res = """
+// {
+//   "raw_text": "",
+//     "title": {
+//         "институт": "Институт Информационных технологий и коммуникаций",
+//         "кафедра": "Автоматизированные системы об аботки информации и управления",
+//         "направление": "09.03.04 Программная инженерия",
+//         "профиль": "Разработка программно-информационных систем",
+//         "типРаботы": "Бакалаврская работа",
+//         "тема": "Информатическая система планирования выгрузки товаров из центрального грузового порта г. Астрахань",
+//         "группа": "ДИПРб-41",
+//         "автор": "Хизри Хи Хо Хузыроч",
+//         "руководитель": "Куркурин Николай Дмитриевич",
+//         "должностьРуководителя": "ст. преп.",
+//         "год": "Н/Д"
+//   }
+// }
+// """;
+//             aiResult = JsonConvert.DeserializeObject<ExtractTitleResult>(res);
+        },
+        async () =>
+        {
+            aiStatus = "Перенос извлеченных данных...";
+            aiRunning = false;
+            StateHasChanged();
+            await SetExtractedDatas(aiResult);
+            aiStatus = "Данные извлечены и перенесены";
+            aiSuccess = true;
+        });
+    }
+
+    private async Task<ExtractTitleResult?> PollUntilComplete(
+        string taskId, Func<Task<ExtractTitleStatusResponse>> statusFunc)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            var status = await statusFunc();
+
+            if (status.Status == "completed")
+            {
+                aiStatus = "Титульник извлечён";
+                return status.Result;
+            }
+
+            if (status.Status == "cancelled")
+            {
+                aiStatus = "Извлечение титульника отменено";
+                return null;
+            }
+
+            if (status.Status == "error")
+            {
+                aiError = $"Ошибка: {status.Error}";
+                aiStatus = null;
+                return null;
+            }
+
+            await Task.Delay(3000, token);
+        }
+
+        return null;
+    }
+
+    private async Task RunWithCancellation(Func<Task> action, Func<Task> cleanup)
+    {
+        try
+        {
+            await action();
+        }
+        catch (OperationCanceledException)
+        {
+            aiStatus = "Извлечение титульника отменено";
+        }
+        catch (Exception ex)
+        {
+            aiError = $"Ошибка: {ex.Message}";
+            aiStatus = null;
+        }
+        finally
+        {
+            await cleanup();
+            aiTaskId = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CancelCurrentOperation()
+    {
+        Cancel();
+        if (aiTaskId != null)
+        {
+            try
+            {
+                if (aiRunning)
+                    await AiExtractorService.CancelTitleExtractionAsync(aiTaskId);
+            }
+            catch { /* игнорируем ошибки отмены */ }
+        }
+    }
+
+    private async Task SetExtractedDatas(ExtractTitleResult? result)
+    {
+        if (result == null) return;
+
+        TitleInfo title = result.Title;
+        WorkDto.Тема = title.Тема;
+
+        double threshold = 0.5;
+
+        List<TeacherDisplayDto> teachersDto = await teacherDtoFactory!.CreateDisplayDtoAsync(filteredTeachers);
+        (string? teacherFio, _) = StringSimilarity.FindBest(title.Руководитель, [.. teachersDto.Select(x => x.Пользователь.ФИО)], threshold);
+        if (teacherFio != null)
+            WorkDto.IdПреподавателя = teachersDto.First(x => x.Пользователь.ФИО == teacherFio).IdПреподавателя;
+
+        if (title.ТипРаботы != "Н/Д")
+        {
+            if (title.ТипРаботы.ToLower().Contains("бакалавр")) WorkDto.IdТипаРаботы = snapshot.WorkTypes.FirstOrDefault(x => x.Название.Contains("ВКРБ"))?.IdТипаРаботы;
+            else if (title.ТипРаботы.ToLower().Contains("магистр")) WorkDto.IdТипаРаботы = snapshot.WorkTypes.FirstOrDefault(x => x.Название.Contains("МД"))?.IdТипаРаботы;
+            await OnWorkTypeChanged();
+        }
+
+        List<StudentDisplayDto> studentsDto = await studentDtoFactory!.CreateDisplayDtoAsync(filteredStudents);
+        (string? studentFio, _) = StringSimilarity.FindBest(title.Автор, [.. studentsDto.Select(x => x.Пользователь.ФИО)], threshold);
+
+        if (studentFio != null)
+        {
+            WorkDto.IdСтудента = studentsDto.First(x => x.Пользователь.ФИО == studentFio).IdСтудента;
+            await OnStudentChanged(WorkDto.IdСтудента);
+        }
+        else
+        {
+            WorkDto.IsNewUser = true;
+            string[] fio = title.Автор.Split(" ");
+            WorkDto.Surname = fio[0];
+            WorkDto.Name = fio[1];
+            WorkDto.Patronymic = string.Join(" ", fio[2..]);
+
+            (var institute, _) = StringSimilarity.FindBest(title.Институт, snapshot.Institutes, threshold);
+            if (institute != null && institute.IdИнститута != WorkDto.IdИнститута && !disableInstitute)
+                WorkDto.IdИнститута = institute.IdИнститута;
+
+            (var department, _) = StringSimilarity.FindBest(title.Кафедра, snapshot.Departments, threshold);
+            if (department != null && department.IdКафедры != WorkDto.IdКафедры && !disableDepartment)
+                WorkDto.IdКафедры = department.IdКафедры;
+
+            (var direction, _) = StringSimilarity.FindBest(title.Направление, snapshot.Directions, threshold);
+            if (direction != null && direction.IdНаправления != WorkDto.IdНаправления) WorkDto.IdНаправления = direction.IdНаправления;
+
+            (var profile, _) = StringSimilarity.FindBest(title.Профиль, snapshot.Profiles, threshold);
+            if (profile != null && profile.IdПрофиля != WorkDto.IdПрофиля) WorkDto.IdПрофиля = profile.IdПрофиля;
+
+            if (title.Год != "Н/Д") WorkDto.ГодВыпуска = int.Parse(title.Год);
+        }
+    }
+
+    #endregion
+
     private async Task SwitchToStudent()
     {
         if (WorkDto.IsNewUser)
@@ -1540,11 +1837,6 @@
 
     public void Dispose()
     {
-        if (WorkDto.TempFileWithTitle != null)
-        {
-            FileUploadService.CleanupTempFilesAsync(WorkDto.TempFileWithTitle.SessionId);
-            WorkDto.TempFileWithTitle = null;
-        }
         FileUploadService.ProgressChanged -= OnUploadProgressChanged;
         RefDataService.TablesChanged -= OnTablesChanged;
         cancelTokenSource.Cancel();

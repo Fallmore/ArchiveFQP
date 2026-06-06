@@ -1,6 +1,9 @@
 ﻿@using ArchiveFqp.Models.DTO.Work
+@using ArchiveFqp.Services.FileUpload
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject ProtectedLocalStorage ProtectedSessionStore
+@inject WorkFileUploadService FileUploadService
+@inject IJSRuntime JSRuntime
 @rendermode @(new InteractiveServerRenderMode(prerender: true))
 
 @if (RendererInfo.IsInteractive)
@@ -122,6 +125,20 @@
                 </div>
             </div>
         </div>
+
+        <!-- Кнопка завершения добавления работ -->
+        <div class="row mt-2 d-flex justify-content-center">
+            <div class="col-6">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-success btn-lg border-2 border-dashed py-3"
+                            type="button" disabled="@(!allWorksAdded)"
+                            @onclick="EndAddWorks">
+                        <i class="bi bi-check-circle me-2 fs-5"></i>
+                        <span class="fw-bold">Завершить добавление</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 }
 
@@ -130,6 +147,8 @@
     [Parameter] public EventCallback<List<WorkCreateDto>> WorkDtosChanged { get; set; }
     [Parameter] public Func<Task>? EndAdd { get; set; }
     [Parameter] public string SessionStoreNameWorkDTO { get; set; } = "workDTOMultiple";
+
+    private bool allWorksAdded => WorkDtos.Count(x => x.AttributesValuesAdded) == WorkDtos.Count();
 
     protected override async Task OnInitializedAsync()
     {
@@ -152,7 +171,7 @@
             {
                 var oldDtos = WorkDtos.ToList();
                 WorkDtos.Clear();
-                
+
                 for (int i = 0; i < countWorks; i++)
                 {
                     if (i < oldDtos.Count)
@@ -169,10 +188,10 @@
     private async Task MoveWorkUp(int index)
     {
         if (index <= 0) return;
-        
+
         // Меняем местами элементы
         (WorkDtos[index], WorkDtos[index - 1]) = (WorkDtos[index - 1], WorkDtos[index]);
-        
+
         // Обновляем порядок в хранилище
         await UpdateStorageOrder(index - 1, index);
         await WorkDtosChanged.InvokeAsync(WorkDtos);
@@ -182,10 +201,10 @@
     private async Task MoveWorkDown(int index)
     {
         if (index >= WorkDtos.Count - 1) return;
-        
+
         // Меняем местами элементы
         (WorkDtos[index], WorkDtos[index + 1]) = (WorkDtos[index + 1], WorkDtos[index]);
-        
+
         // Обновляем порядок в хранилище
         await UpdateStorageOrder(index, index + 1);
         await WorkDtosChanged.InvokeAsync(WorkDtos);
@@ -194,13 +213,34 @@
 
     private async Task EndAddOne()
     {
-        
+    }
+
+    private async Task EndAddWorks()
+    {
+        await ProtectedSessionStore.DeleteAsync(SessionStoreNameWorkDTO);
+
+        for (int i = 0; i < WorkDtos.Count; i++)
+            await ProtectedSessionStore.DeleteAsync(SessionStoreNameWorkDTO + i);
+        EndAdd?.Invoke();
     }
 
     private async Task RemoveWork(int index)
     {
         if (index < 0 || index >= WorkDtos.Count) return;
+
         
+        var tempFile = WorkDtos[index].TempFileWithTitle;
+
+        if (tempFile != null || WorkDtos[index].WithoutFileWithTitle)
+        {
+            if (!(await JSRuntime.InvokeAsync<bool>("confirm", "Вы действительно хотите удалить работу с данными?")))
+            {
+                return;
+            }
+        }
+
+        if (tempFile != null) FileUploadService.CleanupTempFilesAsync(tempFile.SessionId);
+
         WorkDtos.RemoveAt(index);
         
         // Удаляем данные из хранилища для этого индекса

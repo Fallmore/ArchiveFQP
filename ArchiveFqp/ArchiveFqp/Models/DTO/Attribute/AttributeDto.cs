@@ -1,21 +1,26 @@
 ﻿using ArchiveFqp.Models.Database;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace ArchiveFqp.Models.DTO.Attribute
 {
     public class AttributeDto : IEquatable<AttributeDto>
     {
+        [JsonPropertyName("id_атрибута")]
         public int IdАтрибута { get; set; } = 0;
 
+        [JsonPropertyName("id_данных")]
         public int IdДанных { get; set; } = 0;
 
         public int IdСтруктуры { get; set; } = 0;
 
         public int IdРаботы { get; set; } = 0;
 
+        [JsonPropertyName("атрибут")]
         public string Название { get; set; } = "";
 
         [Required(ErrorMessage = "Заполните данные")]
+        [JsonPropertyName("значение")]
         public string Данные { get; set; } = "";
 
         public AttributeDto(int idАтрибута, int idДанных, int idСтруктуры, int idРаботы, string название, string данные)

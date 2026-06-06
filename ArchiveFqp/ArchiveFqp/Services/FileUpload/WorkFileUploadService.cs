@@ -7,6 +7,7 @@ using ArchiveFqp.Models.Settings.SettingsArchive;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Components.Forms;
 using System.Text.RegularExpressions;
+using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 
 namespace ArchiveFqp.Services.FileUpload
@@ -120,13 +121,14 @@ namespace ArchiveFqp.Services.FileUpload
             {
                 // Строим путь к папке
                 string relativeFolderPath = BuildFolderPath(context);
-                if (!workContext.IsTemp && DirectoryExists(relativeFolderPath))
-                {
-                    result.FileResults = [new FileUploadResult{
-                        Success = false,
-                        ErrorMessage = "Работа данного студента уже в архиве!"}];
-                    return result;
-                }
+#warning расскоментировать после всех проверок
+                //if (!workContext.IsTemp && DirectoryExists(relativeFolderPath))
+                //{
+                //    result.FileResults = [new FileUploadResult{
+                //        Success = false,
+                //        ErrorMessage = "Работа данного студента уже в архиве!"}];
+                //    return result;
+                //}
                 if (workContext.IsTemp) relativeFolderPath = Path.Combine(relativeFolderPath, _settings.FolderTempName);
                 string fullFolderPath = EnsureDirectoryExists(relativeFolderPath);
 
@@ -577,17 +579,23 @@ namespace ArchiveFqp.Services.FileUpload
                         IsTemp = true
                     });
                 }
+                fileStream.Close();
 
                 result.Success = true;
                 result.SessionId = sessionId;
                 result.TempFilePath = tempFilePath;
-                result.RelativePath = $"/{sessionId}/{storedFileName}";
+                result.RelativePath = $"{_settings.FolderTempName}/{sessionId}";
                 result.OriginalFileName = file.Name;
                 result.StoredFileName = storedFileName;
                 result.FileSize = file.Size;
                 result.FileTypeKey = fileTypeKey;
                 result.FileTypeName = config.DisplayName;
                 result.UploadedAt = DateTime.Now;
+
+                if (file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    result.PageCount = await GetPdfPageCountAsync(tempFilePath);
+                }
 
                 _logger.LogDebug("Временный файл загружен: {Path}", tempFilePath);
             }
@@ -607,7 +615,7 @@ namespace ArchiveFqp.Services.FileUpload
         /// <param name="tempFileInfo">Информация о временном файле</param>
         /// <param name="workPath">относительный путь к работе</param>
         /// <returns>Новый путь к файлу</returns>
-        public async Task<string?> MoveTempFileToWorkAsync(TempFileInfo tempFileInfo, string workPath)
+        public string? MoveTempFileToWorkAsync(TempFileInfo tempFileInfo, string workPath)
         {
             if (!tempFileInfo.Success || string.IsNullOrEmpty(tempFileInfo.TempFilePath))
                 return null;
@@ -669,6 +677,28 @@ namespace ArchiveFqp.Services.FileUpload
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Ошибка очистки временных файлов сессии {SessionId}", sessionId);
+            }
+        }
+
+        /// <summary>
+        /// Получение количества страниц в PDF файле с помощью PdfPig
+        /// </summary>
+        public async Task<int?> GetPdfPageCountAsync(string filePath)
+        {
+            try
+            {
+                if (!File.Exists(filePath))
+                    return null;
+
+                await Task.Yield();
+
+                using var document = PdfDocument.Open(filePath);
+                return document.NumberOfPages;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка получения количества страниц PDF: {Path}", filePath);
+                return null;
             }
         }
     }

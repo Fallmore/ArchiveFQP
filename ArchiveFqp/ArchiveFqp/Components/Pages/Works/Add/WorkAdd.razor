@@ -84,11 +84,13 @@
     {
         selectedMode = null;
         await JSRuntime.InvokeVoidAsync("alert", "Работа успешно добавлена!");
+        StateHasChanged();
     }
 
     private async Task EndAddMultiple()
     {
         selectedMode = null;
         await JSRuntime.InvokeVoidAsync("alert", "Работы успешно добавлены!");
+        StateHasChanged();
     }
 }

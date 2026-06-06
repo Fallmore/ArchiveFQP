@@ -21,6 +21,8 @@
 
         public DateTime UploadedAt { get; set; }
 
+        public int? PageCount { get; set; }
+
         public string FormattedSize => FormatFileSize(FileSize);
 
         private static string FormatFileSize(long bytes)

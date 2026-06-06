@@ -1,21 +1,29 @@
 ﻿@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Models.AiExtractor
 @using ArchiveFqp.Models.DTO.Attribute
 @using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Interfaces.Work
+@using ArchiveFqp.Services.AiExtractor
 @using Microsoft.EntityFrameworkCore
 @using ArchiveFqp.Components.Components
 @using ArchiveFqp.Models.DTO
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Serialization
+@using System.Text.Json
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject IWorkService WorkService
 @inject ILogger<WorkAdd> Logger
 @inject SettingsArchive Settings
 @inject IReferenceDataService RefDataService
+@inject AiExtractorService AiExtractorService
 @implements IDisposable
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
+@if (aiError != null)
+{
+    <div class="alert alert-warning">@aiError</div>
+}
 @if (errorMessage != null && successMessage == null)
 {
     <div class="alert alert-danger">@errorMessage</div>
@@ -98,6 +106,14 @@
     private string? errorMessage;
     private string? warningMessage;
     private string? successMessage;
+
+    private string? aiError;
+    private JsonElement? aiResult;
+    private string? aiStatus;
+    private string? aiTaskId;
+    private bool aiRunning;
+    CancellationTokenSource cancelTokenSource = new CancellationTokenSource();
+    CancellationToken token;
 
     private EditContext? editContext;
 
@@ -244,6 +260,126 @@
 
             await UpdateAttributes();
         }
+    }
+
+    #region Взаимодействие с сервисом локальной ИИ
+
+    private async Task<HealthResponse> GetHealth()
+    {
+        return await AiExtractorService.Health();
+    }
+
+    private async Task StartSearch()
+    {
+        HealthResponse response = await GetHealth();
+        aiError = null;
+
+        if (response.Status == "error" || !response.ChromaDb || string.IsNullOrEmpty(response.Ollama.Error))
+        {
+            aiError = "Сервис извлечения данных атрибутов недоступен. Приносим извинения";
+            return;
+        }
+
+        await RunWithCancellation(async () =>
+        {
+            aiResult = null;
+            aiStatus = "Поиск атрибутов...";
+
+            var task = await AiExtractorService.StartSearchAsync("WorkDto.Местоположение!");
+            if (!string.IsNullOrEmpty(task.Error))
+            {
+                aiError = task.Error;
+                return;
+            }
+            aiTaskId = task.TaskId;
+
+            aiRunning = true;
+            StateHasChanged();
+            aiResult = await PollUntilComplete(
+                aiTaskId,
+                () => AiExtractorService.GetSearchStatusAsync(aiTaskId),
+                () => AiExtractorService.CancelSearchAsync(aiTaskId)
+            );
+
+            aiStatus = "Поиск завершён.";
+        },
+        () => aiRunning = false);
+    }
+
+    private async Task<JsonElement?> PollUntilComplete(
+        string taskId,
+        Func<Task<TaskStatusResponse>> statusFunc,
+        Func<Task> cancelFunc)
+    {
+        token = cancelTokenSource.Token;
+        while (token.IsCancellationRequested)
+        {
+            var status = await statusFunc();
+
+            if (status.Status == "completed")
+                return status.Result;
+
+            if (status.Status == "cancelled")
+            {
+                aiStatus = "Операция отменена.";
+                return null;
+            }
+
+            if (status.Status == "error")
+            {
+                aiStatus = $"Ошибка: {status.Error}";
+                return null;
+            }
+
+            await Task.Delay(3000, token);
+        }
+
+        return null;
+    }
+
+    private async Task RunWithCancellation(Func<Task> action, Action cleanup)
+    {
+        try
+        {
+            await action();
+        }
+        catch (OperationCanceledException)
+        {
+            aiStatus = "Поиск отменен.";
+        }
+        catch (Exception ex)
+        {
+            aiStatus = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            cleanup();
+            aiTaskId = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CancelCurrentOperation()
+    {
+        Cancel();
+        if (aiTaskId != null)
+        {
+            try
+            {
+                if (aiRunning)
+                    await AiExtractorService.CancelSearchAsync(aiTaskId);
+            }
+            catch { /* игнорируем ошибки отмены */ }
+        }
+    }
+
+    #endregion
+
+    private void Cancel()
+    {
+        cancelTokenSource.Cancel();
+        cancelTokenSource.Dispose();
+        cancelTokenSource = new();
     }
 
     public void Dispose()

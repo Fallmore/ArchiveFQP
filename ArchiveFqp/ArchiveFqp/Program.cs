@@ -19,6 +19,7 @@ using ArchiveFqp.Jobs;
 using ArchiveFqp.Models.Auth;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.Settings.SettingsArchive;
+using ArchiveFqp.Services.AiExtractor;
 using ArchiveFqp.Services.Applications;
 using ArchiveFqp.Services.Attributes;
 using ArchiveFqp.Services.Auth;
@@ -56,7 +57,10 @@ builder.Services.AddSignalR();
 builder.Services.AddControllers();
 
 #warning Впишите свой пароль в appsettings.json
+#warning Впишите свои параметры авторизации 3KL в appsettings.json
 #warning Впишите свои настройки почты в appsettings.json
+builder.Configuration.AddEnvironmentVariables();
+
 // Подключение к БД
 string conString = builder.Configuration.GetConnectionString("ArchiveFqpContext") ??
      throw new InvalidOperationException("Connection string 'ArchiveFqpContext'" +
@@ -170,6 +174,13 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     // Uncomment this if your proxy is on the same machine (e.g., localhost)  
     options.KnownProxies.Add(System.Net.IPAddress.Parse("127.0.0.1"));
 });
+
+builder.Services.AddScoped(sp => new HttpClient
+{
+    BaseAddress = new Uri(builder.Configuration["AiExtractor:BaseUrl"]
+        ?? "http://localhost:8000")
+});
+builder.Services.AddScoped<AiExtractorService>();
 
 var app = builder.Build();
 

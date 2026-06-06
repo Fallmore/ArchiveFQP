@@ -3,7 +3,7 @@
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Services.FileUpload
 @inject SettingsArchive Settings
-@inject WorkFileUploadService WorkFileUploadService
+@inject WorkFileUploadService FileUploadService
 @inject IJSRuntime JSRuntime
 
 <div class="border rounded p-3 bg-light">
@@ -68,13 +68,13 @@
             StateHasChanged();
 
             // Временная загрузка
-            WorkFileUploadService.ProgressChanged += OnUploadProgressChanged;
-            WorkFileUploadService.InitializeFileTypeConfigs(Settings, Settings.FqpWorks[0]); // по сути, без разницы, какой тип работы
-            var result = await WorkFileUploadService.UploadTempFileAsync(
+            FileUploadService.ProgressChanged += OnUploadProgressChanged;
+            FileUploadService.InitializeFileTypeConfigs(Settings, Settings.FqpWorks[0]); // по сути, без разницы, какой тип работы
+            var result = await FileUploadService.UploadTempFileAsync(
                 selectedFile!,
                 FileType.ExplanatoryNotePdf.Key,
                 cancellationToken: default);
-            WorkFileUploadService.ProgressChanged -= OnUploadProgressChanged;
+            FileUploadService.ProgressChanged -= OnUploadProgressChanged;
 
             if (result.Success)
             {

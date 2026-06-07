@@ -105,7 +105,6 @@
                         @if (selectedWorkApplicationDto != null)
                         {
                             <WorkApplication WorkApplicationDto="selectedWorkApplicationDto"
-                                             IsWritingMode="false"
                                              IsReviewMode="@IsReviewMode"
                                              @key="selectedWorkApplicationDto.IdПользователя.ToString() + selectedWorkApplicationDto.IdРаботы.ToString()" />
                         }
@@ -155,7 +154,7 @@
         {
             result = new()
             {
-                PageSize = 5,
+                PageSize = 20,
                 CurrentPage = 1
             };
 

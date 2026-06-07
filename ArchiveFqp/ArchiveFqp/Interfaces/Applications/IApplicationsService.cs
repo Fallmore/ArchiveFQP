@@ -37,6 +37,12 @@ namespace ArchiveFqp.Interfaces.Applications
         /// <returns></returns>
         Task<bool> AddWorkApplication(WorkApplicationDto workApplication);
         /// <summary>
+        /// Выдача работ на просмотр
+        /// </summary>
+        /// <param name="workApplication"></param>
+        /// <returns></returns>
+        Task<bool> SendWorkApplication(WorkApplicationDto workApplication);
+        /// <summary>
         /// Добавление ответа на заявление на просмотр работы
         /// </summary>
         /// <param name="workApplication"></param>

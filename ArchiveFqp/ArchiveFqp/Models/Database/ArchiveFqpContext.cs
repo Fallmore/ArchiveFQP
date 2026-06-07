@@ -50,6 +50,10 @@ public partial class ArchiveFqpContext : DbContext
     public virtual DbSet<НастройкиИнститута> НастройкиИнститутаs { get; set; }
 
     public virtual DbSet<НастройкиКафедры> НастройкиКафедрыs { get; set; }
+    
+    public virtual DbSet<НастройкиНаправления> НастройкиНаправленияs { get; set; }
+    
+    public virtual DbSet<НастройкиПрофиля> НастройкиПрофиляs { get; set; }
 
     public virtual DbSet<НастройкиПользователя> НастройкиПользователяs { get; set; }
 
@@ -559,6 +563,8 @@ public partial class ArchiveFqpContext : DbContext
 
             entity.HasIndex(e => e.IdСтатуса, "idx_issuance_work_status");
 
+            entity.HasIndex(e => e.Выдано, "idx_issuance_work_given");
+
             entity.HasIndex(e => e.IdПользователя, "idx_issuance_work_user");
 
             entity.Property(e => e.IdЗаявления).HasColumnName("id_заявления");
@@ -584,6 +590,9 @@ public partial class ArchiveFqpContext : DbContext
             entity.Property(e => e.Цель)
                 .HasColumnType("character varying")
                 .HasColumnName("цель");
+            entity.Property(e => e.Выдано)
+                .HasColumnType("boolean")
+                .HasColumnName("выдано");
 
             entity.HasOne(d => d.IdПользователяNavigation).WithMany(p => p.ЗаявлениеРаботыs)
                 .HasForeignKey(d => d.IdПользователя)
@@ -747,6 +756,46 @@ public partial class ArchiveFqpContext : DbContext
                 .HasForeignKey<НастройкиКафедры>(d => d.IdКафедры)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("настройки_кафедры_id_кафедры_fkey");
+        });
+
+        modelBuilder.Entity<НастройкиНаправления>(entity =>
+        {
+            entity.HasKey(e => e.IdНастройки).HasName("настройки_направления_pkey");
+
+            entity.ToTable("настройки_направления");
+
+            entity.HasIndex(e => e.IdНаправления, "настройки_направл_id_направления_key").IsUnique();
+
+            entity.Property(e => e.IdНастройки).HasColumnName("id_настройки");
+            entity.Property(e => e.IdНаправления).HasColumnName("id_направления");
+            entity.Property(e => e.Настройки)
+                .HasColumnType("json")
+                .HasColumnName("настройки");
+
+            entity.HasOne(d => d.IdНаправленияNavigation).WithOne(p => p.НастройкиНаправления)
+                .HasForeignKey<НастройкиНаправления>(d => d.IdНаправления)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("настройки_направ_id_направления_fkey");
+        });
+
+        modelBuilder.Entity<НастройкиПрофиля>(entity =>
+        {
+            entity.HasKey(e => e.IdНастройки).HasName("настройки_профиля_pkey");
+
+            entity.ToTable("настройки_профиля");
+
+            entity.HasIndex(e => e.IdПрофиля, "настройки_профиля_id_профиля_key").IsUnique();
+
+            entity.Property(e => e.IdНастройки).HasColumnName("id_настройки");
+            entity.Property(e => e.IdПрофиля).HasColumnName("id_профиля");
+            entity.Property(e => e.Настройки)
+                .HasColumnType("json")
+                .HasColumnName("настройки");
+
+            entity.HasOne(d => d.IdПрофиляNavigation).WithOne(p => p.НастройкиПрофиля)
+                .HasForeignKey<НастройкиПрофиля>(d => d.IdПрофиля)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("настройки_профиля_id_профиля_fkey");
         });
 
         modelBuilder.Entity<НастройкиПользователя>(entity =>

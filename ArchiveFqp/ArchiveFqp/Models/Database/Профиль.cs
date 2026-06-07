@@ -15,6 +15,9 @@ public partial class Профиль
     public virtual Направление IdНаправленияNavigation { get; set; } = null!;
 
     [JsonIgnore]
+    public virtual НастройкиПрофиля? НастройкиПрофиля { get; set; }
+
+    [JsonIgnore]
     public virtual ICollection<АтрибутПрофиля> АтрибутПрофиляs { get; set; } = new List<АтрибутПрофиля>();
 
     [JsonIgnore]

@@ -30,5 +30,7 @@ namespace ArchiveFqp.Models.DTO.Work
         public DateTime? ДатаИзменения { get; set; }
         public string? Местоположение { get; set; }
         public string? Эцп { get; set; }
+
+        public bool Выделено { get; set; } = false;
     }
 }

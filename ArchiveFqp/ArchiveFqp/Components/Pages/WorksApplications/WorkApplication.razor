@@ -2,6 +2,7 @@
 @using ArchiveFqp.Interfaces.Settings
 @using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Models.DTO.Structure
+@using ArchiveFqp.Models.DTO.Work
 @using ArchiveFqp.Models.DTO.WorkApplication
 @using ArchiveFqp.Models.Settings.Department
 @using ArchiveFqp.Models.Settings.SettingsArchive
@@ -47,7 +48,7 @@
                     <button type="button" class="btn btn-primary" @onclick="@(() => OpenModal(idModal))">
                         Выбранная работа
                     </button>
-                    
+
                     <div class="modal fade" id="@idModal" tabindex="-1" aria-labelledby="@idModalLabel" aria-hidden="true">
                         <div class="modal-dialog modal-xl">
                             <div class="modal-content">
@@ -56,7 +57,7 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body pt-0">
-                                    <WorkDetails IdWork="workApplicationDto.IdРаботы" ShowBackButton="false" @key="workApplicationDto.IdРаботы" />
+                                    <WorkDetails IdWork="workApplicationDto.IdРаботы" ShowExtraButtons="false" @key="workApplicationDto.IdРаботы" />
                                 </div>
                             </div>
                         </div>
@@ -70,10 +71,11 @@
                 }
             </div>
 
+            <!-- Написание заявления -->
             @if (IsWritingMode)
             {
+                <!-- Цель -->
                 <div class="row-md-6 mb-1">
-                    <!-- Цель -->
                     <label class="form-label mb-0 mx-1 fw-bold">Цель <span class="text-danger">*</span></label>
                     <InputTextArea class="form-control " @bind-Value="workApplicationDto.Цель"
                                    disabled="@(workApplicationDto.IdРаботы == null)"
@@ -81,8 +83,8 @@
                                    placeholder="Укажите цель получения работы (изучение, научное исследование и т.д.)..." />
                 </div>
 
+                <!-- Дата возврата по заявлению -->
                 <div class="row">
-                    <!-- Дата возврата по заявлению -->
                     <label class="form-label mb-0 mx-1 fw-bold">Дата окончания просмотра <span class="text-danger">*</span></label>
                     <div class="col-auto">
                         <input type="date" class="form-control" @bind="workApplicationDto.ДатаВозврПоЗаявл"
@@ -98,43 +100,44 @@
                     </button>
                 </div>
             }
+            // Просмотр заявления
             else
             {
+                <!-- Цель -->
                 <div class="row-md-6 mb-1">
-                    <!-- Цель -->
                     <label class="form-label mb-0 mx-1 fw-bold">Цель</label>
                     <br />
                     <span class="mx-1">@(workApplicationDto.Цель)</span>
                 </div>
 
+                <!-- Дата поступления -->
                 <div class="row-md-6">
-                    <!-- Дата поступления -->
                     <label class="form-label mb-0 mx-1 fw-bold">Дата подачи</label>
                     <br />
                     <span class="mx-1">@(workApplicationDto.ДатаПоступления)</span>
                 </div>
 
+                <!-- Дата возврата по заявлению -->
                 <div class="row-md-6">
-                    <!-- Дата возврата по заявлению -->
                     <label class="form-label mb-0 mx-1 fw-bold">Дата окончания просмотра</label>
                     <br />
                     <span class="mx-1">@(workApplicationDto.ДатаВозврПоЗаявл)</span>
                 </div>
 
+                <!-- Дата возврата по факту -->
                 @if (workApplicationDto.ДатаВозврПоФакту.HasValue && workApplicationDto.ДатаВозврПоФакту != workApplicationDto.ДатаВозврПоЗаявл)
                 {
                     <div class="row-md-6">
-                        <!-- Дата возврата по факту -->
                         <label class="form-label mb-0 mx-1 fw-bold">Дата досрочного окончания</label>
                         <br />
                         <span class="mx-1">@(workApplicationDto.ДатаВозврПоФакту)</span>
                     </div>
                 }
 
-                if (IsReviewMode)
+                <!-- Заявитель -->
+                @if (IsReviewMode)
                 {
                     <div class="row-md-6 mb-1">
-                        <!-- Заявитель -->
                         @{
                             string idModal = "userInfoModal" + workApplicationDto.IdПользователя;
                             string idModalLabel = "userInfoModalLabel" + workApplicationDto.IdПользователя;
@@ -147,7 +150,7 @@
                                 <div class="modal-dialog modal-xl">
                                     <div class="modal-content">
                                         <div class="modal-header">
-                                            <h5 class="modal-title" id="@idModalLabel">Информация о выбранной работе</h5>
+                                            <h5 class="modal-title" id="@idModalLabel">Информация о заявителе</h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
                                         <div class="modal-body pt-0">
@@ -162,23 +165,24 @@
                     </div>
                 }
 
-                // Если статус не "В обработке"
+                <!-- Просмотр ответа -->
                 @if (isAnswered)
                 {
+                    <!-- Дата ответа -->
                     <div class="row-md-6">
-                        <!-- Дата ответа -->
                         <label class="form-label mb-0 mx-1 fw-bold">Дата ответа</label>
                         <br />
                         <span class="mx-1">@(workApplicationDto.ДатаОтвета)</span>
                     </div>
 
+                    <!-- Ответ -->
                     <div class="row-md-6">
-                        <!-- Ответ -->
                         <label class="form-label mb-0 mx-1 fw-bold">Ответ</label>
                         <br />
                         <span class="mx-1">@(workApplicationDto.Ответ)</span>
                     </div>
 
+                    <!-- Просмотр работы -->
                     if (currentStatus.Название == Settings.ApplicationsActiveStatus && !IsReviewMode)
                     {
                         string idModal = "workWatchModal" + workApplicationDto.IdЗаявления;
@@ -192,7 +196,7 @@
                             </div>
 
                             <div class="col-auto">
-                                <button type="button" class="btn btn-danger" @onclick="@(async () => { await StopWatching(workApplicationDto);})">
+                                <button type="button" class="btn btn-danger" @onclick="@(async () => { await StopWatching(workApplicationDto); })">
                                     Прекратить просмотр
                                 </button>
                             </div>
@@ -217,13 +221,14 @@
                         </div>
                     }
                 }
+                // Отправка ответа
                 else
                 {
                     if (IsReviewMode)
                     {
 
+                        <!-- Ответ -->
                         <div class="row-md-6 mb-1">
-                            <!-- Ответ -->
                             <label class="form-label mb-0 mx-1 fw-bold">Ответ <span class="text-danger">*</span></label>
                             <InputTextArea class="form-control " @bind-Value="workApplicationDto.Ответ"
                                            disabled="@(workApplicationDto.IdРаботы == null)"
@@ -231,8 +236,8 @@
                                            placeholder="Опишите причину решения" />
                         </div>
 
+                        <!-- Статус выдачи -->
                         <div class="row-md-3 mb-1">
-                            <!-- Статус выдачи -->
                             <label class="form-label mb-0 mx-1 fw-bold">Вердикт <span class="text-danger">*</span></label>
                             <div class="col-md-5">
                                 <InputSelect class="form-select" @bind-Value="workApplicationDto.IdСтатуса">
@@ -274,7 +279,7 @@
     [CascadingParameter] private Task<AuthenticationState>? authenticationState { get; set; }
 
     [Parameter] public int? IdWork { get; set; }
-    [Parameter] public bool IsWritingMode { get; set; } = true;
+    [Parameter] public bool IsWritingMode { get; set; } = false;
     [Parameter] public bool IsReviewMode { get; set; } = false;
     [Parameter] public WorkApplicationDto? WorkApplicationDto { get; set; }
     private WorkApplicationDto workApplicationDto = new();
@@ -313,7 +318,8 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (WorkApplicationDto != null) workApplicationDto = WorkApplicationDto;
+        if (WorkApplicationDto != null)
+            workApplicationDto = WorkApplicationDto;
         else
         {
             workApplicationDto.IdРаботы = IdWork;

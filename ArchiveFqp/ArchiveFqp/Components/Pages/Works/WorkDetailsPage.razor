@@ -1,6 +1,6 @@
 ﻿@page "/works/{IdWork:int}"
 
-<WorkDetails IdWork="IdWork" ShowBackButton="true" @key="IdWork" />
+<WorkDetails IdWork="IdWork" ShowExtraButtons="true" @key="IdWork" />
 
 @code {
     [Parameter] public int? IdWork { get; set; }

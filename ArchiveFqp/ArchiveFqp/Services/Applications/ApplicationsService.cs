@@ -81,6 +81,18 @@ namespace ArchiveFqp.Services.Applications
             return true;
         }
 
+        public async Task<bool> SendWorkApplication(WorkApplicationDto workApplication)
+        {
+            ЗаявлениеРаботы newApp = workApplication.ToWorkApplication();
+            newApp.ДатаПоступления = DateTime.Now;
+            newApp.ДатаОтвета = DateTime.Now;
+
+            await base.Upsert(newApp, _dbFactory);
+            workApplication.IdЗаявления = newApp.IdЗаявления;
+
+            return true;
+        }
+
         public async Task<bool> AddAnswerWorkApplication(WorkApplicationDto workApplication)
         {
             using ArchiveFqpContext context = _dbFactory.CreateDbContext();

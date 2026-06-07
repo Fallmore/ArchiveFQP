@@ -22,6 +22,8 @@ public partial class ЗаявлениеРаботы
 
     public DateTime? ДатаВозврПоФакту { get; set; }
 
+    public bool Выдано { get; set; } = false;
+
     public virtual Пользователь IdПользователяNavigation { get; set; } = null!;
 
     public virtual Работа IdРаботыNavigation { get; set; } = null!;

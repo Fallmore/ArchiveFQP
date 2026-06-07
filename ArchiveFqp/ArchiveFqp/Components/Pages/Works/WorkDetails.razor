@@ -16,7 +16,7 @@
 
 <div class="container mt-4">
     <!-- Кнопка назад -->
-    @if (ShowBackButton)
+    @if (ShowExtraButtons)
     {
         <div class="row mb-3">
             <div class="col d-flex justify-content-between">
@@ -44,7 +44,7 @@
             <p class="mt-2">Загрузка информации о работе...</p>
         </div>
     }
-    else if (work == null)
+    else if (displayDto.IdРаботы == 0)
     {
         <div class="alert alert-warning">
             <i class="bi bi-exclamation-triangle"></i> Работа не найдена
@@ -70,7 +70,7 @@
                 </span>
             </div>
             <div class="card-body">
-                <h2 class="card-title mb-4">@work.Тема</h2>
+                <h2 class="card-title mb-4">@displayDto.Тема</h2>
 
                 <div class="row">
                     <!-- Левая колонка: основная информация -->
@@ -174,23 +174,23 @@
                                             <li class="mb-2">
                                                 <i class="bi bi-file-text me-2 text-primary"></i>
                                                 <strong>Количество страниц:</strong>
-                                                @(work.КоличСтраниц?.ToString() ?? "Не указано")
+                                                @(displayDto.КоличСтраниц.ToString() ?? "Не указано")
                                             </li>
                                             <li class="mb-2">
                                                 <i class="bi bi-calendar-plus me-2 text-primary"></i>
                                                 <strong>Дата добавления:</strong>
-                                                @work.ДатаДобавления.ToString("dd.MM.yyyy")
+                                                @displayDto.ДатаДобавления.ToString("dd.MM.yyyy")
                                             </li>
                                         </ul>
                                     </div>
                                     <div class="col-sm-6">
                                         <ul class="list-unstyled">
-                                            @if (work.ДатаИзменения.HasValue)
+                                            @if (displayDto.ДатаИзменения.HasValue)
                                             {
                                                 <li class="mb-2">
                                                     <i class="bi bi-calendar-check me-2 text-primary"></i>
                                                     <strong>Последнее изменение:</strong>
-                                                    @work.ДатаИзменения.Value.ToString("dd.MM.yyyy")
+                                                    @displayDto.ДатаИзменения.Value.ToString("dd.MM.yyyy")
                                                 </li>
                                             }
                                             <li class="mb-2">
@@ -205,14 +205,14 @@
                         </div>
 
                         <!-- Аннотация -->
-                        @if (!string.IsNullOrEmpty(work.Аннотация))
+                        @if (!string.IsNullOrEmpty(displayDto.Аннотация))
                         {
                             <div class="card mb-4 border-0 bg-light">
                                 <div class="card-body">
                                     <h5 class="card-title text-primary mb-3">
                                         <i class="bi bi-info-circle me-2"></i>Аннотация
                                     </h5>
-                                    @work.Аннотация
+                                    @displayDto.Аннотация
                                 </div>
                             </div>
                         }
@@ -299,7 +299,8 @@
     [CascadingParameter] private Task<AuthenticationState>? authenticationState { get; set; }
 
     [Parameter] public int? IdWork { get; set; }
-    [Parameter] public bool ShowBackButton { get; set; } = true;
+    [Parameter] public bool ShowExtraButtons { get; set; } = true;
+    [Parameter] public WorkDisplayDto? DisplayDto { get; set; }
     private Работа? work;
     private int? lastIdWork;
     private WorkDisplayDto displayDto = new();
@@ -311,7 +312,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        urlWatchWork += displayDto.IdРаботы;
+        urlWatchWork += IdWork;
         await LoadWorkDetails();
     }
 
@@ -331,24 +332,32 @@
         StateHasChanged();
         try
         {
-            WorkSearchModel wsm = new();
-            if (IdWork == null || IdWork < 1)
+            if (DisplayDto == null)
             {
-                work = null;
-                displayDto = new();
-                return;
+                WorkSearchModel wsm = new();
+                if (IdWork == null || IdWork < 1)
+                {
+                    work = null;
+                    displayDto = new();
+                    return;
+                }
+
+                wsm.IdWork = IdWork;
+                lastIdWork = wsm.IdWork;
+
+                // Загружаем работу со всеми связанными данными
+                work = await WorkService.GetWorkAsync(wsm.IdWork!.Value);
+
+                if (work != null)
+                {
+                    displayDto = await WorkService.GetWorkDisplayAsync(work);
+
+                    accessDenied = !(await CheckAccessAndClaims(displayDto));
+                }
             }
-
-            wsm.IdWork = IdWork;
-            lastIdWork = wsm.IdWork;
-
-            // Загружаем работу со всеми связанными данными
-            work = await WorkService.GetWorkAsync(wsm.IdWork!.Value);
-
-            if (work != null)
+            else
             {
-                displayDto = await WorkService.GetWorkDisplayAsync(work);
-
+                displayDto = DisplayDto;
                 accessDenied = !(await CheckAccessAndClaims(displayDto));
             }
         }

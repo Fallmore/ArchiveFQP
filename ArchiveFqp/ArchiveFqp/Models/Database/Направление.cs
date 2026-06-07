@@ -20,6 +20,9 @@ public partial class Направление
     public virtual Кафедра IdКафедрыNavigation { get; set; } = null!;
 
     [JsonIgnore]
+    public virtual НастройкиНаправления? НастройкиНаправления { get; set; }
+
+    [JsonIgnore]
     public virtual ICollection<АтрибутНаправления> АтрибутНаправленияs { get; set; } = new List<АтрибутНаправления>();
 
     [JsonIgnore]

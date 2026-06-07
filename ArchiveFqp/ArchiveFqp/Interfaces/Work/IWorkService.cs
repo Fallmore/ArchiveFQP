@@ -43,13 +43,13 @@ namespace ArchiveFqp.Interfaces.Work
         Task<List<СтатусРаботы>> GetWorkStatusesAsync();
 
         /// <summary>
-        /// Получение студентов, имеющие работы
+        /// Получение студентов
         /// </summary>
         /// <returns></returns>
         Task<List<Студент>> GetStudentsAsync();
 
         /// <summary>
-        /// Получение преподавателей, руководящиих ВКР
+        /// Получение преподавателей
         /// </summary>
         /// <returns></returns>
         Task<List<Преподаватель>> GetTeachersAsync();

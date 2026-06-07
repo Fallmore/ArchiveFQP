@@ -39,20 +39,52 @@ namespace ArchiveFqp.Models.DTO.WorkApplication
 
         public DateTime? ДатаВозврПоФакту { get; set; }
 
+        public bool Выдано { get; set; } = false;
+
+        public WorkApplicationDto()
+        {
+
+        }
+
+        public WorkApplicationDto(WorkApplicationDto other)
+        {
+            Copy(other);
+        }
+
+        public void Copy(WorkApplicationDto other)
+        {
+            IdЗаявления = other.IdЗаявления;
+            IdРаботы = other.IdРаботы;
+            Работа = other.Работа;
+            IdПользователя = other.IdПользователя;
+            ПользовательПреподаватель = other.ПользовательПреподаватель;
+            ПользовательСтудент = other.ПользовательСтудент;
+            Цель = other.Цель;
+            IdСтатуса = other.IdСтатуса;
+            Статус = other.Статус;
+            ДатаПоступления = other.ДатаПоступления;
+            ДатаВозврПоЗаявл = other.ДатаВозврПоЗаявл;
+            Ответ = other.Ответ;
+            ДатаОтвета = other.ДатаОтвета;
+            ДатаВозврПоФакту = other.ДатаВозврПоФакту;
+            Выдано = other.Выдано;
+        }
+
         public ЗаявлениеРаботы ToWorkApplication()
         {
             return new()
             {
                 IdЗаявления = IdЗаявления,
                 IdПользователя = IdПользователя,
-                IdРаботы = IdРаботы ?? -1,
+                IdРаботы = IdРаботы ?? 0,
                 IdСтатуса = IdСтатуса,
                 ДатаВозврПоЗаявл = ДатаВозврПоЗаявл ?? new(),
                 ДатаВозврПоФакту = ДатаВозврПоФакту,
                 ДатаОтвета = ДатаОтвета,
                 ДатаПоступления = ДатаПоступления,
                 Ответ = Ответ,
-                Цель = Цель ?? ""
+                Цель = Цель ?? "",
+                Выдано = Выдано
             };
         }
 

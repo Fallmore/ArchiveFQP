@@ -53,7 +53,7 @@ namespace ArchiveFqp.Services.Email
             }
             catch (Exception ex)
             {
-                _logger.LogError("Возникла ошибка в отпрвке письма: {Message}", ex.Message);
+                _logger.LogError("Возникла ошибка в отправке письма: {Message}", ex.Message);
             }
 
             return true;

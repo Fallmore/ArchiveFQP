@@ -22,7 +22,7 @@
 @implements IDisposable
 @rendermode @(new InteractiveServerRenderMode())
 
-@if (RendererInfo.IsInteractive)
+@if (RendererInfo.IsInteractive && editContext != null)
 {
     if (errorMessage != null && successMessage == null)
     {
@@ -211,6 +211,9 @@
                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                     </div>
                                     <div class="modal-body pt-0">
+                                        <!-- Начнёт рендерится после нажатия на кнопку. 
+                                             Отрендеренные страницы исчезнут после закрытия модала заявления
+                                        -->
                                         @if (isClickedWatch)
                                         {
                                             <WorkRead IdWork="workApplicationDto.IdРаботы" ApplicationWork="workApplicationDto.ToWorkApplication()" @key="workApplicationDto.IdЗаявления" />
@@ -296,24 +299,27 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (WorkApplicationDto != null) workApplicationDto = WorkApplicationDto;
-        else
+        if (RendererInfo.IsInteractive)
         {
-            workApplicationDto.IdРаботы = IdWork;
-            if (IdWork.HasValue)
-                workApplicationDto.Работа = await WorkService.GetWorkDisplayAsync(IdWork.Value);
-        }
+            if (WorkApplicationDto != null) workApplicationDto = WorkApplicationDto;
+            else
+            {
+                workApplicationDto.IdРаботы = IdWork;
+                if (IdWork.HasValue)
+                    workApplicationDto.Работа = await WorkService.GetWorkDisplayAsync(IdWork.Value);
+            }
 
-        if (!IsWritingMode)
-        {
-            applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
-            currentStatus = applicationStatuses.First(w => w.IdСтатуса == workApplicationDto.IdСтатуса);
-            isAnswered = currentStatus.Название != Settings.ApplicationsInProcessStatus;
-        }
+            if (!IsWritingMode)
+            {
+                applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
+                currentStatus = applicationStatuses.First(w => w.IdСтатуса == workApplicationDto.IdСтатуса);
+                isAnswered = currentStatus.Название != Settings.ApplicationsInProcessStatus;
+            }
 
-        editContext = new(workApplicationDto);
-        messageStore = new(editContext);
-        editContext.OnValidationStateChanged += HandleValidationRequested;
+            editContext = new(workApplicationDto);
+            messageStore = new(editContext);
+            editContext.OnValidationStateChanged += HandleValidationRequested;
+        }
     }
 
     protected override async Task OnParametersSetAsync()
@@ -468,7 +474,7 @@
         if (settingsDepartmnetDto.SettingsApplications.AutoDenyWorkApplicationsEnabled)
         {
             var autoDenyStructures = settingsDepartmnetDto.SettingsApplications.AutoDenyWorkApplications;
-            
+
             // Ищем структуры, для которых включено автоматическое отклонение, и проверяем принадлежность отправителя заявления к этим структурам
             var autoDeny = autoDenyStructures.Keys.Where(x => x.IsBelongsStructure(workApplicationDto.Работа.Студент.Структура));
             if (autoDeny.Count() != 0 && autoDeny.Any(x => x.IsBelongsStructure(structureSender)))
@@ -488,7 +494,7 @@
         if (settingsDepartmnetDto.SettingsApplications.AutoAgreeWorkApplicationsEnabled)
         {
             var autoAgreeStructures = settingsDepartmnetDto.SettingsApplications.AutoAgreeWorkApplications;
-            
+
             // Ищем структуры, для которых включено автоматическое одобрение, и проверяем принадлежность отправителя заявления к этим структурам
             var autoAgree = autoAgreeStructures.Keys.Where(x => x.IsBelongsStructure(workApplicationDto.Работа.Студент.Структура));
             if (autoAgree.Count() != 0 && autoAgree.Any(x => x.IsBelongsStructure(structureSender)))
@@ -539,7 +545,7 @@
     {
         if (!string.IsNullOrWhiteSpace(successMessage))
             WorkApplicationDto?.IdСтатуса = currentStatus.IdСтатуса;
-
+        
         if (editContext != null)
             editContext.OnValidationStateChanged -= HandleValidationRequested;
     }

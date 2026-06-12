@@ -333,7 +333,7 @@
                     errorMessage = "Вы не числитесь в университете";
                     return false;
                 }
-                
+
                 Работа work = (await RefDataService.GetAsync<Работа>()).First(x => x.IdРаботы == IdWork);
 
                 // Предоставляем доступ просмотра автору работы
@@ -359,7 +359,7 @@
             return false;
         }
 
-        while (!cancellationToken.IsCancellationRequested || !expired())
+        while (!cancellationToken.IsCancellationRequested && !expired())
         {
             try
             {
@@ -369,9 +369,6 @@
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 // корректный выход при остановке
-            }
-            catch (Exception)
-            {
             }
         }
     }
@@ -533,5 +530,7 @@
         cancelTokenSourceRender?.Dispose();
         cancelTokenSource.Cancel();
         cancelTokenSource.Dispose();
+        ExpirationCheckTask?.Wait();
+        LoadWorkTask?.Wait();
     }
 }

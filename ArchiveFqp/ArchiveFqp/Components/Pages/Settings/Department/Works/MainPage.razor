@@ -515,15 +515,11 @@
 
     private WorkCreateDto WorkDto { get; set; } = new();
     private WorkSearchModel searchModel = new();
-    private int? filterTypeId;
-    private int? filterStatusId;
-    private int? filterAccessId;
     private bool advancedSearch = false;
     private bool isLoading = false;
     private bool showEditModal = false;
     private bool showIssueModal = false;
 
-    private string searchText = "";
     private PaginatedResult<Работа>? works;
     private PaginatedResult<WorkDisplayDto>? filteredWorks;
 

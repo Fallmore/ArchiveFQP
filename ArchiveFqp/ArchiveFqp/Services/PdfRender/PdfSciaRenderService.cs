@@ -31,7 +31,7 @@ namespace ArchiveFqp.Services.PdfRender
             progress?.Report(0);
             try
             {
-                for (int pageNumber = 1; pageNumber <= document.NumberOfPages || !cancellationToken.IsCancellationRequested; pageNumber++)
+                for (int pageNumber = 1; pageNumber <= document.NumberOfPages && !cancellationToken.IsCancellationRequested; pageNumber++)
                 {
                     // 1. Рендерим страницу в SKBitmap с белым фоном
                     using SKBitmap pageBitmap = document.GetPageAsSKBitmap(pageNumber, scale!.Value, SKColors.White);
@@ -51,9 +51,6 @@ namespace ArchiveFqp.Services.PdfRender
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 // корректный выход при остановке
-            }
-            catch (Exception)
-            {
             }
 
             return Task.FromResult(renderedPages);

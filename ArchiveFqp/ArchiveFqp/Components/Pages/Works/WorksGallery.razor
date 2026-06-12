@@ -325,7 +325,7 @@
                                     <div id="collapseAttributes" class="accordion-collapse collapse" aria-labelledby="headingOne">
                                         <div class="accordion-body">
                                             <div class="row">
-                                                @foreach (var attribute in searchModel.AllAttributes)
+                                                @foreach (var attribute in searchModel.AllAttributes.OrderBy(x => x.Название))
                                                 {
                                                     <div class="col-md-4 mb-0">
                                                         <div class="card mb-2">

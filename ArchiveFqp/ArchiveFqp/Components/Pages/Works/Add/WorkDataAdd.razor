@@ -1246,7 +1246,7 @@
                 if (!(await AddUserAndStudent())) return;
             }
 
-            // Создаем новую работу
+            // Получаем изменяемую работу и храним старые данные
             if (IsEdit)
             {
                 work = context.Работаs.First(w => w.IdРаботы == WorkDto.IdРаботы);
@@ -1281,7 +1281,28 @@
                         work.ДатаИзменения = DateTime.Now;
                         work.Местоположение = work.Местоположение.Replace(Settings.FolderTempName, "").TrimEnd(Path.AltDirectorySeparatorChar);
                         work.Эцп = await FileUploadService.ComputeCompositeFilesHashAsync(work.Местоположение, token);
+
+                        await context.SaveChangesAsync();
+                        workAdded = true;
+
+                        if (hasCR) await AddConsultantsAndReviewers(context, work.IdРаботы);
+
+                        // Перемещаем загруженные файлы из временной папки в рабочую
+                        FileUploadService.MoveFilesFromTemp(work.Местоположение, work.Местоположение);
+                        foreach (var file in filesForDelete)
+                        {
+                            // Если имя удаляемого файла совпадает с добавленным
+                            // то пропускаем, т.к. он заменился и нет смысла удалять
+                            if (!selectedFiles.Exists(x => x.DisplaySelectedType == file.Name.Replace(file.Extension, "")))
+                                FileUploadService.DeleteFile(file.FullName);
+                        }
+                        work.Эцп = await FileUploadService.ComputeCompositeFilesHashAsync(work.Местоположение, token);
                         context.Работаs.Update(work);
+                        await context.SaveChangesAsync();
+
+                        // Заканчиваем редактирование
+                        await SetDataForEdit();
+                        EndEdit?.Invoke();
                     }
                     else
                     {
@@ -1295,39 +1316,28 @@
                             work.Эцп = res.HashesInfo.CompositeHash;
                         }
                         context.Работаs.Add(work);
-                    }
 
-                    await context.SaveChangesAsync();
-                    workAdded = true;
+                        await context.SaveChangesAsync();
+                        workAdded = true;
 
-                    if (hasCR) await AddConsultantsAndReviewers(context, work.IdРаботы);
+                        if (hasCR) await AddConsultantsAndReviewers(context, work.IdРаботы);
 
-                    if (IsEdit)
-                    {
-                        FileUploadService.MoveFilesFromTemp(work.Местоположение, work.Местоположение);
-                        foreach (var file in filesForDelete)
+                        await context.SaveChangesAsync();
+                        workAdded = true;
+
+                        if (hasCR) await AddConsultantsAndReviewers(context, work.IdРаботы);
+
+
+                        WorkDto.IdРаботы = work.IdРаботы;
+                        WorkDto.Эцп = work.Эцп;
+                        WorkDto.Местоположение = work.Местоположение;
+                        waitAddWork = true;
+                        while (waitAddWork)
                         {
-                            // Если имя удаляемого файла совпадает с добавленным
-                            // то пропускаем, т.к. он заменился и нет смысла удалять
-                            if (!selectedFiles.Exists(x => x.DisplaySelectedType == file.Name.Replace(file.Extension, "")))
-                                FileUploadService.DeleteFile(file.FullName);
+                            await Task.Delay(600);
+                            if (!waitAddWork) break;
+                            else await CheckWorkAdded();
                         }
-                        await SetDataForEdit();
-                        EndEdit?.Invoke();
-                        isUploading = false;
-                        isSubmitting = false;
-                        return;
-                    }
-
-                    WorkDto.IdРаботы = work.IdРаботы;
-                    WorkDto.Эцп = work.Эцп;
-                    WorkDto.Местоположение = work.Местоположение;
-                    waitAddWork = true;
-                    while (waitAddWork)
-                    {
-                        await Task.Delay(600);
-                        if (!waitAddWork) break;
-                        else await CheckWorkAdded();
                     }
                 }
             }
@@ -1622,6 +1632,7 @@
         aiConnecting = true;
         StateHasChanged();
 
+        // #warning расскомментировать
         HealthResponse response = await GetHealth();
         if (response.Status == "error" || !string.IsNullOrEmpty(response.Ollama.Error))
         {
@@ -1642,49 +1653,49 @@
             aiResult = null;
             aiStatus = "Извлечение титульника...";
 
-            // var task = await AiExtractorService.StartTitleExtractionAsync(WorkDto.TempFileWithTitle!.RelativePath, true, WorkDto.TempFileWithTitle.StoredFileName);
-            // if (!string.IsNullOrEmpty(task.Error))
-            // {
-            //     aiError = task.Error;
-            //     aiStatus = null;
-            //     return;
-            // }
-            // else if (token.IsCancellationRequested)
-            // {
-            //     aiStatus = "Извлечение титульника отменено";
-            //     aiConnecting = false;
-            //     return;
-            // }
+            var task = await AiExtractorService.StartTitleExtractionAsync(WorkDto.TempFileWithTitle!.RelativePath, true, WorkDto.TempFileWithTitle.StoredFileName);
+            if (!string.IsNullOrEmpty(task.Error))
+            {
+                aiError = task.Error;
+                aiStatus = null;
+                return;
+            }
+            else if (token.IsCancellationRequested)
+            {
+                aiStatus = "Извлечение титульника отменено";
+                aiConnecting = false;
+                return;
+            }
 
-            // aiTaskId = task.TaskId;
+            aiTaskId = task.TaskId;
 
-            // aiConnecting = false;
-            // aiRunning = true;
-            // StateHasChanged();
-            // aiResult = await PollUntilComplete(
-            //     aiTaskId, () => AiExtractorService.GetTitleExtractionStatusAsync(aiTaskId)
-            // );
+            aiConnecting = false;
+            aiRunning = true;
+            StateHasChanged();
+            aiResult = await PollUntilComplete(
+                aiTaskId, () => AiExtractorService.GetTitleExtractionStatusAsync(aiTaskId)
+            );
 
             // Используйте для быстрой проверки
-            string res = """
-            {
-              "raw_text": "",
-                "title": {
-                    "институт": "Институт Информационных технологий и коммуникаций",
-                    "кафедра": "Автоматизированные системы об аботки информации и управления",
-                    "направление": "09.03.04 Программная инженерия",
-                    "профиль": "Разработка программно-информационных систем",
-                    "типРаботы": "Бакалаврская работа",
-                    "тема": "Информатическая система планирования выгрузки товаров из центрального грузового порта г. Астрахань",
-                    "группа": "ДИПРб-41",
-                    "автор": "Магомедов Гаджимурад Камильевич",
-                    "руководитель": "Куркурин Николай Дмитриевич",
-                    "должностьРуководителя": "ст. преп.",
-                    "год": "Н/Д"
-              }
-            }
-            """;
-            aiResult = JsonConvert.DeserializeObject<ExtractTitleResult>(res);
+            // string res = """
+            // {
+            //   "raw_text": "",
+            //     "title": {
+            //         "институт": "Институт Информационных технологий и коммуникаций",
+            //         "кафедра": "Автоматизированные системы об аботки информации и управления",
+            //         "направление": "09.03.04 Программная инженерия",
+            //         "профиль": "Разработка программно-информационных систем",
+            //         "типРаботы": "Бакалаврская работа",
+            //         "тема": "Информатическая система планирования выгрузки товаров из центрального грузового порта г. Астрахань",
+            //         "группа": "ДИПРб-41",
+            //         "автор": "Магомедов Гаджимурад Камильевич",
+            //         "руководитель": "Куркурин Николай Дмитриевич",
+            //         "должностьРуководителя": "ст. преп.",
+            //         "год": "Н/Д"
+            //   }
+            // }
+            // """;
+            // aiResult = JsonConvert.DeserializeObject<ExtractTitleResult>(res);
         },
         async () =>
         {

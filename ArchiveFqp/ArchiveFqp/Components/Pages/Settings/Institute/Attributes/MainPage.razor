@@ -371,8 +371,6 @@
     private int? filterAttributeDataAttr;
     private bool showWorkModal = false;
     private int idAttribute;
-    private int idInstitute;
-    private int idDepartment;
     private bool isEdit = false;
 
     protected override async Task OnInitializedAsync()
@@ -569,7 +567,7 @@
     {
         showAttributesInstituteModal =
         showAttributeDataModal = false;
-        idAttribute = idInstitute = idDepartment = 0;
+        idAttribute = 0;
         StateHasChanged();
     }
 

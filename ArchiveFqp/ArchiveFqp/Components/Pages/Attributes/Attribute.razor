@@ -21,7 +21,7 @@
 @implements IDisposable
 @rendermode @(new InteractiveServerRenderMode())
 
-@if (RendererInfo.IsInteractive)
+@if (RendererInfo.IsInteractive && editContext != null)
 {
     if (errorMessage != null && successMessage == null)
     {
@@ -441,19 +441,22 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (AttributeApplication != null) attributeApplication = AttributeApplication;
+        if (RendererInfo.IsInteractive)
+        {
+            if (AttributeApplication != null) attributeApplication = AttributeApplication;
 
-        snapshot = await RefDataService.GetSnapshotAsync();
-        attributes = await WorkService.GetAllAttributesAsync();
-        applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
-        currentStatusId = attributeApplication.IdСтатуса;
-        isAnswered = currentStatusId != applicationStatuses
-            .First(w => w.Название == Settings.ApplicationsInProcessStatus)
-                .IdСтатуса;
+            snapshot = await RefDataService.GetSnapshotAsync();
+            attributes = await WorkService.GetAllAttributesAsync();
+            applicationStatuses = await ApplicationsService.GetApplicationsStatusesAsync();
+            currentStatusId = attributeApplication.IdСтатуса;
+            isAnswered = currentStatusId != applicationStatuses
+                .First(w => w.Название == Settings.ApplicationsInProcessStatus)
+                    .IdСтатуса;
 
-        editContext = new(attributeApplication);
-        messageStore = new(editContext);
-        editContext.OnValidationStateChanged += HandleValidationRequested;
+            editContext = new(attributeApplication);
+            messageStore = new(editContext);
+            editContext.OnValidationStateChanged += HandleValidationRequested;
+        }
     }
 
 

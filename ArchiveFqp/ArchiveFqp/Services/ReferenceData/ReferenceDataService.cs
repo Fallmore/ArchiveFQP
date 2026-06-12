@@ -457,7 +457,9 @@ namespace ArchiveFqp.Services.ReferenceData
                     .Select(g => new AttributeValuesDto
                     {
                         IdАтрибута = g.Key,
-                        Данные = g.Select(x => x.Данные).Distinct().ToList()
+                        Данные = g.SelectMany(x => x.Данные.Split(',', StringSplitOptions.TrimEntries))
+                                  .Distinct()
+                                  .ToList()
                     }).ToList();
 
                 _cache.Set(s_cacheAttributeValues, attributeValues, new MemoryCacheEntryOptions

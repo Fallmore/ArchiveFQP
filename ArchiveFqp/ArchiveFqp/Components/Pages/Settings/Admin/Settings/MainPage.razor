@@ -638,7 +638,7 @@
                         <div class="col-12">
                             <div class="d-flex justify-content-between">
                                 <button type="button" class="btn btn-secondary" @onclick="Cancel">Отмена</button>
-                                <button type="submit" class="btn btn-primary">Сохранить настройки</button>
+                                <button type="submit" class="btn btn-primary" disabled="@isSaving">Сохранить настройки</button>
                             </div>
                         </div>
                     </div>
@@ -739,7 +739,7 @@
             if (!newExtensionInputs.ContainsKey(fileType))
                 newExtensionInputs[fileType] = "";
         }
-        
+
         // Инициализация словарей для выбора файлов
         foreach (var requiredFile in Settings.RequiredFiles.Keys)
         {
@@ -752,6 +752,8 @@
 
     private async Task SaveSettings()
     {
+        isSaving = true;
+        StateHasChanged();
         try
         {
             if (!string.IsNullOrEmpty(filesRootPathDisplay))
@@ -785,11 +787,15 @@
 
             await context.SaveChangesAsync();
             await JSRuntime.InvokeVoidAsync("alert", "Настройки сохранены");
-            StateHasChanged();
         }
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
         }
     }
 

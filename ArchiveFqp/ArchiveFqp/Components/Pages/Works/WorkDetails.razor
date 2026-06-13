@@ -296,11 +296,11 @@
 </div>
 
 @code {
-    [CascadingParameter] private Task<AuthenticationState>? authenticationState { get; set; }
+        [CascadingParameter] private Task<AuthenticationState>? authenticationState { get; set; }
 
-    [Parameter] public int? IdWork { get; set; }
-    [Parameter] public bool ShowExtraButtons { get; set; } = true;
-    [Parameter] public WorkDisplayDto? DisplayDto { get; set; }
+        [Parameter] public int? IdWork { get; set; }
+        [Parameter] public bool ShowExtraButtons { get; set; } = true;
+        [Parameter] public WorkDisplayDto? DisplayDto { get; set; }
     private Работа? work;
     private int? lastIdWork;
     private WorkDisplayDto displayDto = new();
@@ -399,80 +399,109 @@
         }
 
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
+        List<РольУчреждения> roles = await RefDataService.GetAsync<РольУчреждения>();
+        bool isOk = false;
 
         if (user.IsInRole(Settings.RoleInstituteResponsibleName) || user.IsInRole(Settings.RoleDepartmentHeadName)
             || user.IsInRole(Settings.RoleDepartmentResponsibleName) || user.IsInRole(Settings.RoleTeacherName))
         {
 
-            Преподаватель? teacher = (await UserService.GetTeacherAsync(idUser)).FirstOrDefault(x => x.Активно == true);
+            List<Преподаватель> teachers = (await UserService.GetTeacherAsync(idUser))
+                .Where(x => !x.Роли.Contains(roles.First(r => r.Название == Settings.RoleTeacherOnVerifyName).IdРоли))
+                .ToList();
+            Преподаватель? teacher = null;
 
-            if (teacher == null) return false;
-
-            // Даём сразу смотреть ПЗ, если это ответственный института
-            if (work.Студент.Структура.Институт.IdИнститута == teacher.IdИнститута)
+            if (teachers.Count != 0)
             {
-                if (user.IsInRole(Settings.RoleInstituteResponsibleName))
+                // Руководитель работы
+                if (idUser == work.Руководитель.Пользователь.Пользователь.IdПользователя)
+                {
                     urlWatchWork = "/works/read/" + displayDto.IdРаботы;
-            }
-            // Даём сразу смотреть ПЗ, если это завкафедрой или ответственный кафедры
-            if (work.Студент.Структура.Кафедра.IdКафедры == teacher.IdКафедры)
-            {
-                if (user.IsInRole(Settings.RoleDepartmentHeadName) || user.IsInRole(Settings.RoleDepartmentResponsibleName))
+                    isOk = true;
+                }
+                
+                teachers = teachers.Where(x => x.Активно == true).ToList();
+
+                // Даём сразу смотреть ПЗ, если это ответственный института
+                teacher = teachers.Where(x => x.Роли.Contains(roles.First(z => z.Название == Settings.RoleInstituteResponsibleName).IdРоли))
+                    .FirstOrDefault();
+                if (teacher != null && work.Студент.Структура.Институт.IdИнститута == teacher.IdИнститута)
+                {
                     urlWatchWork = "/works/read/" + displayDto.IdРаботы;
+                    // Доступ внутри кафедр, направлений и профилей без секретов
+                    if (work.ДоступРаботы.Название != Settings.WorkAccessSecret) isOk = true;
+                }
+
+                // Даём сразу смотреть ПЗ, если это завкафедрой или ответственный кафедры
+                teacher = teachers.Where(x => x.Роли.Intersect(roles.Where(y => y.Название == Settings.RoleDepartmentHeadName
+                                                                        || y.Название == Settings.RoleDepartmentResponsibleName)
+                                                                .Select(z => z.IdРоли)
+                                                                .ToList())
+                                                 .Count() != 0)
+                              .FirstOrDefault();
+                if (teacher != null && work.Студент.Структура.Кафедра.IdКафедры == teacher.IdКафедры)
+                {
+                    urlWatchWork = "/works/read/" + displayDto.IdРаботы;
+
+                    // Доступ к засекреченному
+                    if (work.ДоступРаботы.Название == Settings.WorkAccessSecret) isOk = true;
+                }
+
+                if (work.ДоступРаботы.Название == Settings.WorkAccessAll ||
+                    work.ДоступРаботы.Название == Settings.WorkAccessOrganization) isOk = true;
+
+                // Доступ внутри института
+                if (work.ДоступРаботы.Название == Settings.WorkAccessInstitute
+                        && teachers.Exists(x => x.IdИнститута == work.Студент.Структура.Институт.IdИнститута)) isOk = true;
+
+                // Доступ внутри кафедры, направления и профиля без секретов
+                if (work.ДоступРаботы.Название != Settings.WorkAccessSecret
+                    && teachers.Exists(x => x.IdКафедры == work.Студент.Структура.Кафедра.IdКафедры)) isOk = true;
             }
-
-            // Руководитель работы
-            if (work.Руководитель.Пользователь.Пользователь.IdПользователя == teacher.IdПользователя)
-            {
-                urlWatchWork = "/works/read/" + displayDto.IdРаботы;
-                return true;
-            }
-
-            if (work.ДоступРаботы.Название == Settings.WorkAccessAll ||
-                work.ДоступРаботы.Название == Settings.WorkAccessOrganization) return true;
-
-            // Доступ внутри института
-            if (work.ДоступРаботы.Название == Settings.WorkAccessInstitute
-                    && work.Студент.Структура.Институт.IdИнститута == teacher.IdИнститута) return true;
-
-            // Доступ внутри кафедры
-            if (work.Студент.Структура.Кафедра.IdКафедры == teacher.IdКафедры) return true;
         }
-        else if (user.IsInRole(Settings.RoleStudentName))
-        {
-            Студент? student = (await UserService.GetStudentAsync(idUser)).FirstOrDefault(x => x.Активно == true);
 
-            if (student == null) return false;
+        if (user.IsInRole(Settings.RoleStudentName))
+        {
+            List<Студент> students = (await UserService.GetStudentAsync(idUser))
+                .Where(x => !x.Роли.Contains(roles.First(r => r.Название == Settings.RoleStudentOnVerifyName).IdРоли))
+                .ToList();
+            if (students.Count == 0) return isOk;
 
             // Работа студента
-            if (work.Студент.Пользователь.Пользователь.IdПользователя == student!.IdПользователя)
+            if (idUser == work.Студент.Пользователь.Пользователь.IdПользователя)
             {
                 urlWatchWork = "/works/read/" + displayDto.IdРаботы;
-                return true;
+                isOk = true;
             }
 
+            // Если пользователь и преподаватель, и студент и прошёл проверки наверху
+            // то пропускаем проверки дальше
+            if (isOk) return isOk;
+
+            students = students.Where(x => x.Активно == true).ToList();
             if (work.ДоступРаботы.Название == Settings.WorkAccessAll ||
                 work.ДоступРаботы.Название == Settings.WorkAccessOrganization) return true;
             if (work.ДоступРаботы.Название == Settings.WorkAccessSecret) return false;
 
             if ((work.ДоступРаботы.Название == Settings.WorkAccessInstitute
-                && work.Студент.Структура.Институт.IdИнститута == student.IdИнститута)
+                    && students.Exists(x => x.IdИнститута == work.Студент.Структура.Институт.IdИнститута))
                 ||
                 (work.ДоступРаботы.Название == Settings.WorkAccessDepartment
-                && work.Студент.Структура.Кафедра.IdКафедры == student.IdКафедры)
+                    && students.Exists(x => x.IdКафедры == work.Студент.Структура.Кафедра.IdКафедры))
                 ||
                 (work.ДоступРаботы.Название == Settings.WorkAccessDirection
-                && work.Студент.Структура.Направление.IdНаправления == student.IdНаправления)) return true;
+                    && students.Exists(x => x.IdНаправления == work.Студент.Структура.Направление.IdНаправления))) return true;
             
-            // Если нет профиля, то нет смысла проверять соответствие
-            if (!student.IdПрофиля.HasValue) return false;
+            // Если нет профиля, то нет смысла дальше проверять соответствие
+            if (students.All(x => x.IdПрофиля == null)) return false;
 
             if (work.ДоступРаботы.Название == Settings.WorkAccessProfile
-                && work.Студент.Структура?.Профиль?.IdПрофиля == null
-                || work.Студент.Структура?.Профиль?.IdПрофиля == student?.IdПрофиля) return true;
+                && 
+                (work.Студент.Структура?.Профиль?.IdПрофиля == null
+                    || students.Exists(x => x.IdПрофиля == work.Студент.Структура.Профиль.IdПрофиля))) return true;
         }
         
-        return false;
+        return isOk;
     }
 
 }

@@ -16,7 +16,9 @@ namespace ArchiveFqp.Models.DTO.Teacher
         public Должность Должность { get; set; } = new();
 
         public StructureDto Структура { get; set; } = new();
-        
+
+        public List<РольУчреждения> Роли { get; set; } = [];
+
         public bool Активно { get; set; }
 
         public Преподаватель ToTeacher()
@@ -27,7 +29,9 @@ namespace ArchiveFqp.Models.DTO.Teacher
                 IdПреподавателя = IdПреподавателя,
                 IdДолжности = Должность.IdДолжности,
                 IdИнститута = Структура.Институт.IdИнститута,
-                IdКафедры = Структура.Кафедра.IdКафедры
+                IdКафедры = Структура.Кафедра.IdКафедры,
+                Роли = [.. Роли.Select(x => x.IdРоли)],
+                Активно = Активно
             };
         }
     }

@@ -5,7 +5,6 @@ using ArchiveFqp.Interfaces.Teacher;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.DTO.Teacher;
 using ArchiveFqp.Models.Settings.SettingsArchive;
-using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
 
 namespace ArchiveFqp.Services.Teacher
@@ -40,6 +39,16 @@ namespace ArchiveFqp.Services.Teacher
 
         }
 
+        public async Task<List<Преподаватель>> GetTeachersByRolesAsync(List<string> roles)
+        {
+            List<int> rolesOrganizations = (await _refDataService.GetAsync<РольУчреждения>())
+                .Where(x => roles.Contains(x.Название))
+                .Select(x => x.IdРоли).ToList();
+
+            return (await _refDataService.GetAsync<Преподаватель>())
+                .Where(x => rolesOrganizations.Intersect(x.Роли).Any()).ToList();
+        }
+
         public async Task<TeacherDisplayDto?> GetTeacherDisplayAsync(int idTeacher)
         {
             Преподаватель? teacher = (await GetTeacherAsync(idTeacher));
@@ -52,7 +61,7 @@ namespace ArchiveFqp.Services.Teacher
             return await _factoryTeacher.CreateDisplayDtoAsync(teacher);
         }
 
-        public async Task<List<TeacherDisplayDto>> GetTeacherDisplayAsync(List<int> idTeachers)
+        public async Task<List<TeacherDisplayDto>> GetTeachersDisplayAsync(List<int> idTeachers)
         {
             List<Преподаватель> teachers = await GetTeachersAsync(idTeachers);
             return await GetTeacherDisplayAsync(teachers);
@@ -75,7 +84,7 @@ namespace ArchiveFqp.Services.Teacher
         }
 
         /// <summary>
-        /// Убирает роли без вызова сохранения в БД
+        /// Убирает роли аккаунта без вызова сохранения в БД
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="id"></param>
@@ -88,46 +97,24 @@ namespace ArchiveFqp.Services.Teacher
             List<string> comparerRoles = [];
 
             int? idPerson = null;
-            List<РольПользователя> personRoles = [];
             List<int> idRolesForDelete = [];
 
-            // TODO: Привязка ролей кафедры к преподавателям, а не к аккаунту
-            // TODO: Привязка верификации студента и преподавателя не к аккаунту
-            // Как я ужасно сделал роли...
             if (typeof(T).Name == nameof(Преподаватель))
             {
+                // Получаем все записи студентов у пользователя
                 List<Преподаватель> teachers = (await _refDataService.GetAsync<Преподаватель>());
-
                 Преподаватель teacher = teachers.First(x => x.IdПреподавателя == id);
                 idPerson = teacher.IdПользователя;
-
                 teachers = teachers.Where(x => x.IdПользователя == idPerson).ToList();
 
-                if (teachers.Count != 0)
+                // Если удаляется последняя запись, то пользователь теряет роль преподавателя
+                if (teachers.Count == 1)
                 {
-                    account = await context.АккаунтПользователяs.FirstOrDefaultAsync(x => x.IdПользователя == idPerson);
-                    if (account is null) return;
-
-                    personRoles = roles.Where(x => account.Роли.Contains(x.IdРоли)).ToList();
-                    comparerRoles = [_settings.RoleDepartmentHeadName,
-                          _settings.RoleDepartmentResponsibleName,
-                          _settings.RoleDepartmentClerkName];
-
-                    if (teachers.Count == 2
-                        && personRoles.Exists(x => x.Название == _settings.RoleTeacherOnVerifyName))
-                    {
-                        if (teacher.Активно)
-                            comparerRoles.Add(_settings.RoleTeacherName);
-                        if (!teacher.Активно)
-                            comparerRoles.Add(_settings.RoleTeacherOnVerifyName);
-                    }
-                    else if (teachers.Count == 1)
-                    {
-                        comparerRoles.Add(_settings.RoleTeacherName);
-                        comparerRoles.Add(_settings.RoleTeacherOnVerifyName);
-                    }
-
+                    comparerRoles.Add(_settings.RoleTeacherName);
                 }
+
+                account = await context.АккаунтПользователяs.FirstOrDefaultAsync(x => x.IdПользователя == idPerson);
+                if (account is null) return;
             }
 
             idRolesForDelete = roles.Where(x => comparerRoles.Contains(x.Название))

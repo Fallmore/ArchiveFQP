@@ -236,36 +236,48 @@
                 return filtered.DistinctBy(x => x.IdЗаявления).OrderBy(x => x.Новый).ToList();
             }
 
-            Преподаватель? teacher = (await UserService.GetTeacherAsync(idUser)).FirstOrDefault(x => x.Активно == true);
+            List<Преподаватель> teachers = (await UserService.GetTeacherAsync(idUser)).Where(x => x.Активно == true).ToList();
+            Преподаватель? teacher = null;
 
-            if (teacher == null)
+            if (teachers.Count == 0)
             {
                 return [];
             }
 
+            List<РольУчреждения> roles = await RefDataService.GetAsync<РольУчреждения>();
+
             // Не даем проверить своё же заявление
             filtered = filtered.Where(x => x.IdПользователя != idUser).ToList();
 
-            if (user.IsInRole(Settings.RoleInstituteResponsibleName))
+            // Ответственный института
+            teacher = teachers.Where(x => x.Роли.Contains(roles.First(z => z.Название == Settings.RoleInstituteResponsibleName).IdРоли)).FirstOrDefault();
+            if (teacher != null)
             {
                 return filtered
                     .Where(x => x.IdИнститута == teacher.IdИнститута).ToList();
             }
 
-            List<int> idDirections = (await RefDataService.GetAsync<Направление>())
-                .Where(x => x.IdКафедры == teacher.IdКафедры)
-                .Select(x => x.IdНаправления).ToList();
-            List<int> idProfiles = (await RefDataService.GetAsync<Профиль>())
-                .Where(x => idDirections.Contains(x.IdНаправления))
-                .Select(x => x.IdПрофиля).ToList();
-
-            if (user.IsInRole(Settings.RoleDepartmentHeadName) || user.IsInRole(Settings.RoleDepartmentResponsibleName))
+            // Завкафедрой или ответственный кафедры
+            teacher = teachers.Where(x => x.Роли.Intersect(roles.Where(y => y.Название == Settings.RoleDepartmentHeadName
+                                                                        || y.Название == Settings.RoleDepartmentResponsibleName)
+                                                                .Select(z => z.IdРоли)
+                                                                .ToList())
+                                                 .Count() != 0)
+                              .FirstOrDefault();
+            if (teacher != null)
             {
+                List<int> idDirections = (await RefDataService.GetAsync<Направление>())
+                    .Where(x => x.IdКафедры == teacher.IdКафедры)
+                    .Select(x => x.IdНаправления).ToList();
+                List<int> idProfiles = (await RefDataService.GetAsync<Профиль>())
+                    .Where(x => idDirections.Contains(x.IdНаправления))
+                    .Select(x => x.IdПрофиля).ToList();
+
                 return filtered
                      .Where(x => x.IdИнститута == null
-                         && (x.IdКафедры == teacher.IdКафедры ||
-                             idDirections.Contains(x.IdНаправления ?? -1) ||
-                             idProfiles.Contains(x.IdПрофиля ?? -1)))
+                         && (x.IdКафедры == teacher.IdКафедры 
+                             || idDirections.Contains(x.IdНаправления ?? -1)
+                             || idProfiles.Contains(x.IdПрофиля ?? -1)))
                      .ToList();
             }
 

@@ -64,7 +64,7 @@
                     studentsPaginated ??= new() { PageSize = pageSize, CurrentPage = currentPage };
                     <StudentsTable Responsible="responsible" Students="studentsPaginated" StudentsChanged="LoadCurrentTabData" />
                 }
-                else if (activeTab == "teachers" && responsible.Пользователь.Роли.Contains(Settings.RoleDepartmentHeadName))
+                else if (activeTab == "teachers" && responsible.Роли.Exists(x => x.Название == Settings.RoleDepartmentHeadName))
                 {
                     teachersPaginated ??= new() { PageSize = pageSize, CurrentPage = currentPage };
                     <TeachersTable Responsible="responsible" Teachers="teachersPaginated" TeachersChanged="LoadCurrentTabData" />
@@ -125,7 +125,11 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         ClaimsPrincipal user = authState!.User;
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        responsible = (await UserService.GetTeacherDisplayAsync(idUser)).FirstOrDefault(x => x.Активно == true);
+        List<string> departmentRoles = [Settings.RoleDepartmentHeadName, Settings.RoleDepartmentResponsibleName];
+
+        responsible = (await UserService.GetTeacherDisplayAsync(idUser))
+            .Where(x => x.Активно == true && x.Роли.Exists(y => departmentRoles.Contains(y.Название)))
+            .FirstOrDefault();
     }
     
     private void SetActiveTab(string tab)

@@ -63,8 +63,8 @@
             {
                 @foreach (var teacher in filteredTeachers.Skip((Teachers.CurrentPage - 1) * Teachers.PageSize).Take(Teachers.PageSize).ToList())
                 {
-                    var teacherRoles = teacher.Пользователь.Роли;
-                    bool isVerifying = teacher.Пользователь.Роли.Contains(Settings.RoleTeacherOnVerifyName);
+                    var teacherRoles = teacher.Роли;
+                    bool isVerifying = teacher.Роли.Exists(x => x.Название == Settings.RoleTeacherOnVerifyName);
                     
                     <tr>
                         <td>
@@ -91,7 +91,7 @@
                             {
                                 foreach (var role in departmentRoles)
                                 {
-                                    if (teacherRoles.Contains(role.Название))
+                                    if (teacherRoles.Exists(x => x.Название == role.Название))
                                     {
                                         <div>
                                             <span class="badge bg-primary me-1 mb-1">@role.Название</span>
@@ -195,7 +195,7 @@
                             </InputSelect>
                             <ValidationMessage For="() => selectedTeacher.IdКафедры" />
                         </div>
-                        @if (selectedTeacher.IdПреподавателя != 0 && selectedAccount != null)
+                        @if (selectedTeacher.IdПреподавателя != 0)
                         {
                             <div class="mb-3">
                                 <label class="form-label">Роли</label>
@@ -205,7 +205,7 @@
                                         <div class="form-check">
                                             <input type="checkbox" class="form-check-input"
                                                    @onchange="@((e) => ToggleRole(role.IdРоли, (bool)e.Value!))"
-                                                   checked="@selectedAccount.Роли.Contains(role.IdРоли)" />
+                                                   checked="@selectedTeacher.Роли.Contains(role.IdРоли)" />
                                             <label class="form-check-label">@role.Название</label>
                                         </div>
                                     }
@@ -232,8 +232,7 @@
     private bool showModal = false;
     private bool isEdit = false;
 
-    private List<РольПользователя> departmentRoles = null!;
-    private АккаунтПользователя? selectedAccount;
+    private List<РольУчреждения> departmentRoles = null!;
 
     private List<Кафедра> filteredDepartments = new();
 
@@ -245,8 +244,8 @@
             List<TeacherDisplayDto> res = Teachers?.Items
                 .OrderByDescending(x =>
                 {
-                    int isVerifying = x.Пользователь.Роли.Contains(Settings.RoleTeacherOnVerifyName) ? 1 : 0;
-                    int isDepartmentRole = x.Пользователь.Роли.Any(x => departmentRoles.Exists(y => x == y.Название)) ? 1 : 0;
+                    int isVerifying = x.Роли.Exists(x => x.Название == Settings.RoleTeacherOnVerifyName) ? 1 : 0;
+                    int isDepartmentRole = x.Роли.Any(x => departmentRoles.Contains(x)) ? 1 : 0;
                     return isVerifying + isDepartmentRole;
                 })
                 .ThenBy(x => x.Пользователь.ФИО).ToList() ?? [];
@@ -270,7 +269,7 @@
         List<string> temp = [Settings.RoleDepartmentHeadName,
                           Settings.RoleDepartmentResponsibleName,
                           Settings.RoleDepartmentClerkName];
-        departmentRoles = snapshot.RoleUsers.Where(x => temp.Contains(x.Название)).ToList();
+        departmentRoles = snapshot.RolesOrganization.Where(x => temp.Contains(x.Название)).ToList();
     }
 
     private async Task LoadData()
@@ -297,7 +296,6 @@
             IdИнститута = Responsible.Структура.Институт.IdИнститута,
             IdКафедры = Responsible.Структура.Кафедра.IdКафедры
         };
-        selectedAccount = null;
         await UpdateDependentLists();
         isEdit = false;
         showModal = true;
@@ -307,7 +305,6 @@
     private async Task OpenEditModal(Преподаватель teacher)
     {
         selectedTeacher = teacher;
-        selectedAccount = await UserService.GetUserAccountAsync((await UserService.GetUserAsync(teacher.IdПользователя))!);
         await UpdateDependentLists();
         isEdit = true;
         showModal = true;
@@ -325,7 +322,6 @@
         try
         {
             string message = await TeacherService.Upsert(selectedTeacher) ? "Обновлено" : "Добавлено";
-            if (selectedAccount != null) await UserService.Upsert(selectedAccount);
             CloseModal();
             await JSRuntime.InvokeVoidAsync("alert", message + " успешно");
         }
@@ -380,13 +376,14 @@
             АккаунтПользователя? account = null;
             Преподаватель approvedTeacher = teacher.ToTeacher();
             approvedTeacher.Активно = true;
+            approvedTeacher.Роли.Remove(snapshot.RolesOrganization.First(x => x.Название == Settings.RoleTeacherOnVerifyName).IdРоли);
             string message = "Преподаватель подтвержден и ему была присвоена роль преподавателя.";
+
             try
             {
                 await TeacherService.Upsert(approvedTeacher);
-                await DisableOldTeachers(teacher);
 
-                if (await VerifyAccount(account, teacher))
+                if (await VerifyTeacher(account, teacher))
                 {
                     message += "\n\nУ преподавателя отсутстовал аккаунт и он был создан с базовыми логином и паролем:"
                             + $"\nЛогин: {account!.Логин}"
@@ -410,34 +407,8 @@
         }
     }
 
-    // Ставит Активно = false всем записям преподавателей у пользователя
-    private async Task DisableOldTeachers(TeacherDisplayDto teacher)
-    {
-        List<Преподаватель> teachers = (await UserService.GetTeacherAsync(teacher.Пользователь.Пользователь.IdПользователя))
-            .Where(x => x.Активно == true && x.IdПреподавателя != teacher.IdПреподавателя).ToList();
-        foreach (Преподаватель tchr in teachers)
-        {
-            bool isDeleted = false;
-
-            // Пытаемся удалить предыдущую запись преподавателя,
-            // если она не имеет никаких связей
-            try
-            {
-                await TeacherService.Delete<Преподаватель>(tchr.IdПреподавателя);
-                isDeleted = true;
-            }
-            catch (DbUpdateException) { }
-
-            if (!isDeleted)
-            {
-                tchr.Активно = false;
-                await TeacherService.Upsert(tchr);
-            }
-        }
-    }
-
     // Возвращает true, если аккаунт создан, false - если просто изменены роли
-    private async Task<bool> VerifyAccount(АккаунтПользователя? account, TeacherDisplayDto teacher)
+    private async Task<bool> VerifyTeacher(АккаунтПользователя? account, TeacherDisplayDto teacher)
     {
         account = await UserService.GetUserAccountAsync(teacher.Пользователь.Пользователь);
         if (account == null)
@@ -447,11 +418,9 @@
         }
         else
         {
-            List<РольПользователя> roles = await RefDataService.GetAsync<РольПользователя>();
+            List<РольУчреждения> roles = await RefDataService.GetAsync<РольУчреждения>();
                     
-            // Добавляем роль Преподаватель, если нет,
-            // и убираем Преподаватель на проверке
-            account.Роли.Remove(roles.First(x => x.Название == Settings.RoleTeacherOnVerifyName).IdРоли);
+            // Добавляем роль Преподаватель, если отсутствует
             int idTeacherRole = account.Роли.FindIndex(x => x == roles.First(x => x.Название == Settings.RoleTeacherName).IdРоли);
             if (idTeacherRole == -1) account.Роли.Add(roles.First(x => x.Название == Settings.RoleTeacherName).IdРоли);
 
@@ -466,13 +435,6 @@
         {
             if (await TeacherService.Delete<Преподаватель>(teacher.IdПреподавателя, true))
             {
-                // Убираем роль "Преподаватель на проверке"
-                АккаунтПользователя? account = await UserService.GetUserAccountAsync(teacher.Пользователь.Пользователь);
-                if (account != null)
-                {
-                    account.Роли.Remove((await RefDataService.GetAsync<РольПользователя>()).First(x => x.Название == Settings.RoleTeacherOnVerifyName).IdРоли);
-                    await UserService.Upsert(account);
-                }
                 await JSRuntime.InvokeVoidAsync("alert", "Преподаватель отклонен");
             }
         }
@@ -498,13 +460,13 @@
 
     private void ToggleRole(int role, bool isSelected)
     {
-        if (isSelected && !selectedAccount!.Роли.Contains(role))
+        if (isSelected && !selectedTeacher.Роли.Contains(role))
         {
-            selectedAccount.Роли.Add(role);
+            selectedTeacher.Роли.Add(role);
         }
-        else if (!isSelected && selectedAccount!.Роли.Contains(role))
+        else if (!isSelected && selectedTeacher.Роли.Contains(role))
         {
-            selectedAccount.Роли.Remove(role);
+            selectedTeacher.Роли.Remove(role);
         }
     }
 

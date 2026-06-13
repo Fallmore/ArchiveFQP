@@ -1,8 +1,11 @@
 ﻿@using ArchiveFqp.Components.Components
+@using ArchiveFqp.Factories.DisplayDto.Structure
 @using ArchiveFqp.Interfaces.Applications
 @using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Interfaces.Teacher
 @using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Interfaces.Work
+@using ArchiveFqp.Models.DTO.Structure
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.User
 @using ArchiveFqp.Models.DTO.WorkApplication
@@ -14,6 +17,7 @@
 @inject SettingsArchive Settings
 @inject IWorkService WorkService
 @inject IUserService UserService
+@inject ITeacherService TeacherService
 @inject IApplicationsService ApplicationsService
 @inject NotificationService NotificationService
 @inject IReferenceDataService RefDataService
@@ -683,45 +687,73 @@
         string message = $"Было добавлено заявление на добавление атрибута \"{attributeApplication.Название}\"";
 
         List<string> rolesReviewers = [Settings.RoleDepartmentResponsibleName, Settings.RoleDepartmentHeadName,
-            Settings.RoleInstituteResponsibleName, Settings.RoleAdminName];
+            Settings.RoleInstituteResponsibleName];
+        List<РольУчреждения> rolesOrganization = snapshot.RolesOrganization
+            .Where(x => rolesReviewers.Contains(x.Название))
+            .ToList();
+        int roleInstituteResponsible = rolesOrganization
+            .First(x => rolesReviewers.Contains(Settings.RoleInstituteResponsibleName))
+            .IdРоли;
+        List<int> rolesDepartment = rolesOrganization
+            .Where(x => rolesReviewers.Contains(Settings.RoleDepartmentHeadName)
+                    || rolesReviewers.Contains(Settings.RoleDepartmentResponsibleName))
+            .Select(x => x.IdРоли)
+            .ToList();
 
-        List<UserDisplayDto> appReviewers = (await UserService.GetUsersByRolesAsync(rolesReviewers)).ToList();
+        List<Преподаватель> appReviewers = (await TeacherService.GetTeachersByRolesAsync(rolesReviewers))
+            .Where(x => x.Активно)
+            .ToList();
         List<int> idReviewers = [];
-        List<int> idAdmins = appReviewers
-            .Where(x => x.Роли.Contains(Settings.RoleAdminName))
-            .Select(x => x.Пользователь.IdПользователя)
-            .ToList();
-        List<int> idInstituteRespnsible = appReviewers
-            .Where(x => x.Роли.Contains(Settings.RoleInstituteResponsibleName)
-                    && x.Пользователь.IdПользователя != attributeApplication!.IdПользователя)
-            .Select(x => x.Пользователь.IdПользователя)
-            .ToList();
-        List<int> idDepartmentReviewers = appReviewers
-            .Where(x => (x.Роли.Contains(Settings.RoleDepartmentResponsibleName)
-                    || x.Роли.Contains(Settings.RoleDepartmentHeadName))
-                    && x.Пользователь.IdПользователя != attributeApplication!.IdПользователя)
-            .Select(x => x.Пользователь.IdПользователя)
-            .ToList();
 
+        // Если атрибут относится ко всему учреждению или он новый
         if ((attributeApplication.IdИнститута.HasValue == attributeApplication.IdКафедры.HasValue
             == attributeApplication.IdНаправления.HasValue == attributeApplication.IdПрофиля.HasValue == false)
             || attributeApplication.Новый == true)
         {
+            List<int> idAdmins = (await UserService.GetUsersByRolesAsync([Settings.RoleAdminName]))
+                .Select(x => x.Пользователь.IdПользователя)
+                .ToList();
             idReviewers.AddRange(idAdmins);
         }
         else
         {
-            idReviewers.AddRange((await UserService.GetTeacherDisplayAsync(idInstituteRespnsible))
-                .Where(x => x.Структура.Институт.IdИнститута == attributeApplication.IdИнститута)
-                .Select(x => x.Пользователь.Пользователь.IdПользователя)
+            // Добавляем ответственного института, выбранного в заявлении
+            idReviewers.AddRange(appReviewers
+                .Where(x => x.IdИнститута == attributeApplication.IdИнститута
+                    && x.Роли.Contains(roleInstituteResponsible))
+                .Select(x => x.IdПользователя)
                 .ToList());
-            idReviewers.AddRange((await UserService.GetTeacherDisplayAsync(idDepartmentReviewers))
-            .Where(x => x.Структура.Кафедра.IdКафедры == attributeApplication.IdКафедры)
-            .Select(x => x.Пользователь.Пользователь.IdПользователя)
-            .ToList());
+
+            // Добавляем завкафедрой и ответственного кафедры, выбранного в заявлении
+            {
+                // Получаем всю иерархию структуры для определения ее кафедры
+                StructureDtoFactory factory = new(RefDataService);
+                StructureDto? structureSelectedFromApplication = null;
+                if (attributeApplication.IdКафедры.HasValue)
+                {
+                    structureSelectedFromApplication = await factory.CreateDisplayDtoAsync<Кафедра>(attributeApplication.IdКафедры.Value);
+                }
+                else if (attributeApplication.IdНаправления.HasValue)
+                {
+                    structureSelectedFromApplication = await factory.CreateDisplayDtoAsync<Направление>(attributeApplication.IdНаправления.Value);
+                }
+                else if (attributeApplication.IdПрофиля.HasValue)
+                {
+                    structureSelectedFromApplication = await factory.CreateDisplayDtoAsync<Профиль>(attributeApplication.IdПрофиля.Value);
+                }
+
+                if (structureSelectedFromApplication != null)
+                {
+                    idReviewers.AddRange(appReviewers
+                        .Where(x => x.IdКафедры == structureSelectedFromApplication.Кафедра.IdКафедры
+                            && rolesDepartment.Intersect(x.Роли).Any())
+                        .Select(x => x.IdПользователя)
+                        .ToList());
+                }
+            }
         }
         
-        IEnumerable<Task> tasks = appReviewers.Select(x => NotificationService.SendToUserAsync(x.Пользователь.IdПользователя.ToString(), title, message, "works/applications/review"));
+        IEnumerable<Task> tasks = appReviewers.Select(x => NotificationService.SendToUserAsync(x.IdПользователя.ToString(), title, message, "works/applications/review"));
         await Task.WhenAll(tasks);
     }
 

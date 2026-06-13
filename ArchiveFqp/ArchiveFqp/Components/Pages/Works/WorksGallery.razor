@@ -624,7 +624,7 @@
 
         filtered = works.Where(x => x.ДоступРаботы.Название == Settings.WorkAccessAll).ToList();
         if (user == null || !user.Identity!.IsAuthenticated) return filtered;
-        
+
         if (user.IsInRole(Settings.RoleAdminName))
         {
             showWorkStatus = showWorkAccess = showAllDates = showWorkDateChanged = true;
@@ -635,34 +635,53 @@
 
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
 
+        List<РольУчреждения> roles = snapshot.RolesOrganization;
         List<WorkDisplayDto> temp = [];
+
         if (user.IsInRole(Settings.RoleInstituteResponsibleName) || user.IsInRole(Settings.RoleDepartmentHeadName)
             || user.IsInRole(Settings.RoleDepartmentResponsibleName) || user.IsInRole(Settings.RoleTeacherName))
         {
             showWorkStatus = showWorkAccess = true;
 
-            Преподаватель? teacher = (await UserService.GetTeacherAsync(idUser)).FirstOrDefault(x => x.Активно == true);
+            // Активированные преподаватели, прошедшие проверку
+            List<Преподаватель> teachers = (await UserService.GetTeacherAsync(idUser))
+                .Where(x => !x.Роли.Contains(roles.First(r => r.Название == Settings.RoleTeacherOnVerifyName).IdРоли))
+                .ToList();
+            if (teachers.Count == 0) return filtered;
 
-            if (teacher == null) return filtered;
+            // Руководитель работы
+            temp.AddRange(works.Where(x => x.Руководитель.Пользователь.Пользователь.IdПользователя == idUser));
+
+            teachers = teachers.Where(x => x.Активно == true).ToList();
             // Доступ внутри института
             temp.AddRange(works.Where(x => x.ДоступРаботы.Название == Settings.WorkAccessInstitute
-                                        && x.Студент.Структура.Институт.IdИнститута == teacher.IdИнститута));
+                                        && teachers.Exists(y => y.IdИнститута == x.Студент.Структура.Институт.IdИнститута)));
+
+            // Доступ ответственному института
+            temp.AddRange(works.Where(x => (x.ДоступРаботы.Название == Settings.WorkAccessDepartment
+                                        || x.ДоступРаботы.Название == Settings.WorkAccessDirection
+                                        || x.ДоступРаботы.Название == Settings.WorkAccessProfile)
+                                        && teachers.Exists(y => y.IdИнститута == x.Студент.Структура.Институт.IdИнститута
+                                            && y.Роли.Contains(roles.First(r => r.Название == Settings.RoleInstituteResponsibleName).IdРоли))));
 
             // Доступ внутри кафедры
             temp.AddRange(works.Where(x => (x.ДоступРаботы.Название == Settings.WorkAccessDepartment
                                         || x.ДоступРаботы.Название == Settings.WorkAccessDirection
                                         || x.ДоступРаботы.Название == Settings.WorkAccessProfile)
-                                        && x.Студент.Структура.Кафедра.IdКафедры == teacher.IdКафедры));
+                                        && teachers.Exists(y => y.IdКафедры == x.Студент.Структура.Кафедра.IdКафедры)));
 
-            // Доступ к засекреченым внутри кафедры
+            // Доступ к засекреченым внутри кафедры ответственному и завкафедрой
+            teachers = teachers.Where(x => x.Роли.Intersect(roles.Where(y => y.Название == Settings.RoleDepartmentHeadName
+                                                                        || y.Название == Settings.RoleDepartmentResponsibleName)
+                                                                .Select(z => z.IdРоли)
+                                                                .ToList())
+                                                 .Count() != 0)
+                              .ToList();
             if (user.IsInRole(Settings.RoleDepartmentHeadName) || user.IsInRole(Settings.RoleDepartmentResponsibleName))
             {
                 temp.AddRange(works.Where(x => x.ДоступРаботы.Название == Settings.WorkAccessSecret
-                                        && x.Студент.Структура.Институт.IdИнститута == teacher.IdИнститута));
+                                        && teachers.Exists(y => y.IdКафедры == x.Студент.Структура.Кафедра.IdКафедры)));
             }
-
-            // Руководитель работы
-            temp.AddRange(works.Where(x => x.Руководитель.Пользователь.Пользователь.IdПользователя == idUser));
         }
 
         if (user.IsInRole(Settings.RoleDepartmentClerkName))
@@ -672,28 +691,34 @@
         {
             showWorkAccess = true;
 
-            Студент? student = (await UserService.GetStudentAsync(idUser)).FirstOrDefault(x => x.Активно == true);
+            List<Студент> students = (await UserService.GetStudentAsync(idUser))
+                .Where(x => !x.Роли.Contains(roles.First(r => r.Название == Settings.RoleStudentOnVerifyName).IdРоли))
+                .ToList();
 
-            if (student == null) return filtered;
-
-            temp.AddRange(works.Where(x => (x.ДоступРаботы.Название == Settings.WorkAccessInstitute
-                        && x.Студент.Структура.Институт.IdИнститута == student.IdИнститута)
-                        ||
-                        (x.ДоступРаботы.Название == Settings.WorkAccessDepartment
-                        && x.Студент.Структура.Кафедра.IdКафедры == student.IdКафедры)
-                        ||
-                        (x.ДоступРаботы.Название == Settings.WorkAccessDirection
-                        && x.Студент.Структура.Направление.IdНаправления == student.IdНаправления)).ToList());
-
-            // Если нет профиля, то нет смысла проверять соответствие
-            if (!student.IdПрофиля.HasValue) return filtered;
-
-            temp.AddRange(works.Where(x => x.ДоступРаботы.Название == Settings.WorkAccessProfile
-                        && x.Студент.Структура?.Профиль?.IdПрофиля == null
-                        || x.Студент.Структура?.Профиль?.IdПрофиля == student?.IdПрофиля).ToList());
+            if (students.Count == 0) return filtered;
 
             // Работа студента
             temp.AddRange(works.Where(x => x.Студент.Пользователь.Пользователь.IdПользователя == idUser));
+
+            students = students.Where(x => x.Активно == true).ToList();
+            // Добавляем работы, которые входят в структура данного студента в зависимости от доступа работы
+            temp.AddRange(works.Where(x => (x.ДоступРаботы.Название == Settings.WorkAccessInstitute
+                            && students.Exists(y => y.IdИнститута == x.Студент.Структура.Институт.IdИнститута))
+                        ||
+                        (x.ДоступРаботы.Название == Settings.WorkAccessDepartment
+                            && students.Exists(y => y.IdКафедры == x.Студент.Структура.Кафедра.IdКафедры))
+                        ||
+                        (x.ДоступРаботы.Название == Settings.WorkAccessDirection
+                            && students.Exists(y => y.IdНаправления == x.Студент.Структура.Направление.IdНаправления))).ToList());
+
+            // Если нет профиля, то нет смысла проверять соответствие
+            if (!students.All(x => x.IdПрофиля == null))
+            {
+                temp.AddRange(works.Where(x => x.ДоступРаботы.Название == Settings.WorkAccessProfile
+                            && 
+                            (x.Студент.Структура?.Профиль?.IdПрофиля == null
+                                || students.Exists(y => y.IdПрофиля == x.Студент.Структура.Профиль.IdПрофиля))).ToList());
+            }
         }
 
         filtered.AddRange(temp);

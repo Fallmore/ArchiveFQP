@@ -23,7 +23,8 @@ namespace ArchiveFqp.Models.ReferenceData
         public List<Преподаватель> Teachers { get; set; } = [];
         public List<Профиль> Profiles { get; set; } = [];
         public List<Рецензент> Reviewers { get; set; } = [];
-        public List<РольПользователя> RoleUsers { get; set; } = [];
+        public List<РольПользователя> RolesUser { get; set; } = [];
+        public List<РольУчреждения> RolesOrganization { get; set; } = [];
         public List<СтатусРаботы> WorkStatuses { get; set; } = [];
         public List<СтатусЗаявления> ApplicationStatuses { get; set; } = [];
         public List<Студент> Students { get; set; } = [];
@@ -34,6 +35,8 @@ namespace ArchiveFqp.Models.ReferenceData
         public List<ФормаОбучения> EducationForms { get; set; } = [];
         public List<НастройкиИнститута> SettingsInstitute { get; set; } = [];
         public List<НастройкиКафедры> SettingsDepartment { get; set; } = [];
+        public List<НастройкиНаправления> SettingsDirection { get; set; } = [];
+        public List<НастройкиПрофиля> SettingsProfile { get; set; } = [];
 
         public DateTime LastUpdated { get; set; }
 
@@ -68,7 +71,8 @@ namespace ArchiveFqp.Models.ReferenceData
                 nameof(Преподаватель) => (Teachers as List<T>)!,
                 nameof(Профиль) => (Profiles as List<T>)!,
                 nameof(Рецензент) => (Reviewers as List<T>)!,
-                nameof(РольПользователя) => (RoleUsers as List<T>)!,
+                nameof(РольПользователя) => (RolesUser as List<T>)!,
+                nameof(РольУчреждения) => (RolesOrganization as List<T>)!,
                 nameof(СтатусРаботы) => (WorkStatuses as List<T>)!,
                 nameof(СтатусЗаявления) => (ApplicationStatuses as List<T>)!,
                 nameof(Студент) => (Students as List<T>)!,
@@ -79,6 +83,8 @@ namespace ArchiveFqp.Models.ReferenceData
                 nameof(ФормаОбучения) => (EducationForms as List<T>)!,
                 nameof(НастройкиИнститута) => (SettingsInstitute as List<T>)!,
                 nameof(НастройкиКафедры) => (SettingsDepartment as List<T>)!,
+                nameof(НастройкиНаправления) => (SettingsDirection as List<T>)!,
+                nameof(НастройкиПрофиля) => (SettingsProfile as List<T>)!,
                 _ => throw new ArgumentException($"Неизвестная таблица: {typeof(T).Name}")
             };
         }
@@ -104,7 +110,8 @@ namespace ArchiveFqp.Models.ReferenceData
                 case nameof(Преподаватель): Teachers = (table as List<Преподаватель>)!; break;
                 case nameof(Профиль): Profiles = (table as List<Профиль>)!; break;
                 case nameof(Рецензент): Reviewers = (table as List<Рецензент>)!; break;
-                case nameof(РольПользователя): RoleUsers = (table as List<РольПользователя>)!; break;
+                case nameof(РольПользователя): RolesUser = (table as List<РольПользователя>)!; break;
+                case nameof(РольУчреждения): RolesOrganization = (table as List<РольУчреждения>)!; break;
                 case nameof(СтатусРаботы): WorkStatuses = (table as List<СтатусРаботы>)!; break;
                 case nameof(СтатусЗаявления): ApplicationStatuses = (table as List<СтатусЗаявления>)!; break;
                 case nameof(Студент): Students = (table as List<Студент>)!; break;
@@ -115,7 +122,9 @@ namespace ArchiveFqp.Models.ReferenceData
                 case nameof(ФормаОбучения): EducationForms = (table as List<ФормаОбучения>)!; break;
                 case nameof(НастройкиИнститута): SettingsInstitute = (table as List<НастройкиИнститута>)!; break;
                 case nameof(НастройкиКафедры): SettingsDepartment = (table as List<НастройкиКафедры>)!; break;
-                default: throw new ArgumentException($"Unknown type: {typeof(T).Name}");
+                case nameof(НастройкиНаправления): SettingsDirection = (table as List<НастройкиНаправления>)!; break;
+                case nameof(НастройкиПрофиля): SettingsProfile = (table as List<НастройкиПрофиля>)!; break;
+                default: throw new ArgumentException($"Неизвестный тип таблицы: {typeof(T).Name}");
             }
             ;
         }

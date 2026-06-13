@@ -86,6 +86,8 @@
         if (result.Success)
         {
             var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri).Split('=');
+            // Если никто не перенаправлял на страницу входа, то переходим на главную страницу
+            // Иначе приложение само перенаправит на предыдущую страницу
             if (returnUrl.Length < 2)
             {
                 Navigation.NavigateTo("/", forceLoad: true);

@@ -72,6 +72,8 @@ public partial class ArchiveFqpContext : DbContext
     public virtual DbSet<Рецензент> Рецензентs { get; set; }
 
     public virtual DbSet<РольПользователя> РольПользователяs { get; set; }
+    
+    public virtual DbSet<РольУчреждения> РольУчрежденияs { get; set; }
 
     public virtual DbSet<СеансПользователя> СеансПользователяs { get; set; }
 
@@ -914,6 +916,7 @@ public partial class ArchiveFqpContext : DbContext
             entity.Property(e => e.Активно)
                 .HasColumnType("boolean")
                 .HasColumnName("активно");
+            entity.Property(e => e.Роли).HasColumnName("роли");
 
             entity.HasOne(d => d.IdДолжностиNavigation).WithMany(p => p.Преподавательs)
                 .HasForeignKey(d => d.IdДолжности)
@@ -1119,6 +1122,20 @@ public partial class ArchiveFqpContext : DbContext
                 .HasColumnName("название");
         });
 
+        modelBuilder.Entity<РольУчреждения>(entity =>
+        {
+            entity.HasKey(e => e.IdРоли).HasName("роль_учреждения_pkey");
+
+            entity.ToTable("роль_учреждения");
+
+            entity.HasIndex(e => e.Название, "роль_учреждения_название_key").IsUnique();
+
+            entity.Property(e => e.IdРоли).HasColumnName("id_роли");
+            entity.Property(e => e.Название)
+                .HasColumnType("character varying")
+                .HasColumnName("название");
+        });
+
         modelBuilder.Entity<СеансПользователя>(entity =>
         {
             entity.HasKey(e => e.IdСеанса).HasName("сеанс_пользователя_pkey");
@@ -1214,6 +1231,7 @@ public partial class ArchiveFqpContext : DbContext
             entity.Property(e => e.Активно)
                 .HasColumnType("boolean")
                 .HasColumnName("активно");
+            entity.Property(e => e.Роли).HasColumnName("роли");
 
             entity.HasOne(d => d.IdИнститутаNavigation).WithMany(p => p.Студентs)
                 .HasForeignKey(d => d.IdИнститута)

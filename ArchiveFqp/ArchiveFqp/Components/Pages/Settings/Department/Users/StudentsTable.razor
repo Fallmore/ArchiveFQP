@@ -67,8 +67,8 @@
             {
                 @foreach (var student in filteredStudents.Skip((Students.CurrentPage - 1) * Students.PageSize).Take(Students.PageSize).ToList())
                 {
-                    bool isVerifying = student.Пользователь.Роли.Contains(Settings.RoleStudentOnVerifyName);
-                    bool isClerk = student.Пользователь.Роли.Contains(Settings.RoleDepartmentClerkName);
+                    bool isVerifying = student.Роли.Exists(x => x.Название == Settings.RoleStudentOnVerifyName);
+                    bool isClerk = student.Роли.Exists(x => x.Название == Settings.RoleDepartmentClerkName);
                     <tr>
                         <td>
                             @if (isVerifying)
@@ -255,7 +255,7 @@
                                 }
                             </InputSelect>
                         </div>
-                        @if (selectedStudent.IdСтудента != 0 && selectedAccount != null)
+                        @if (selectedStudent.IdСтудента != 0)
                         {
                             <div class="mb-3">
                                 <label class="form-label">Роли</label>
@@ -265,7 +265,7 @@
                                         <div class="form-check">
                                             <input type="checkbox" class="form-check-input"
                                                    @onchange="@((e) => ToggleRole(role.IdРоли, (bool)e.Value!))"
-                                                   checked="@selectedAccount.Роли.Contains(role.IdРоли)" />
+                                                   checked="@selectedStudent.Роли.Contains(role.IdРоли)" />
                                             <label class="form-check-label">@role.Название</label>
                                         </div>
                                     }
@@ -292,8 +292,7 @@
     private bool showModal = false;
     private bool isEdit = false;
 
-    private List<РольПользователя> departmentRoles = null!;
-    private АккаунтПользователя? selectedAccount;
+    private List<РольУчреждения> departmentRoles = null!;
 
     private List<УровеньОбразования> filteredEducationLevels = new();
     private List<Угсн> filteredUgsns = new();
@@ -311,8 +310,8 @@
             List<StudentDisplayDto> res = Students?.Items
                 .OrderByDescending(x =>
                     {
-                        int isVerifying = x.Пользователь.Роли.Contains(Settings.RoleStudentOnVerifyName) ? 1 : 0;
-                        int isClerk = x.Пользователь.Роли.Contains(Settings.RoleDepartmentClerkName) ? 1 : 0;
+                        int isVerifying = x.Роли.Exists(x => x.Название == Settings.RoleStudentOnVerifyName) ? 1 : 0;
+                        int isClerk = x.Роли.Exists(x => x.Название == Settings.RoleDepartmentClerkName) ? 1 : 0;
                         return isVerifying + isClerk;
                     })
                 .ThenBy(x => x.Пользователь.ФИО).ToList() ?? [];
@@ -336,7 +335,7 @@
         RefDataService.TablesChanged += OnTablesChanged;
 
         List<string> temp = [Settings.RoleDepartmentClerkName];
-        departmentRoles = snapshot.RoleUsers.Where(x => temp.Contains(x.Название)).ToList();
+        departmentRoles = snapshot.RolesOrganization.Where(x => temp.Contains(x.Название)).ToList();
     }
 
     private async Task LoadData()
@@ -365,7 +364,6 @@
             IdКафедры = Responsible.Структура.Кафедра.IdКафедры
         };
         idУгсн = idУгснСтандарта = 0;
-        selectedAccount = null;
         _ = UpdateDependentLists();
         isEdit = false;
         showModal = true;
@@ -377,7 +375,6 @@
         selectedStudent = student;
         idУгсн = snapshot.Directions.First(x => x.IdНаправления == selectedStudent.IdНаправления).IdУгсн;
         idУгснСтандарта = snapshot.Ugsns.First(x => x.IdУгсн == idУгсн).IdУгснСтандарта;
-        selectedAccount = await UserService.GetUserAccountAsync((await UserService.GetUserAsync(student.IdПользователя))!);
         _ = UpdateDependentLists();
         isEdit = true;
         showModal = true;
@@ -396,7 +393,6 @@
         try
         {
             string message = await StudentService.Upsert(selectedStudent) ? "Обновлено" : "Добавлено";
-            if (selectedAccount != null) await UserService.Upsert(selectedAccount);
             CloseModal();
             await JSRuntime.InvokeVoidAsync("alert", message + " успешно");
         }
@@ -445,15 +441,18 @@
         if (await JSRuntime.InvokeAsync<bool>("confirm", "Студент точно принадлежит вашей кафедре?\nЕсли какие-то данные неверны, Вы можете их изменить."))
         {
             АккаунтПользователя? account = null;
+
             Студент approvedStudent = student.ToStudent();
             approvedStudent.Активно = true;
-            string message = "Студент подтвержден и ему была присвоена роль студента.";
+            approvedStudent.Роли.Remove(snapshot.RolesOrganization.First(x => x.Название == Settings.RoleStudentOnVerifyName).IdРоли);
+            string message = "Студент подтвержден.";
+
             try
             {
                 await StudentService.Upsert(approvedStudent);
                 await DisableOldStudents(student);
 
-                if (await VerifyAccount(account, student))
+                if (await VerifyStudent(account, student))
                 {
                     message += "\n\nУ студента отсутстовал аккаунт и он был создан с базовыми логином и паролем:"
                             + $"\nЛогин: {account!.Логин}"
@@ -490,7 +489,7 @@
             // если она не имеет никаких связей
             try
             {
-                await StudentService.Delete<Студент>(stdnt.IdСтудента);
+                await StudentService.Delete<Студент>(stdnt.IdСтудента, true);
                 isDeleted = true;
             }
             catch (DbUpdateException) { }
@@ -504,7 +503,7 @@
     }
 
     // Возвращает true, если аккаунт создан, false - если просто изменены роли
-    private async Task<bool> VerifyAccount(АккаунтПользователя? account, StudentDisplayDto student)
+    private async Task<bool> VerifyStudent(АккаунтПользователя? account, StudentDisplayDto student)
     {
         account = await UserService.GetUserAccountAsync(student.Пользователь.Пользователь);
         if (account == null)
@@ -515,11 +514,8 @@
         else
         {
             List<РольПользователя> roles = await RefDataService.GetAsync<РольПользователя>();
-            account.Роли.Remove(roles.First(x => x.Название == Settings.RoleStudentOnVerifyName).IdРоли);
                     
-            // Добавляем роль Студент, если нет,
-            // и убираем "Студент на проверке"
-            account.Роли.Remove(roles.First(x => x.Название == Settings.RoleStudentOnVerifyName).IdРоли);
+            // Добавляем роль Студент, если отсутствует
             int idStudentRole = account.Роли.FindIndex(x => x == roles.First(x => x.Название == Settings.RoleStudentName).IdРоли);
             if (idStudentRole == -1) account.Роли.Add(roles.First(x => x.Название == Settings.RoleStudentName).IdРоли);
 
@@ -532,15 +528,8 @@
     {
         if (await JSRuntime.InvokeAsync<bool>("confirm", "Студент точно НЕ принадлежит вашей кафедре?\nЕсли какие-то данные неверны, Вы можете их изменить."))
         {
-            if (await StudentService.Delete<Студент>(student.IdСтудента))
+            if (await StudentService.Delete<Студент>(student.IdСтудента, true))
             {
-                // Убираем роль "Студент на проверке"
-                АккаунтПользователя? account = await UserService.GetUserAccountAsync(student.Пользователь.Пользователь);
-                if (account != null)
-                {
-                    account.Роли.Remove((await RefDataService.GetAsync<РольПользователя>()).First(x => x.Название == Settings.RoleStudentOnVerifyName).IdРоли);
-                    await UserService.Upsert(account);
-                }
                 await JSRuntime.InvokeVoidAsync("alert", "Студент отклонен");
             }
         }
@@ -627,13 +616,13 @@
 
     private void ToggleRole(int role, bool isSelected)
     {
-        if (isSelected && !selectedAccount!.Роли.Contains(role))
+        if (isSelected && !selectedStudent.Роли.Contains(role))
         {
-            selectedAccount.Роли.Add(role);
+            selectedStudent.Роли.Add(role);
         }
-        else if (!isSelected && selectedAccount!.Роли.Contains(role))
+        else if (!isSelected && selectedStudent.Роли.Contains(role))
         {
-            selectedAccount.Роли.Remove(role);
+            selectedStudent.Роли.Remove(role);
         }
     }
 

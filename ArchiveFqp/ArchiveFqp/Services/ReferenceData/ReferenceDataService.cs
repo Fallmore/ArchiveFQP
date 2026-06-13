@@ -313,7 +313,8 @@ namespace ArchiveFqp.Services.ReferenceData
                     Directions = await context.Направлениеs.AsNoTracking().ToListAsync(),
                     Teachers = await context.Преподавательs.AsNoTracking().ToListAsync(),
                     Profiles = await context.Профильs.AsNoTracking().ToListAsync(),
-                    RoleUsers = await context.РольПользователяs.AsNoTracking().ToListAsync(),
+                    RolesUser = await context.РольПользователяs.AsNoTracking().ToListAsync(),
+                    RolesOrganization = await context.РольУчрежденияs.AsNoTracking().ToListAsync(),
                     WorkStatuses = await context.СтатусРаботыs.AsNoTracking().ToListAsync(),
                     ApplicationStatuses = await context.СтатусЗаявленияs.AsNoTracking().ToListAsync(),
                     Students = await context.Студентs.AsNoTracking().ToListAsync(),
@@ -324,6 +325,8 @@ namespace ArchiveFqp.Services.ReferenceData
                     EducationForms = await context.ФормаОбученияs.AsNoTracking().ToListAsync(),
                     SettingsInstitute = await context.НастройкиИнститутаs.AsNoTracking().ToListAsync(),
                     SettingsDepartment = await context.НастройкиКафедрыs.AsNoTracking().ToListAsync(),
+                    SettingsDirection = await context.НастройкиНаправленияs.AsNoTracking().ToListAsync(),
+                    SettingsProfile = await context.НастройкиПрофиляs.AsNoTracking().ToListAsync(),
                     LastUpdated = DateTime.Now
                 };
 

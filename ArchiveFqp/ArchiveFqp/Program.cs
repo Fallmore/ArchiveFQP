@@ -104,7 +104,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.SlidingExpiration = true;
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization();    
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpContextAccessor();
 

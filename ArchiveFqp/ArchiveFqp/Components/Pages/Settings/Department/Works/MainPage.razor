@@ -14,6 +14,7 @@
 @using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.ReferenceData
 @using ArchiveFqp.Models.Search
+@using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Services.FileUpload
 @using ArchiveFqp.Services.ReferenceData
 @using Microsoft.AspNetCore.Authorization
@@ -22,6 +23,7 @@
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Serialization
 @inject AuthenticationStateProvider AuthStateProvider
+@inject SettingsArchive Settings
 @inject IUserService UserService
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject NavigationManager NavigationManager
@@ -564,7 +566,11 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         ClaimsPrincipal user = authState!.User;
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        responsible = (await UserService.GetTeacherDisplayAsync(idUser)).FirstOrDefault(x => x.Активно == true);
+        List<string> departmentRoles = [Settings.RoleDepartmentHeadName, Settings.RoleDepartmentResponsibleName];
+
+        responsible = (await UserService.GetTeacherDisplayAsync(idUser))
+            .Where(x => x.Активно == true && x.Роли.Exists(y => departmentRoles.Contains(y.Название)))
+            .FirstOrDefault();
     }
 
     private async Task LoadData()

@@ -191,17 +191,22 @@
         {
             if (user.IsInRole(Settings.RoleAdminName)) return app;
 
-            Преподаватель? teacher = (await UserService.GetTeacherAsync(idUser)).FirstOrDefault(x => x.Активно == true);
+            List<Преподаватель> teachers = (await UserService.GetTeacherAsync(idUser)).Where(x => x.Активно == true).ToList();
+            Преподаватель? teacher = null;
 
-            if (teacher == null)
+            if (teachers.Count == 0)
             {
                 return [];
             }
 
+            List<РольУчреждения> roles = await RefDataService.GetAsync<РольУчреждения>();
+
             // Не даем проверить своё же заявление
             filtered = filtered.Where(x => x.IdПользователя != idUser).ToList();
-
-            if (user.IsInRole(Settings.RoleInstituteResponsibleName))
+            
+            // Ответственный института
+            teacher = teachers.Where(x => x.Роли.Contains(roles.First(z => z.Название == Settings.RoleInstituteResponsibleName).IdРоли)).FirstOrDefault();
+            if (teacher != null)
             {
                 return filtered
                     .Where(x => x.Работа.Студент.Структура.Институт.IdИнститута == teacher.IdИнститута
@@ -212,7 +217,14 @@
                     ).ToList();
             }
 
-            if (user.IsInRole(Settings.RoleDepartmentHeadName) || user.IsInRole(Settings.RoleDepartmentResponsibleName))
+            // Завкафедрой или ответственный кафедры
+            teacher = teachers.Where(x => x.Роли.Intersect(roles.Where(y => y.Название == Settings.RoleDepartmentHeadName
+                                                                        || y.Название == Settings.RoleDepartmentResponsibleName)
+                                                                .Select(z => z.IdРоли)
+                                                                .ToList())
+                                                 .Count() != 0)
+                              .FirstOrDefault();
+            if (teacher != null)
             {
                 return filtered
                     .Where(x => x.Работа.Студент.Структура.Кафедра.IdКафедры == teacher.IdКафедры).ToList();

@@ -814,19 +814,25 @@
         }
 
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        Преподаватель? teacher = (await UserService.GetTeacherAsync(idUser)).FirstOrDefault(x => x.Активно == true);
+        List<Преподаватель> teachers = (await UserService.GetTeacherAsync(idUser)).Where(x => x.Активно == true).ToList();
+        Преподаватель? teacher = null;
 
-        if (teacher == null)
+        if (teachers.Count == 0)
         {
             Navigation.NavigateTo("/logout", true);
             return;
         }
+        
+        List<РольУчреждения> roles = snapshot.RolesOrganization;
 
-        WorkDto.IdИнститута = teacher.IdИнститута;
-        disableInstitute = true;
-        if (user.IsInRole(Settings.RoleInstituteResponsibleName))
+        // Ответственный института
+        teacher = teachers.Where(x => x.Роли.Contains(roles.First(z => z.Название == Settings.RoleInstituteResponsibleName).IdРоли)).FirstOrDefault();
+        if (teacher != null)
         {
+            WorkDto.IdИнститута = teacher.IdИнститута;
             await UpdateDependentLists();
+            disableInstitute = true;
+
             filteredStudents = filteredStudents
                 .Where(x => x.IdИнститута == teacher.IdИнститута).ToList();
 
@@ -835,11 +841,17 @@
             return;
         }
 
-        if (user.IsInRole(Settings.RoleDepartmentHeadName) || user.IsInRole(Settings.RoleDepartmentResponsibleName))
+        // Завкафедрой или ответственный кафедры
+        teacher = teachers.Where(x => x.Роли.Contains(roles.First(z => z.Название == Settings.RoleDepartmentHeadName
+                                                                    || z.Название == Settings.RoleDepartmentResponsibleName).IdРоли))
+                          .FirstOrDefault();
+        if (teacher != null)
         {
+            WorkDto.IdИнститута = teacher.IdИнститута;
             WorkDto.IdКафедры = teacher.IdКафедры;
             await UpdateDependentLists();
-            disableDepartment = true;
+            disableDepartment = disableInstitute = true;
+
             filteredStudents = filteredStudents
                 .Where(x => x.IdИнститута == teacher.IdИнститута && x.IdКафедры == teacher.IdКафедры).ToList();
 

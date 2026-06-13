@@ -1,9 +1,12 @@
 ﻿using ArchiveFqp.Interfaces.Auth;
 using ArchiveFqp.Interfaces.ReferenceData;
+using ArchiveFqp.Interfaces.User;
 using ArchiveFqp.Models.Auth;
 using ArchiveFqp.Models.Database;
 using ArchiveFqp.Models.Settings.SettingsArchive;
 using ArchiveFqp.Services.Notifications;
+using ArchiveFqp.Services.User;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +21,7 @@ namespace ArchiveFqp.Services.Auth
     public class AuthService : IAuthService
     {
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
-        private readonly NotificationService _notificationService;
+        private readonly IUserService _userService;
         private readonly SettingsArchive _settings;
         private readonly IReferenceDataService _refDataService;
         private readonly IConfiguration _configuration;
@@ -42,12 +45,12 @@ namespace ArchiveFqp.Services.Auth
         //}
 
         public AuthService(IDbContextFactory<ArchiveFqpContext> dbFactory,
-            NotificationService notificationService,
+            IUserService userService,
             SettingsArchive settings, IReferenceDataService refDataService,
             IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _dbFactory = dbFactory;
-            _notificationService = notificationService;
+            _userService = userService;
             _settings = settings;
             _refDataService = refDataService;
             _configuration = configuration;
@@ -97,9 +100,9 @@ namespace ArchiveFqp.Services.Auth
             List<РольПользователя> roles = await _refDataService.GetAsync<РольПользователя>();
             List<int> userRoles = [];
             if (model.UserType == UserType.Student)
-                userRoles.Add(roles.First(x => x.Название == _settings.RoleStudentOnVerifyName).IdРоли);
+                userRoles.Add(roles.First(x => x.Название == _settings.RoleStudentName).IdРоли);
             if (model.UserType == UserType.Teacher)
-                userRoles.Add(roles.First(x => x.Название == _settings.RoleTeacherOnVerifyName).IdРоли);
+                userRoles.Add(roles.First(x => x.Название == _settings.RoleTeacherName).IdРоли);
 
             // Создаем аккаунт с хешированным паролем
             АккаунтПользователя account = new()
@@ -124,7 +127,9 @@ namespace ArchiveFqp.Services.Auth
                     IdПрофиля = model.IdProfile,
                     IdУровняОбразования = model.IdEducationLevel!.Value,
                     IdФормыОбучения = model.IdEducationForm!.Value,
-                    ГодОкончания = model.YearGraduation!.Value
+                    ГодОкончания = model.YearGraduation!.Value,
+                    Роли = [roles.First(x => x.Название == _settings.RoleStudentOnVerifyName).IdРоли],
+                    Активно = true
                 };
 
                 context.Студентs.Add(student);
@@ -137,7 +142,9 @@ namespace ArchiveFqp.Services.Auth
                     IdПользователя = user.IdПользователя,
                     IdИнститута = model.IdInstitute!.Value,
                     IdКафедры = model.IdDepartment!.Value,
-                    IdДолжности = model.IdPost!.Value
+                    IdДолжности = model.IdPost!.Value,
+                    Роли = [roles.First(x => x.Название == _settings.RoleTeacherOnVerifyName).IdРоли],
+                    Активно = true
                 };
 
                 context.Преподавательs.Add(teacher);
@@ -175,6 +182,9 @@ namespace ArchiveFqp.Services.Auth
                 .Where(r => account.Роли.Contains(r.IdРоли))
                 .Select(r => r.Название)
                 .ToList();
+            // Совмещаем роли, т.к. использование политик очень сильно усложнит мне жизнь.
+            // И я надеюсь, что данное решение не усложнит вашу
+            roleNames.AddRange(await GetRoleNamesOrganizaion(account.IdПользователя));
 
             List<Claim> claims = [
                 new Claim(ClaimTypes.NameIdentifier, account.IdПользователя.ToString()),
@@ -284,6 +294,27 @@ namespace ArchiveFqp.Services.Auth
             return tokenHandler.WriteToken(token);
         }
 
+        private async Task<List<string>> GetRoleNamesOrganizaion(int userId)
+        {
+            List<РольУчреждения> roles = await _refDataService.GetAsync<РольУчреждения>();
 
+            Преподаватель? teacher = (await _userService.GetTeacherAsync(userId))
+                .FirstOrDefault(x => x.Активно == true
+                && !x.Роли.Contains(roles.First(y => y.Название == _settings.RoleStudentOnVerifyName).IdРоли));
+            Студент? student = (await _userService.GetStudentAsync(userId))
+                .FirstOrDefault(x => x.Активно == true
+                && !x.Роли.Contains(roles.First(y => y.Название == _settings.RoleTeacherOnVerifyName).IdРоли));
+
+            if (teacher == null && student == null) return [];
+
+            List<int> roleIds = [];
+            roleIds.AddRange(teacher?.Роли ?? []);
+            roleIds.AddRange(student?.Роли ?? []);
+            roleIds = [.. roleIds.Distinct()];
+            return (await _refDataService.GetAsync<РольУчреждения>())
+                .Where(r => roleIds.Contains(r.IdРоли))
+                .Select(r => r.Название)
+                .ToList();
+        }
     }
 }

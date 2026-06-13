@@ -7,7 +7,7 @@
 @using ArchiveFqp.Models.DTO.Structure
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using System.Security.Claims
-@implements IDisposable
+@implements IAsyncDisposable
 @inject IPdfRenderService PdfRenderService
 @inject IJSRuntime JS
 @inject IReferenceDataService RefDataService
@@ -391,59 +391,59 @@
         errorMessage = null;
         renderProgress = 0;
         StateHasChanged();
-
-        try
-        {
-            await Task.Run(async () =>
+        await Task.Run(async () =>
             {
-                Stream? pdfStream = await GetFileStreamByIdAsync(IdWork.Value);
-                if (pdfStream == null)
+                try
                 {
-                    errorMessage = "Не удалось загрузить файл документа.";
-                    state = ViewState.Error;
-                    return;
+            
+                    Stream? pdfStream = await GetFileStreamByIdAsync(IdWork.Value);
+                    if (pdfStream == null)
+                    {
+                        errorMessage = "Не удалось загрузить файл документа.";
+                        state = ViewState.Error;
+                        return;
+                    }
+
+                    cancelTokenSourceRender.Token.ThrowIfCancellationRequested();
+
+                    Progress<int> progress = new(percent =>
+                    {
+                        renderProgress = percent;
+                        InvokeAsync(StateHasChanged);
+                    });
+
+                    // Рендерим через сервис с водяным знаком
+                    _allPagesBase64 = await PdfRenderService.RenderPdfToBase64Async(
+                        pdfStream, cancelTokenSource.Token,
+                        watermarkText, 3.0f, progress);
+
+                    cancelTokenSourceRender.Token.ThrowIfCancellationRequested();
+
+                    totalPages = _allPagesBase64.Count;
+                    currentPageIndex = 0;
+                    renderProgress = 100;
+                    pageInput = 1;
+                    state = ViewState.Ready;
                 }
-
-                cancelTokenSourceRender.Token.ThrowIfCancellationRequested();
-
-                Progress<int> progress = new(percent =>
+                catch (OperationCanceledException)
                 {
-                    renderProgress = percent;
-                    InvokeAsync(StateHasChanged);
-                });
-
-                // Рендерим через сервис с водяным знаком
-                _allPagesBase64 = await PdfRenderService.RenderPdfToBase64Async(
-                    pdfStream, cancelTokenSource.Token,
-                    watermarkText, 3.0f, progress);
-
-                cancelTokenSourceRender.Token.ThrowIfCancellationRequested();
-
-                totalPages = _allPagesBase64.Count;
-                currentPageIndex = 0;
-                renderProgress = 100;
-                pageInput = 1;
-                state = ViewState.Ready;
+                    // Загрузка отменена
+                }
+                catch (Exception ex)
+                {
+                    errorMessage = $"Ошибка при загрузке документа: {ex.Message}";
+                    state = ViewState.Error;
+                }
+                finally
+                {
+                    if (!cancelTokenSourceRender.Token.IsCancellationRequested)
+                    {
+                        cancelTokenSourceRender?.Dispose();
+                        cancelTokenSourceRender = null;
+                        StateHasChanged();
+                    }
+                }
             });
-        }
-        catch (OperationCanceledException)
-        {
-            // Загрузка отменена
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Ошибка при загрузке документа: {ex.Message}";
-            state = ViewState.Error;
-        }
-        finally
-        {
-            if (!cancelTokenSourceRender.Token.IsCancellationRequested)
-            {
-                cancelTokenSourceRender?.Dispose();
-                cancelTokenSourceRender = null;
-                StateHasChanged();
-            }
-        }
     }
 
     private async Task<Stream?> GetFileStreamByIdAsync(int idWork)
@@ -524,13 +524,11 @@
         return $"data:image/png;base64,{_allPagesBase64[pageIndex]}";
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         cancelTokenSourceRender?.Cancel();
-        cancelTokenSourceRender?.Dispose();
-        cancelTokenSource.Cancel();
-        cancelTokenSource.Dispose();
-        ExpirationCheckTask?.Wait();
-        LoadWorkTask?.Wait();
+        // ExpirationCheckTask?.Wait();
+        cancelTokenSource?.Cancel();
+        // LoadWorkTask?.Wait();
     }
 }

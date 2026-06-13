@@ -18,6 +18,7 @@ namespace ArchiveFqp.Models.DTO.Student
         public УровеньОбразования УровеньОбразования { get; set; } = new();
         public ФормаОбучения ФормаОбучения { get; set; } = new();
         public int ГодОкончания { get; set; }
+        public List<РольУчреждения> Роли { get; set; } = [];
         public bool Активно { get; set; }
 
         public Студент ToStudent()
@@ -32,7 +33,9 @@ namespace ArchiveFqp.Models.DTO.Student
                 IdПрофиля = Структура.Профиль?.IdПрофиля,
                 IdУровняОбразования = УровеньОбразования.IdУровняОбразования,
                 IdФормыОбучения = ФормаОбучения.IdФормыОбучения,
-                ГодОкончания = ГодОкончания
+                ГодОкончания = ГодОкончания,
+                Роли = [.. Роли.Select(x => x.IdРоли)],
+                Активно = Активно
             };
         }
     }

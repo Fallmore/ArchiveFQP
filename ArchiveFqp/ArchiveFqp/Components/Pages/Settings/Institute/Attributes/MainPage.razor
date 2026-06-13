@@ -389,7 +389,11 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         ClaimsPrincipal user = authState!.User;
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        responsible = (await UserService.GetTeacherDisplayAsync(idUser)).FirstOrDefault(x => x.Активно == true);
+        List<string> insituteRoles = [Settings.RoleInstituteResponsibleName];
+
+        responsible = (await UserService.GetTeacherDisplayAsync(idUser))
+            .Where(x => x.Активно == true && x.Роли.Exists(y => insituteRoles.Contains(y.Название)))
+            .FirstOrDefault();
     }
 
     private async Task LoadData()

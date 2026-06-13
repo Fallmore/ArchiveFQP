@@ -38,6 +38,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Teacher
                 IdПреподавателя = teacher.IdПреподавателя,
                 Пользователь = (await _refDataService.GetAsync<UserDisplayDto>()).First(x => x.Пользователь.IdПользователя == teacher.IdПользователя) ?? new(),
                 Структура = await _structureDisplayFactory.CreateDisplayDtoAsync<Кафедра>(teacher.IdКафедры) ?? new(),
+                Роли = [.. _snapshot.RolesOrganization.Where(x => teacher.Роли.Contains(x.IdРоли))],
                 Активно = teacher.Активно,
                 Должность = _snapshot.Posts.FirstOrDefault(o => o.IdДолжности == teacher.IdДолжности) ?? new()
             };

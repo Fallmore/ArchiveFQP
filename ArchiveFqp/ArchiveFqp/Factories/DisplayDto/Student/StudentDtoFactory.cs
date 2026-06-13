@@ -41,6 +41,7 @@ namespace ArchiveFqp.Factories.DisplayDto.Student
                 УровеньОбразования = _snapshot.EducationLevels.FirstOrDefault(o => o.IdУровняОбразования == student.IdУровняОбразования) ?? new(),
                 ФормаОбучения = _snapshot.EducationForms.FirstOrDefault(o => o.IdФормыОбучения == student.IdФормыОбучения) ?? new(),
                 ГодОкончания = student.ГодОкончания,
+                Роли = [.. _snapshot.RolesOrganization.Where(x => student.Роли.Contains(x.IdРоли))],
                 Активно = student.Активно,
                 Структура = student.IdПрофиля.HasValue
                     ? await _structureDisplayFactory.CreateDisplayDtoAsync<Профиль>(student.IdПрофиля.Value) ?? new()

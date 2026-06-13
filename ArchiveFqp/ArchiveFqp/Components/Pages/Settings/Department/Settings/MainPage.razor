@@ -13,6 +13,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
+@inject SettingsArchive Settings
 @inject ISettingsService SettingsService
 @inject IReferenceDataService RefDataService
 @inject IUserService UserService
@@ -362,7 +363,7 @@
                         <div class="col-12">
                             <div class="d-flex justify-content-between">
                                 <button type="button" class="btn btn-secondary" @onclick="Cancel">Отмена</button>
-                                <button type="submit" class="btn btn-primary">Сохранить настройки</button>
+                                <button type="submit" class="btn btn-primary" disabled="@isSaving">Сохранить настройки</button>
                             </div>
                         </div>
                     </div>
@@ -548,6 +549,7 @@
     private TeacherDisplayDto? responsible;
     private НастройкиКафедры settings = new();
     private SettingsDepartment settingsDto = new();
+    private bool isSaving = false;
 
     private List<ТипРаботы> workTypes = null!;
 
@@ -592,7 +594,11 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         ClaimsPrincipal user = authState!.User;
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        responsible = (await UserService.GetTeacherDisplayAsync(idUser)).FirstOrDefault(x => x.Активно == true);
+        List<string> departmentRoles = [Settings.RoleDepartmentHeadName, Settings.RoleDepartmentResponsibleName];
+
+        responsible = (await UserService.GetTeacherDisplayAsync(idUser))
+            .Where(x => x.Активно == true && x.Роли.Exists(y => departmentRoles.Contains(y.Название)))
+            .FirstOrDefault();
     }
 
     private async Task LoadSettings()
@@ -655,17 +661,23 @@
 
     private async Task SaveSettings()
     {
+        isSaving = true;
+        StateHasChanged();
         try
         {
             await SettingsService.AddSettingsAsJson(settingsDto, settings);
             await SettingsService.Upsert(settings);
 
             await JSRuntime.InvokeVoidAsync("alert", "Настройки сохранены");
-            StateHasChanged();
         }
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
         }
     }
 

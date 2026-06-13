@@ -8,6 +8,14 @@ namespace ArchiveFqp.Interfaces.Teacher
     {
         Task<Преподаватель?> GetTeacherAsync(int idTeacher);
         Task<List<Преподаватель>> GetTeachersAsync(List<int> idTeachers);
+
+        /// <summary>
+        /// Получение пользователя типа <see cref="TeacherDisplayDto"/> по фильтру по ролям
+        /// </summary>
+        /// <param name="roles">Список ролей</param>
+        /// <returns>Список пользователей</returns>
+        Task<List<Преподаватель>> GetTeachersByRolesAsync(List<string> roles);
+
         /// <summary>
         /// Получение преподавателя типа <see cref="TeacherDisplayDto"/> для отображения информации
         /// </summary>
@@ -16,8 +24,10 @@ namespace ArchiveFqp.Interfaces.Teacher
         Task<TeacherDisplayDto?> GetTeacherDisplayAsync(int idTeacher);
         /// <inheritdoc cref="GetTeacherDisplayAsync"/>
         Task<TeacherDisplayDto> GetTeacherDisplayAsync(Преподаватель teacher);
-        /// <inheritdoc cref="GetTeacherDisplayAsync"/>
-        Task<List<TeacherDisplayDto>> GetTeacherDisplayAsync(List<int> idTeachers);
+        /// <summary>
+        /// Получение списка преподавателей типа <see cref="TeacherDisplayDto"/> для отображения информации
+        /// </summary>
+        Task<List<TeacherDisplayDto>> GetTeachersDisplayAsync(List<int> idTeachers);
         /// <inheritdoc cref="GetTeacherDisplayAsync"/>
         Task<List<TeacherDisplayDto>> GetTeacherDisplayAsync(List<Преподаватель> teachers);
 

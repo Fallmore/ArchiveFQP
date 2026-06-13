@@ -14,6 +14,7 @@
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @inject ISettingsService SettingsService
+@inject SettingsArchive Settings
 @inject IReferenceDataService RefDataService
 @inject IUserService UserService
 @inject NavigationManager NavigationManager
@@ -193,7 +194,7 @@
                         <div class="col-12">
                             <div class="d-flex justify-content-between">
                                 <button type="button" class="btn btn-secondary" @onclick="Cancel">Отмена</button>
-                                <button type="submit" class="btn btn-primary">Сохранить настройки</button>
+                                <button type="submit" class="btn btn-primary" disabled="@isSaving">Сохранить настройки</button>
                             </div>
                         </div>
                     </div>
@@ -281,6 +282,7 @@
     private TeacherDisplayDto? responsible;
     private НастройкиИнститута settings = new();
     private SettingsInstitute settingsDto = new();
+    private bool isSaving = false;
 
     private List<ТипРаботы> workTypes = null!;
 
@@ -322,7 +324,11 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         ClaimsPrincipal user = authState!.User;
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        responsible = (await UserService.GetTeacherDisplayAsync(idUser)).FirstOrDefault(x => x.Активно == true);
+        List<string> insituteRoles = [Settings.RoleInstituteResponsibleName];
+
+        responsible = (await UserService.GetTeacherDisplayAsync(idUser))
+            .Where(x => x.Активно == true && x.Роли.Exists(y => insituteRoles.Contains(y.Название)))
+            .FirstOrDefault();
     }
 
     private async Task LoadSettings()
@@ -364,6 +370,8 @@
 
     private async Task SaveSettings()
     {
+        isSaving = true;
+        StateHasChanged();
         try
         {
 
@@ -371,11 +379,15 @@
             await SettingsService.Upsert(settings);
 
             await JSRuntime.InvokeVoidAsync("alert", "Настройки сохранены");
-            StateHasChanged();
         }
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
         }
     }
 

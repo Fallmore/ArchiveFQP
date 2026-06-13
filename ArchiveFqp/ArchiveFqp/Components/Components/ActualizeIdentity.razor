@@ -1,8 +1,12 @@
 ﻿@using System.Security.Claims
 @using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Models.DTO.User
+@using ArchiveFqp.Models.Settings.SettingsArchive
 @using Microsoft.AspNetCore.Authentication.Cookies
+@inject SettingsArchive Settings
 @inject IReferenceDataService RefDataService
+@inject IUserService UserService
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
 
@@ -19,12 +23,36 @@
         ClaimsPrincipal? user = authState!.User;
         if (user == null || !user.Identity!.IsAuthenticated) return;
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        UserDisplayDto account = (await RefDataService.GetAsync<UserDisplayDto>()).First(a => a.Пользователь.IdПользователя == idUser);
-        
+        List<string> roles = (await RefDataService.GetAsync<UserDisplayDto>()).First(a => a.Пользователь.IdПользователя == idUser).Роли;
+        roles.AddRange(await GetRoleNamesOrganizaion(idUser));
+
         // TODO: сделать авто перезаход
-        if (user.Claims.Where(c => c.Type == ClaimTypes.Role).Any(c => !account.Роли.Contains(c.Value)))
+        if (user.Claims.Where(c => c.Type == ClaimTypes.Role).Any(c => !roles.Contains(c.Value)))
         {
             Navigation.NavigateTo("/logout", true);
         }
+    }
+
+    private async Task<List<string>> GetRoleNamesOrganizaion(int userId)
+    {
+        List<РольУчреждения> roles = await RefDataService.GetAsync<РольУчреждения>();
+
+        Преподаватель? teacher = (await UserService.GetTeacherAsync(userId))
+            .FirstOrDefault(x => x.Активно == true
+            && !x.Роли.Contains(roles.First(y => y.Название == Settings.RoleStudentOnVerifyName).IdРоли));
+        Студент? student = (await UserService.GetStudentAsync(userId))
+            .FirstOrDefault(x => x.Активно == true
+            && !x.Роли.Contains(roles.First(y => y.Название == Settings.RoleTeacherOnVerifyName).IdРоли));
+
+        if (teacher == null && student == null) return [];
+
+        List<int> roleIds = [];
+        roleIds.AddRange(teacher?.Роли ?? []);
+        roleIds.AddRange(student?.Роли ?? []);
+        roleIds = [.. roleIds.Distinct()];
+        return (await RefDataService.GetAsync<РольУчреждения>())
+            .Where(r => roleIds.Contains(r.IdРоли))
+            .Select(r => r.Название)
+            .ToList();
     }
 }

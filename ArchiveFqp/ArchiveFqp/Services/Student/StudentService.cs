@@ -51,7 +51,7 @@ namespace ArchiveFqp.Services.Student
             return await _factoryStudent.CreateDisplayDtoAsync(student);
         }
 
-        public async Task<List<StudentDisplayDto>> GetStudentDisplayAsync(List<int> idStudents)
+        public async Task<List<StudentDisplayDto>> GetStudentsDisplayAsync(List<int> idStudents)
         {
             List<Студент> students = await GetStudentsAsync(idStudents);
             return await GetStudentDisplayAsync(students);
@@ -74,7 +74,7 @@ namespace ArchiveFqp.Services.Student
         }
 
         /// <summary>
-        /// Убирает роли без вызова сохранения в БД
+        /// Убирает роли аккаунта без вызова сохранения в БД
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="id"></param>
@@ -83,44 +83,28 @@ namespace ArchiveFqp.Services.Student
         {
             using ArchiveFqpContext context = _dbFactory.CreateDbContext();
             АккаунтПользователя? account = null;
-            List<РольПользователя> roles = await _refDataService.GetAsync<РольПользователя>();
+            List<РольУчреждения> roles = await _refDataService.GetAsync<РольУчреждения>();
             List<string> comparerRoles = [];
 
             int? idPerson = null;
-            List<РольПользователя> personRoles = [];
             List<int> idRolesForDelete = [];
 
-            // TODO: Привязка ролей кафедры к преподавателям, а не к аккаунту
-            // TODO: Привязка верификации студента и преподавателя не к аккаунту
-            // Как я ужасно сделал роли...
             if (typeof(T).Name == nameof(Студент))
             {
+                // Получаем все записи студентов у пользователя
                 List<Студент> students = (await _refDataService.GetAsync<Студент>());
                 Студент student = students.First(x => x.IdСтудента == id);
                 idPerson = student.IdПользователя;
-
                 students = students.Where(x => x.IdПользователя == idPerson).ToList();
 
-                if (students.Count != 0)
+                // Если удаляется последняя запись, то пользователь теряет роль студента
+                if (students.Count == 1)
                 {
-                    account = await context.АккаунтПользователяs.FirstOrDefaultAsync(x => x.IdПользователя == idPerson);
-                    if (account is null) return;
-
-                    personRoles = roles.Where(x => account.Роли.Contains(x.IdРоли)).ToList();
-                    if (students.Count == 2
-                        && personRoles.Exists(x => x.Название == _settings.RoleTeacherOnVerifyName))
-                    {
-                        if (student.Активно)
-                            comparerRoles.Add(_settings.RoleStudentName);
-                        if (!student.Активно)
-                            comparerRoles.Add(_settings.RoleStudentOnVerifyName);
-                    }
-                    else if (students.Count == 1)
-                    {
-                        comparerRoles.Add(_settings.RoleStudentOnVerifyName);
-                        comparerRoles.Add(_settings.RoleStudentName);
-                    }
+                    comparerRoles.Add(_settings.RoleStudentName);
                 }
+
+                account = await context.АккаунтПользователяs.FirstOrDefaultAsync(x => x.IdПользователя == idPerson);
+                if (account is null) return;
             }
 
             idRolesForDelete = roles.Where(x => comparerRoles.Contains(x.Название))

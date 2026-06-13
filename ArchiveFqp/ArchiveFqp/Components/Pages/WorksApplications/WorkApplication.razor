@@ -1,5 +1,6 @@
 ﻿@using ArchiveFqp.Components.Components
 @using ArchiveFqp.Interfaces.Settings
+@using ArchiveFqp.Interfaces.Teacher
 @using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Models.DTO.Structure
 @using ArchiveFqp.Models.DTO.Work
@@ -16,6 +17,7 @@
 @inject ISettingsService SettingsService
 @inject IWorkService WorkService
 @inject IUserService UserService
+@inject ITeacherService TeacherService
 @inject IApplicationsService ApplicationsService
 @inject NotificationService NotificationService
 @inject IJSRuntime JS
@@ -211,7 +213,7 @@
                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                     </div>
                                     <div class="modal-body pt-0">
-                                        <!-- Начнёт рендерится после нажатия на кнопку. 
+                                        <!-- Начнёт рендерится после нажатия на кнопку.
                                              Отрендеренные страницы исчезнут после закрытия модала заявления
                                         -->
                                         @if (isClickedWatch)
@@ -485,7 +487,9 @@
 
                 await ApplicationsService.AddAnswerWorkApplication(workApplicationDto);
                 await SendNotificationToSenderAsync($"Ваше заявление на получение работы \"{workApplicationDto.Работа.Тема}\" было отклонено автоматически.");
-                await SendNotificationToReviewersAsync($"Заявление от {userSender.ФИОИнициалы} на получение работы \"{workApplicationDto.Работа.Тема}\" было отклонено автоматически.");
+                await SendNotificationToReviewersAsync($"Заявление от {userSender.ФИОИнициалы} на получение "
+                    + $"работы \"{workApplicationDto.Работа.Тема}\" кафедры {workApplicationDto.Работа.Студент.Структура.Кафедра.Название} "
+                    + "было одобрено автоматически.");
                 return;
             }
         }
@@ -505,10 +509,15 @@
 
                 await ApplicationsService.AddAnswerWorkApplication(workApplicationDto);
                 await SendNotificationToSenderAsync($"Ваше заявление на получение работы \"{workApplicationDto.Работа.Тема}\" было одобрено автоматически.");
-                await SendNotificationToReviewersAsync($"Заявление от {userSender.ФИОИнициалы} на получение работы \"{workApplicationDto.Работа.Тема}\" было одобрено автоматически.");
+                await SendNotificationToReviewersAsync($"Заявление от {userSender.ФИОИнициалы} на получение "
+                    + $"работы \"{workApplicationDto.Работа.Тема}\" кафедры {workApplicationDto.Работа.Студент.Структура.Кафедра.Название} "
+                    + "было одобрено автоматически.");
                 return;
             }
         }
+
+        // Обычное уведомление о поступлении
+        await SendNotificationToReviewersAsync();
     }
 
     private async Task SendNotificationToSenderAsync(string? message = null)
@@ -526,15 +535,13 @@
     private async Task SendNotificationToReviewersAsync(string? message = null)
     {
         string title = "Заявления на просмотр работ";
-        message ??= $"Было добавлено заявление на получение работы \"{workApplicationDto.Работа.Тема}\"";
+        message ??= $"Было добавлено заявление на получение работы \"{workApplicationDto.Работа.Тема}\" "
+                    + $"кафедры {workApplicationDto.Работа.Студент.Структура.Кафедра.Название}.";
         List<string> rolesReviewers = [Settings.RoleDepartmentResponsibleName, Settings.RoleDepartmentHeadName];
-        List<int> appReviewers = (await UserService.GetUsersByRolesAsync(rolesReviewers))
-            .Select(x => x.Пользователь.IdПользователя)
-            .ToList();
-
-        appReviewers = (await UserService.GetTeacherDisplayAsync(appReviewers))
-            .Where(x => x.Структура.Кафедра == workApplicationDto.Работа.Студент.Структура.Кафедра && x.Активно == true)
-            .Select(x => x.Пользователь.Пользователь.IdПользователя)
+        
+        List<int> appReviewers = (await TeacherService.GetTeachersByRolesAsync(rolesReviewers))
+            .Where(x => x.Активно && x.IdКафедры == workApplicationDto.Работа.Студент.Структура.Кафедра.IdКафедры)
+            .Select(x => x.IdПользователя)
             .ToList();
 
         IEnumerable<Task> tasks = appReviewers.Select(x => NotificationService.SendToUserAsync(x.ToString(), title, message, "works/applications/review"));

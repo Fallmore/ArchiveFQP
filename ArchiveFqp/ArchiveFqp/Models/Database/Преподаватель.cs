@@ -17,6 +17,8 @@ public partial class Преподаватель
 
     [Range(1, int.MaxValue, ErrorMessage = "Выберите кафедру")]
     public int IdКафедры { get; set; }
+    
+    public List<int> Роли { get; set; } = null!;
 
     public bool Активно { get; set; } = false;
 

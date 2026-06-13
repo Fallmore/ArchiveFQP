@@ -20,6 +20,8 @@ public partial class Студент
 
     public int? IdПрофиля { get; set; }
 
+    public List<int> Роли { get; set; } = null!;
+
     public bool Активно { get; set; } = false;
 
     [Range(1, int.MaxValue, ErrorMessage = "Выберите форму обучения")]

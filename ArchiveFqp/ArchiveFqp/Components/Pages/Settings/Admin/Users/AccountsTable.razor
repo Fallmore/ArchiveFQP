@@ -158,6 +158,7 @@
     private List<Пользователь> users = null!;
     private List<РольПользователя> allRoles = null!;
     private АккаунтПользователя selectedAccount = null!;
+    private string? originalPassword;
     private bool showModal = false;
     private bool isEdit = false;
     private string searchText = "";
@@ -222,9 +223,10 @@
             IdАккаунта = account.IdАккаунта,
             IdПользователя = account.IdПользователя,
             Логин = account.Логин,
-            Пароль = "",
+            Пароль = account.Пароль,
             Роли = new List<int>(account.Роли)
         };
+        originalPassword = account.Пароль;
         isEdit = true;
         showModal = true;
         StateHasChanged();
@@ -240,7 +242,8 @@
     {
         try
         {
-            selectedAccount.Пароль = BCrypt.Net.BCrypt.HashPassword(selectedAccount.Пароль);
+            if (!isEdit || originalPassword != selectedAccount.Пароль)
+                selectedAccount.Пароль = BCrypt.Net.BCrypt.HashPassword(selectedAccount.Пароль);
             string message = await crud.Upsert(selectedAccount, DbFactory) ? "Обновлено" : "Добавлено";
 
             await LoadData();
@@ -313,7 +316,7 @@
             if (e.ChangeType == TableChangeType.Delete)
                 Accounts!.Items.RemoveAt(index);
             else
-                Accounts!.Items[index] = (await context.АккаунтПользователяs.FindAsync(idPerson.Value))!;
+                Accounts!.Items[index] = (await context.АккаунтПользователяs.FirstAsync(x => x.IdПользователя == idPerson.Value))!;
             await AccountsChanged.InvokeAsync(1);
             StateHasChanged();
         });

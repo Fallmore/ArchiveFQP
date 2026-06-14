@@ -744,6 +744,7 @@
                     loadedModel.AllAttributes = searchModel.AllAttributes;
                     loadedModel.AttributeValues = searchModel.AttributeValues;
                     searchModel = loadedModel;
+                    if (snapshot == null) await LoadReferenceData();
                     await GetTimeOperation("Поиск работ", SearchWorks);
                     await ChangePage(searchModel.Page, false);
                 }

@@ -32,7 +32,29 @@ namespace ArchiveFqp.Interfaces.User
         /// </summary>
         /// <param name="idUser"></param>
         /// <returns></returns>
+        Task<АккаунтПользователя?> GetUserAccountAsync(int idUser);
+        /// <summary>
+        /// Получение аккаунта пользователя
+        /// </summary>
+        /// <param name="user"></param>
+        /// <returns></returns>
         Task<АккаунтПользователя?> GetUserAccountAsync(Пользователь user);
+
+        /// <summary>
+        /// Получение всех ролей пользователя, в том числе и ролей организации
+        /// </summary>
+        /// <param name="idUser"></param>
+        /// <param name="includeVerifying">Получить ли роли проверки, если есть</param>
+        /// <returns></returns>
+        Task<List<string>?> GetUserRoleNames(int idUser, bool includeVerifying = false);
+
+        /// <summary>
+        /// Получение всех ролей пользователя, в том числе и ролей организации
+        /// </summary>
+        /// <param name="account"></param>
+        /// <param name="includeVerifying">Получить ли роли проверки, если есть</param>
+        /// <returns></returns>
+        Task<List<string>> GetUserRoleNames(АккаунтПользователя account, bool includeVerifying = false);
 
         /// <summary>
         /// Получение пользователя типа <see cref="UserDisplayDto"/> для отображения информации

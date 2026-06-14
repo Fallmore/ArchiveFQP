@@ -50,11 +50,63 @@ namespace ArchiveFqp.Services.User
                 .Where(x => roles.Any(r => x.Роли.Contains(r))).ToList();
         }
 
-        public async Task<АккаунтПользователя?> GetUserAccountAsync(Пользователь user)
+        public async Task<АккаунтПользователя?> GetUserAccountAsync(int idUser)
         {
             using ArchiveFqpContext context = _dbFactory.CreateDbContext();
-            АккаунтПользователя? account = await context.АккаунтПользователяs.FirstOrDefaultAsync(x => x.IdПользователя == user.IdПользователя);
+            АккаунтПользователя? account = await context.АккаунтПользователяs.FirstOrDefaultAsync(x => x.IdПользователя == idUser);
             return account;
+        }
+
+        public async Task<АккаунтПользователя?> GetUserAccountAsync(Пользователь user)
+        {
+            return await GetUserAccountAsync(user.IdПользователя);
+        }
+
+        public async Task<List<string>?> GetUserRoleNames(int idUser, bool includeVerifying = false)
+        {
+            АккаунтПользователя? account = await GetUserAccountAsync(idUser);
+            if (account == null) return null;
+
+            return await GetUserRoleNames(account, includeVerifying);
+        }
+
+        public async Task<List<string>> GetUserRoleNames(АккаунтПользователя account, bool includeVerifying = false)
+        {
+            List<string> roleNames = (await _refDataService.GetAsync<РольПользователя>())
+                .Where(r => account.Роли.Contains(r.IdРоли))
+                .Select(r => r.Название)
+                .ToList();
+
+            List<РольУчреждения> roles = await _refDataService.GetAsync<РольУчреждения>();
+
+            List<Преподаватель> teachers = (await GetTeacherAsync(account.IdПользователя))
+                .Where(x => x.Активно == true
+                && (includeVerifying || !x.Роли.Contains(roles.First(y => y.Название == _settings.RoleTeacherOnVerifyName).IdРоли)))
+                .ToList();
+            List<Студент> students = (await GetStudentAsync(account.IdПользователя))
+                .Where(x => x.Активно == true
+                && (includeVerifying || !x.Роли.Contains(roles.First(y => y.Название == _settings.RoleStudentOnVerifyName).IdРоли)))
+                .ToList();
+
+            if (teachers.Count == 0) roleNames.Remove(_settings.RoleTeacherName);
+            if (students.Count == 0) roleNames.Remove(_settings.RoleStudentName);
+
+            List<int> roleIds = [];
+            foreach (var teacher in teachers)
+            {
+                roleIds.AddRange(teacher.Роли);
+            }
+            foreach (var student in students)
+            {
+                roleIds.AddRange(student.Роли);
+            }
+            roleIds = [.. roleIds.Distinct()];
+
+            roleNames.AddRange((await _refDataService.GetAsync<РольУчреждения>())
+                                            .Where(r => roleIds.Contains(r.IdРоли))
+                                            .Select(r => r.Название)
+                                            .ToList());
+            return roleNames;
         }
 
         public async Task<UserDisplayDto?> GetUserDisplayAsync(int idUser)
@@ -198,7 +250,7 @@ namespace ArchiveFqp.Services.User
                     comparerRoles = [_settings.RoleDepartmentHeadName,
                           _settings.RoleDepartmentResponsibleName,
                           _settings.RoleDepartmentClerkName];
-                    
+
                     if (teachers.Count == 2
                         && personRoles.Exists(x => x.Название == _settings.RoleTeacherOnVerifyName))
                     {

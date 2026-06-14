@@ -1,9 +1,14 @@
 ﻿@page "/signin-3kl"
+@using ArchiveFqp.Models.Auth.ThreeKL
 @using ArchiveFqp.Services.Auth.ThreeKL
+@using System.Text.Json
+@using System.Text
+@using System.Web
 @inject ThreeKlAuthService ThreeKlAuthService
 @inject NavigationManager Navigation
 @inject ILogger<SignIn> Logger
 @inject IHttpContextAccessor HttpContextAccessor
+@inject AuthenticationStateProvider AuthStateProvider
 
 @if (isProcessing)
 {
@@ -20,6 +25,12 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+
         try
         {
             var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
@@ -28,6 +39,34 @@
             var code = queryParams["code"];
             var state = queryParams["state"];
             var error = queryParams["error"];
+
+            // Мокап
+            // ThreeKlUserInfo userInfO = new()
+            // {
+            //     Id = "abcd",
+            //     Firstname = "Роман",
+            //     Lastname = "Казанский",
+            //     Email = "proverka@mail.ru"
+            // };
+            // // 6. Выполняем вход
+            // var successs = await ThreeKlAuthService.SignInWithThreeKlAsync(userInfO);
+            // if (!successs)
+            // {
+            //     // Сериализуем модель в JSON
+            //     string json = JsonSerializer.Serialize(userInfO);
+            //     byte[] encodeAsBytes = ASCIIEncoding.ASCII.GetBytes(json);
+            //     string encoded = Convert.ToBase64String(encodeAsBytes);
+            //     // Кодируем для безопасной передачи в URL
+            //     string encodedJson = HttpUtility.UrlEncode(encoded);
+
+            //     string newUrl = $"/complete-profile?ui={encodedJson}&state={state}&code={code}";
+
+            //     Navigation.NavigateTo(newUrl, forceLoad: true);
+            //     return;
+            // }
+            // Logger.LogInformation("Успешный вход через 3KL для пользователя: {Email}", userInfO.Email);
+            // Navigation.NavigateTo("/", forceLoad: true);
+
 
             // 1. Проверяем, не вернул ли 3KL ошибку
             if (!string.IsNullOrEmpty(error))
@@ -41,7 +80,7 @@
             var savedState = await GetSessionStateAsync();
             if (state != savedState)
             {
-                Logger.LogWarning("Несовпадение state. Ожидалось: {Expected}, получено: {Actual}", savedState, state);
+                Logger.LogWarning("Несовпадение состояний. Ожидалось: {Expected}, получено: {Actual}", savedState, state);
                 Navigation.NavigateTo("/login?error=invalid_state", forceLoad: true);
                 return;
             }
@@ -76,8 +115,16 @@
             var success = await ThreeKlAuthService.SignInWithThreeKlAsync(userInfo);
             if (!success)
             {
-                Logger.LogError("Не удалось выполнить вход для пользователя 3KL с ID: {UserId}", userInfo.Id);
-                Navigation.NavigateTo("/login?error=signin_failed", forceLoad: true);
+                // Сериализуем модель в JSON
+                string json = JsonSerializer.Serialize(userInfo);
+                byte[] encodeAsBytes = ASCIIEncoding.ASCII.GetBytes(json);
+                string encoded = Convert.ToBase64String(encodeAsBytes);
+                // Кодируем для безопасной передачи в URL
+                string encodedJson = HttpUtility.UrlEncode(encoded);
+
+                string newUrl = $"/complete-profile?ui={encodedJson}&state={state}&code={code}";
+
+                Navigation.NavigateTo(newUrl, forceLoad: true);
                 return;
             }
 

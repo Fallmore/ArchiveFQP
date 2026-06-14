@@ -41,8 +41,8 @@ else
             <div class="col">
                 <!-- Отчество -->
                 <label class="form-label mb-0 mx-1 fw-bold">Отчество</label>
-                <InputText class="form-control" @bind-Value="currentUser.Отчество"
-                           disabled="@isAuthorizedByServices" style="@(isAuthorizedByServices ? "cursor:not-allowed" : "")" />
+                <InputText class="form-control" @bind-Value="currentUser.Отчество" />
+                           @* disabled="@isAuthorizedByServices" style="@(isAuthorizedByServices ? "cursor:not-allowed" : "")" /> *@
             </div>
         </div>
 
@@ -50,8 +50,8 @@ else
             <div class="col-md-4 mb-1">
                 <!-- Email -->
                 <label class="form-label mb-0 mx-1 fw-bold">Email</label>
-                <InputText class="form-control" @bind-Value="currentUser.Email"
-                           disabled="@isAuthorizedByServices" style="@(isAuthorizedByServices ? "cursor:not-allowed" : "")" />
+                <InputText class="form-control" @bind-Value="currentUser.Email" />
+                           @* disabled="@isAuthorizedByServices" style="@(isAuthorizedByServices ? "cursor:not-allowed" : "")" /> *@
             </div>
 
             @if (isAuthorizedByServices)

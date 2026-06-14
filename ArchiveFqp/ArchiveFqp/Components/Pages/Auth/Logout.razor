@@ -9,7 +9,7 @@
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        if (await AuthService.LogoutAsync())
-            Navigation.NavigateTo("/login", true);
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login", true);
     }
 }

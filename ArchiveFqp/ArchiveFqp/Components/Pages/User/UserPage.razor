@@ -3,15 +3,17 @@
 @using ArchiveFqp.Models.DTO.Student
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.User
+@using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Models.Settings.User
 @using ArchiveFqp.Interfaces.User
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
 @inject IUserService UserService
+@inject SettingsArchive Settings
 @rendermode @(new InteractiveServerRenderMode())
 @attribute [Authorize]
 
-<PageTitle>АГТУ - Заявления на просмотр работы</PageTitle>
+<PageTitle>АГТУ - Профиль</PageTitle>
 
 @if (RendererInfo.IsInteractive && user.IsInited)
 {
@@ -41,23 +43,35 @@
                                 </div>
                             </div>
 
-                            @if (user.IsTeacher || user.IsStudent)
-                            {
-                                <div class="accordion-item">
-                                    <button class="accordion-button collapsed" style="height:30px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEducation" aria-expanded="false" aria-controls="collapseEducation">
-                                        <strong class="fs-5">Учебная информация</strong>
-                                    </button>
-                                    <div id="collapseEducation" class="accordion-collapse collapse" aria-labelledby="headingTwo">
-                                        <div class="accordion-body">
-                                            @if (user.Student != null)
-                                                foreach (StudentDisplayDto student in user.Student)
+                            <div class="accordion-item">
+                                <button class="accordion-button collapsed" style="height:30px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEducation" aria-expanded="false" aria-controls="collapseEducation">
+                                    <strong class="fs-5">Учебная информация</strong>
+                                </button>
+                                <div id="collapseEducation" class="accordion-collapse collapse" aria-labelledby="headingTwo">
+                                    <div class="accordion-body">
+                                        @if (!user.IsStudent && !user.IsTeacher)
+                                        {
+                                            <h5><strong>Вы не студент и не преподаватель. Скорее всего вам отклонили подтверждение</strong></h5>
+                                        }
+                                        else
+                                        {
+                                            if (user.IsStudent)
+                                                foreach (StudentDisplayDto student in user.Students)
                                                 {
-                                                    <div class="accordion" id="accordionUserPage">
+                                                    <div class="accordion" id="accordionStudents">
                                                         <div class="accordion-item">
-                                                            <button class="accordion-button" style="height:30px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGeneral" aria-expanded="true" aria-controls="collapseGeneral">
+                                                            <button class="accordion-button collapsed" style="height:30px;" type="button" data-bs-toggle="collapse" data-bs-target="#@("collapseStudent" + student.IdСтудента)" aria-expanded="false" aria-controls="@("collapseStudent" + student.IdСтудента)">
                                                                 <strong class="fs-5">Студент @(student.Структура.Профиль?.Название ?? student.Структура.Направление.Название)</strong>
+                                                                @if (student.Роли.Exists(x => x.Название == Settings.RoleStudentOnVerifyName))
+                                                                {
+                                                                    <span class="badge bg-warning mx-2">На проверке</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span class="badge bg-success mx-2">Подтверждено</span>
+                                                                }
                                                             </button>
-                                                            <div id="collapseGeneral" class="accordion-collapse collapse show" aria-labelledby="headingOne">
+                                                            <div id="@("collapseStudent" + student.IdСтудента)" class="accordion-collapse collapse" aria-labelledby="headingOne">
                                                                 <div class="accordion-body">
                                                                     <UserEducation Student="student" />
                                                                 </div>
@@ -65,15 +79,23 @@
                                                         </div>
                                                     </div>
                                                 }
-                                            @if (user.Teacher != null)
-                                                foreach (TeacherDisplayDto teacher in user.Teacher)
+                                            if (user.IsTeacher)
+                                                foreach (TeacherDisplayDto teacher in user.Teachers)
                                                 {
-                                                    <div class="accordion" id="accordionUserPage">
+                                                    <div class="accordion" id="accordionTeachers">
                                                         <div class="accordion-item">
-                                                            <button class="accordion-button" style="height:30px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGeneral" aria-expanded="true" aria-controls="collapseGeneral">
+                                                            <button class="accordion-button collapsed" style="height:30px;" type="button" data-bs-toggle="collapse" data-bs-target="#@("collapseTeachers" + teacher.IdПреподавателя)" aria-expanded="false" aria-controls="@("collapseTeachers" + teacher.IdПреподавателя)">
                                                                 <strong class="fs-5">Преподаватель кафедры @(StructureDto.Abbreviate(teacher.Структура.Кафедра.Название))</strong>
+                                                                @if (teacher.Роли.Exists(x => x.Название == Settings.RoleTeacherOnVerifyName))
+                                                                {
+                                                                    <span class="badge bg-warning mx-2">На проверке</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span class="badge bg-success mx-2">Подтверждено</span>
+                                                                }
                                                             </button>
-                                                            <div id="collapseGeneral" class="accordion-collapse collapse show" aria-labelledby="headingOne">
+                                                            <div id="@("collapseTeachers" + teacher.IdПреподавателя)" class="accordion-collapse collapse" aria-labelledby="headingOne">
                                                                 <div class="accordion-body">
                                                                     <UserEducation Teacher="teacher" />
                                                                 </div>
@@ -81,10 +103,26 @@
                                                         </div>
                                                     </div>
                                                 }
-                                        </div>
+                                        }
+                                        
+                                        @if (user.User != null)
+                                        {
+                                            <div class="accordion mt-4" id="accordionCreateEntry">
+                                                <div class="accordion-item">
+                                                    <button class="accordion-button collapsed" style="height:30px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCreateEntry" aria-expanded="false" aria-controls="collapseCreateEntry">
+                                                        <strong class="fs-5">Сделать еще одну запись того, кем Вы являетесь в АГТУ</strong>
+                                                    </button>
+                                                    <div id="collapseCreateEntry" class="accordion-collapse collapse" aria-labelledby="headingOne">
+                                                        <div class="accordion-body">
+                                                            <UserStructureForm IdUser="user.User.IdПользователя" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
                                     </div>
                                 </div>
-                            }
+                            </div>
 
                             @if (!isGuest)
                             {
@@ -172,10 +210,10 @@
         public АккаунтПользователя? Account { get; set; } = null!;
 
         public UserDisplayDto? UserDisplay { get; set; }
-        public List<StudentDisplayDto>? Student { get; set; }
-        public bool IsStudent => Student != null;
-        public List<TeacherDisplayDto>? Teacher { get; set; }
-        public bool IsTeacher => Teacher != null;
+        public List<StudentDisplayDto> Students { get; set; } = [];
+        public bool IsStudent => Students.Count != 0;
+        public List<TeacherDisplayDto> Teachers { get; set; } = [];
+        public bool IsTeacher => Teachers.Count != 0;
 
         public bool IsInited { get; set; } = false;
 
@@ -186,8 +224,8 @@
             {
                 UserDisplay = await userService.GetUserDisplayAsync(User);
                 Account = await userService.GetUserAccountAsync(User);
-                Student = await userService.GetStudentDisplayAsync(User);
-                Teacher = await userService.GetTeacherDisplayAsync(User);
+                Students = await userService.GetStudentDisplayAsync(User);
+                Teachers = await userService.GetTeacherDisplayAsync(User);
             }
             IsInited = true;
         }
@@ -209,7 +247,7 @@
                 if (user.UserDisplay != null)
                 {
                     userName = user.UserDisplay.ФИО;
-                    userRoles = user.UserDisplay.Роли;
+                    userRoles = await UserService.GetUserRoleNames(id) ?? [];
                 }
                 StateHasChanged();
             }

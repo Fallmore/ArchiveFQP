@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using ArchiveFqp.Models.DTO.User;
+using System.Text.Json.Serialization;
 
 namespace ArchiveFqp.Models.Auth.ThreeKL
 {
@@ -24,5 +25,15 @@ namespace ArchiveFqp.Models.Auth.ThreeKL
 
         [JsonPropertyName("lastname")]
         public string Lastname { get; set; } = string.Empty;
+
+        [JsonIgnore]
+        public RegisterModel RegisterModel { get; set; } = new()
+        { 
+            Surname = "Н/Д",
+            Name = "Н/Д",
+            Login = "Н/Д",
+            Password = "Пароль1234!",
+            ConfirmPassword = "Пароль1234!"
+        };
     }   
 }

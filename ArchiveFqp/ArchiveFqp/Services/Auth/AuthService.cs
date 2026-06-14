@@ -2,8 +2,11 @@
 using ArchiveFqp.Interfaces.ReferenceData;
 using ArchiveFqp.Interfaces.User;
 using ArchiveFqp.Models.Auth;
+using ArchiveFqp.Models.Auth.ThreeKL;
 using ArchiveFqp.Models.Database;
+using ArchiveFqp.Models.DTO.User;
 using ArchiveFqp.Models.Settings.SettingsArchive;
+using ArchiveFqp.Services.Auth.ThreeKL;
 using ArchiveFqp.Services.Notifications;
 using ArchiveFqp.Services.User;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -11,6 +14,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Quartz.Logging;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -22,41 +26,27 @@ namespace ArchiveFqp.Services.Auth
     {
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
         private readonly IUserService _userService;
+        private readonly ILogger<AuthService> _logger;
         private readonly SettingsArchive _settings;
         private readonly IReferenceDataService _refDataService;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
-        //public event Action<ClaimsPrincipal>? UserChanged;
-        //private ClaimsPrincipal? currentUser;
-
-        //public ClaimsPrincipal CurrentUser
-        //{
-        //    get { return currentUser ?? new(); }
-        //    set
-        //    {
-        //        currentUser = value;
-
-        //        if (UserChanged is not null)
-        //        {
-        //            UserChanged(currentUser);
-        //        }
-        //    }
-        //}
-
         public AuthService(IDbContextFactory<ArchiveFqpContext> dbFactory,
-            IUserService userService,
+            IUserService userService, ILogger<AuthService> logger,
             SettingsArchive settings, IReferenceDataService refDataService,
             IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _dbFactory = dbFactory;
             _userService = userService;
+            _logger = logger;
             _settings = settings;
             _refDataService = refDataService;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
         }
-        // TODO: добавить валидацию модели регистрации (пароль, почта и т.д.)
+        
+
         // TODO: добавить отправку уведомления на почту при регистрации
         // TODO: добавить обновление данных пользователя, находящегося в сессии (роли)
         // TODO: добавить выход пользователя, находящегося в сессии, из аккаунта при смене пароля
@@ -85,83 +75,32 @@ namespace ArchiveFqp.Services.Auth
                 }
             }
 
-            // Создаем пользователя
-            Пользователь user = new()
+            List<Пользователь> existignUsers = await context.Пользовательs
+                .Include(x => x.АккаунтПользователя)
+                .Where(a => a.Фамилия == model.Surname
+                                    && a.Имя == model.Name
+                                    && (model.Patronymic == null || model.Patronymic == a.Отчество)
+                                    && a.АккаунтПользователя == null)
+                .ToListAsync();
+
+            АккаунтПользователя account3kl = new();
+
+            if (existignUsers.Count == 0)
             {
-                Фамилия = model.Surname!,
-                Имя = model.Name!,
-                Отчество = model.Patronymic,
-                Email = model.Email
-            };
-
-            context.Пользовательs.Add(user);
-            await context.SaveChangesAsync();
-
-            List<РольПользователя> roles = await _refDataService.GetAsync<РольПользователя>();
-            List<int> userRoles = [];
-            if (model.UserType == UserType.Student)
-                userRoles.Add(roles.First(x => x.Название == _settings.RoleStudentName).IdРоли);
-            if (model.UserType == UserType.Teacher)
-                userRoles.Add(roles.First(x => x.Название == _settings.RoleTeacherName).IdРоли);
-
-            // Создаем аккаунт с хешированным паролем
-            АккаунтПользователя account = new()
-            {
-                IdПользователя = user.IdПользователя,
-                Логин = model.Login,
-                Пароль = BCrypt.Net.BCrypt.HashPassword(model.Password),
-                Роли = userRoles
-            };
-
-            context.АккаунтПользователяs.Add(account);
-            await context.SaveChangesAsync();
-
-            if (model.UserType == UserType.Student)
-            {
-                Студент student = new()
-                {
-                    IdПользователя = user.IdПользователя,
-                    IdИнститута = model.IdInstitute!.Value,
-                    IdКафедры = model.IdDepartment!.Value,
-                    IdНаправления = model.IdDirection!.Value,
-                    IdПрофиля = model.IdProfile,
-                    IdУровняОбразования = model.IdEducationLevel!.Value,
-                    IdФормыОбучения = model.IdEducationForm!.Value,
-                    ГодОкончания = model.YearGraduation!.Value,
-                    Роли = [roles.First(x => x.Название == _settings.RoleStudentOnVerifyName).IdРоли],
-                    Активно = true
-                };
-
-                context.Студентs.Add(student);
-                await context.SaveChangesAsync();
+                account3kl = await CreateUserAsync(model);
             }
-            else if (model.UserType == UserType.Teacher)
+            else
             {
-                Преподаватель teacher = new()
-                {
-                    IdПользователя = user.IdПользователя,
-                    IdИнститута = model.IdInstitute!.Value,
-                    IdКафедры = model.IdDepartment!.Value,
-                    IdДолжности = model.IdPost!.Value,
-                    Роли = [roles.First(x => x.Название == _settings.RoleTeacherOnVerifyName).IdРоли],
-                    Активно = true
-                };
-
-                context.Преподавательs.Add(teacher);
-                await context.SaveChangesAsync();
+                account3kl = await LinkUserAsync(model, existignUsers);
             }
+
+            context.АккаунтПользователяs.Add(account3kl);
+            await context.SaveChangesAsync();
 
             return new AuthResult
             {
                 Success = true,
                 Message = "Регистрация успешна"
-                //User = new UserSession
-                //{
-                //    UserId = user.IdПользователя,
-                //    ФИО = $"{user.Фамилия} {user.Имя}",
-                //    Логин = model.Логин,
-                //    Роли = []
-                //}
             };
         }
 
@@ -173,18 +112,10 @@ namespace ArchiveFqp.Services.Auth
                 .Include(a => a.IdПользователяNavigation)
                 .FirstOrDefaultAsync(a => a.Логин == model.Login);
 
-            if (account == null || !BCrypt.Net.BCrypt.Verify(model.Password, account.Пароль))
+            if (account == null || string.IsNullOrWhiteSpace(model.Password) || !BCrypt.Net.BCrypt.Verify(model.Password, account.Пароль))
             {
                 return new AuthResult { Success = false, Message = "Неверный логин или пароль" };
             }
-
-            List<string> roleNames = (await _refDataService.GetAsync<РольПользователя>())
-                .Where(r => account.Роли.Contains(r.IdРоли))
-                .Select(r => r.Название)
-                .ToList();
-            // Совмещаем роли, т.к. использование политик очень сильно усложнит мне жизнь.
-            // И я надеюсь, что данное решение не усложнит вашу
-            roleNames.AddRange(await GetRoleNamesOrganizaion(account.IdПользователя));
 
             List<Claim> claims = [
                 new Claim(ClaimTypes.NameIdentifier, account.IdПользователя.ToString()),
@@ -192,6 +123,7 @@ namespace ArchiveFqp.Services.Auth
                 ];
 
             // Добавляем роли в claims
+            List<string> roleNames = await _userService.GetUserRoleNames(account);
             foreach (string role in roleNames)
             {
                 claims.Add(new Claim(ClaimTypes.Role, role));
@@ -201,15 +133,6 @@ namespace ArchiveFqp.Services.Auth
             ClaimsPrincipal principal = new(identity);
 
             await _httpContextAccessor.HttpContext!.SignInAsync(principal);
-            //CookieAuthenticationDefaults.AuthenticationScheme,
-            //CurrentUser,
-            //new AuthenticationProperties
-            //{
-            //    IsPersistent = true,
-            //    ExpiresUtc = DateTime.UtcNow.AddHours(8)
-            //});
-
-            //string token = GenerateJwtToken(userSession);
 
             return new AuthResult
             {
@@ -294,27 +217,139 @@ namespace ArchiveFqp.Services.Auth
             return tokenHandler.WriteToken(token);
         }
 
-        private async Task<List<string>> GetRoleNamesOrganizaion(int userId)
+        private async Task<АккаунтПользователя> CreateUserAsync(RegisterModel model)
         {
-            List<РольУчреждения> roles = await _refDataService.GetAsync<РольУчреждения>();
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
 
-            Преподаватель? teacher = (await _userService.GetTeacherAsync(userId))
-                .FirstOrDefault(x => x.Активно == true
-                && !x.Роли.Contains(roles.First(y => y.Название == _settings.RoleStudentOnVerifyName).IdРоли));
-            Студент? student = (await _userService.GetStudentAsync(userId))
-                .FirstOrDefault(x => x.Активно == true
-                && !x.Роли.Contains(roles.First(y => y.Название == _settings.RoleTeacherOnVerifyName).IdРоли));
+            // Создаем нового пользователя
+            var newUser = new Пользователь
+            {
+                Фамилия = model.Surname!,
+                Имя = model.Name!,
+                Отчество = model.Patronymic,
+                Email = model.Email
+            };
 
-            if (teacher == null && student == null) return [];
+            context.Пользовательs.Add(newUser);
+            await context.SaveChangesAsync();
 
-            List<int> roleIds = [];
-            roleIds.AddRange(teacher?.Роли ?? []);
-            roleIds.AddRange(student?.Роли ?? []);
-            roleIds = [.. roleIds.Distinct()];
-            return (await _refDataService.GetAsync<РольУчреждения>())
-                .Where(r => roleIds.Contains(r.IdРоли))
-                .Select(r => r.Название)
-                .ToList();
+            List<РольУчреждения> rolesOrganization = await _refDataService.GetAsync<РольУчреждения>();
+            if (model.UserStructure.UserType == UserType.Student)
+            {
+                Студент student = new()
+                {
+                    IdПользователя = newUser.IdПользователя,
+                    IdИнститута = model.UserStructure.IdInstitute!.Value,
+                    IdКафедры = model.UserStructure.IdDepartment!.Value,
+                    IdНаправления = model.UserStructure.IdDirection!.Value,
+                    IdПрофиля = model.UserStructure.IdProfile,
+                    IdУровняОбразования = model.UserStructure.IdEducationLevel!.Value,
+                    IdФормыОбучения = model.UserStructure.IdEducationForm!.Value,
+                    ГодОкончания = model.UserStructure.YearGraduation!.Value,
+                    Роли = [rolesOrganization.First(x => x.Название == _settings.RoleStudentOnVerifyName).IdРоли],
+                    Активно = true
+                };
+
+                context.Студентs.Add(student);
+                await context.SaveChangesAsync();
+            }
+            else if (model.UserStructure.UserType == UserType.Teacher)
+            {
+                Преподаватель teacher = new()
+                {
+                    IdПользователя = newUser.IdПользователя,
+                    IdИнститута = model.UserStructure.IdInstitute!.Value,
+                    IdКафедры = model.UserStructure.IdDepartment!.Value,
+                    IdДолжности = model.UserStructure.IdPost!.Value,
+                    Роли = [rolesOrganization.First(x => x.Название == _settings.RoleTeacherOnVerifyName).IdРоли],
+                    Активно = true
+                };
+
+                context.Преподавательs.Add(teacher);
+                await context.SaveChangesAsync();
+            }
+
+            var account = new АккаунтПользователя
+            {
+                IdПользователя = newUser.IdПользователя,
+                Логин = model.Login,
+                Пароль = BCrypt.Net.BCrypt.HashPassword(model.Password),
+                Роли = []
+            };
+
+            return account;
+        }
+
+        private async Task<АккаунтПользователя> LinkUserAsync(RegisterModel model, List<Пользователь> candidates)
+        {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
+            АккаунтПользователя account = new()
+            {
+                Логин = model.Login,
+                Пароль = BCrypt.Net.BCrypt.HashPassword(model.Password),
+                Роли = []
+            };
+            List<РольПользователя> roles = await context.РольПользователяs.ToListAsync();
+
+            if (model.UserStructure.UserType == UserType.Student)
+            {
+                List<Студент> foundStudents = await context.Студентs
+                    .Where(x => x.IdИнститута == model.UserStructure.IdInstitute!.Value
+                                    && x.IdКафедры == model.UserStructure.IdDepartment!.Value
+                                    && x.IdНаправления == model.UserStructure.IdDirection!.Value
+                                    && x.IdПрофиля == model.UserStructure.IdProfile
+                                    && x.IdУровняОбразования == model.UserStructure.IdEducationLevel!.Value
+                                    && x.IdФормыОбучения == model.UserStructure.IdEducationForm!.Value
+                                    && x.ГодОкончания == model.UserStructure.YearGraduation!.Value
+                                    && x.Активно == true)
+                    .ToAsyncEnumerable()
+                    .Where(x => candidates.Exists(y => y.IdПользователя == x.IdПользователя))
+                    .ToListAsync();
+
+                if (foundStudents.Count > 2)
+                {
+                    _logger.LogCritical(
+                        "Найдено 2 студента одинаковой структуры без аккаунтов ФИО {LastName} {Firstname} {Patromymic}",
+                        model.Surname, model.Name, model.Patronymic ?? "");
+                }
+
+                if (foundStudents.Count != 0)
+                {
+                    account.IdПользователя = foundStudents[0].IdПользователя;
+                    account.Роли = [roles.First(x => x.Название == _settings.RoleStudentName).IdРоли];
+                }
+            }
+            else if (model.UserStructure.UserType == UserType.Teacher)
+            {
+                List<Преподаватель> foundTeachers = await context.Преподавательs
+                    .Where(x => x.IdИнститута == model.UserStructure.IdInstitute!.Value
+                                    && x.IdКафедры == model.UserStructure.IdDepartment!.Value
+                                    && x.Активно == true)
+                    .ToAsyncEnumerable()
+                    .Where(x => candidates.Exists(y => y.IdПользователя == x.IdПользователя))
+                    .ToListAsync();
+
+                if (foundTeachers.Count > 2)
+                {
+                    _logger.LogCritical(
+                        "Найдено 2 преподавателя одинаковой структуры без аккаунтов с ФИО {LastName} {Firstname} {Patromymic}",
+                        model.Surname, model.Name, model.Patronymic ?? "");
+                }
+
+                if (foundTeachers.Count != 0)
+                {
+                    account.IdПользователя = foundTeachers[0].IdПользователя;
+                    account.Роли = [roles.First(x => x.Название == _settings.RoleTeacherName).IdРоли];
+                }
+            }
+
+            if (account.IdПользователя == 0 || account.Роли.Count == 0)
+            {
+                account = await CreateUserAsync(model);
+            }
+
+            return account;
         }
     }
 }

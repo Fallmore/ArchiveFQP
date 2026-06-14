@@ -168,9 +168,6 @@
                 <!-- Кнопки -->
                 <div class="row mt-4">
                     <div class="col-12 d-flex justify-content-between">
-                        <button type="button" class="btn btn-secondary" @onclick="Cancel">
-                            <i class="bi bi-x-circle"></i> Отмена
-                        </button>
                         <button type="submit" class="btn btn-primary" disabled="@isGenerating">
                             @if (isGenerating)
                             {
@@ -280,6 +277,6 @@
 
     private void Cancel()
     {
-        NavigationManager.NavigateTo("/works");
+        NavigationManager.NavigateTo(NavigationManager.Uri, false);
     }
 }

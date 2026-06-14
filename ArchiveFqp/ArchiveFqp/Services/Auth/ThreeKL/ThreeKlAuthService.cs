@@ -1,33 +1,44 @@
-﻿using ArchiveFqp.Models.Auth.ThreeKL;
+﻿using ArchiveFqp.Interfaces.ReferenceData;
+using ArchiveFqp.Interfaces.User;
+using ArchiveFqp.Models.Auth.ThreeKL;
 using ArchiveFqp.Models.Database;
-using DocumentFormat.OpenXml.InkML;
+using ArchiveFqp.Models.DTO.User;
+using ArchiveFqp.Models.Settings.SettingsArchive;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
 using System.Security.Claims;
-using System.Text;
 using System.Text.Json;
 
 namespace ArchiveFqp.Services.Auth.ThreeKL
 {
-    public class ThreeKlAuthService
+    public class ThreeKlAuthService 
     {
+        private readonly ILogger<ThreeKlAuthService> _logger;
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IReferenceDataService _refDataService;
         private readonly IDbContextFactory<ArchiveFqpContext> _dbFactory;
+        private readonly IUserService _userService;
+        private readonly SettingsArchive _settings;
+        private readonly static string s_prefix = "3kl_";
 
-        public ThreeKlAuthService(
-            HttpClient httpClient,
-            IConfiguration configuration,
-            IHttpContextAccessor httpContextAccessor,
-            IDbContextFactory<ArchiveFqpContext> dbFactory)
+        public ThreeKlAuthService(ILogger<ThreeKlAuthService> logger,
+            HttpClient httpClient, IConfiguration configuration,
+            IHttpContextAccessor httpContextAccessor, IReferenceDataService refDataService,
+            IDbContextFactory<ArchiveFqpContext> dbFactory, IUserService userService,
+            SettingsArchive settings)
         {
+            _logger = logger;
             _httpClient = httpClient;
             _configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
+            _refDataService = refDataService;
             _dbFactory = dbFactory;
+            _userService = userService;
+            _settings = settings;
         }
 
         // Генерация URL для перенаправления на страницу авторизации 3KL
@@ -103,14 +114,13 @@ namespace ArchiveFqp.Services.Auth.ThreeKL
             return null;
         }
 
-        // Вход или регистрация пользователя в вашей системе
+        // Вход или регистрация пользователя 
         public async Task<bool> SignInWithThreeKlAsync(ThreeKlUserInfo userInfo)
         {
             using ArchiveFqpContext context = _dbFactory.CreateDbContext();
             // Ищем существующую привязку аккаунта
-            var existingAccount = await context.АккаунтПользователяs
-                .Include(a => a.IdПользователяNavigation)
-                .FirstOrDefaultAsync(a => a.Логин == $"3kl_{userInfo.Id}");
+            АккаунтПользователя? existingAccount = await context.АккаунтПользователяs
+                .FirstOrDefaultAsync(a => a.Логин == s_prefix + userInfo.Id);
 
             if (existingAccount != null)
             {
@@ -119,63 +129,35 @@ namespace ArchiveFqp.Services.Auth.ThreeKL
                 return true;
             }
 
-            // Ищем пользователя по email
-            if (!string.IsNullOrEmpty(userInfo.Email))
+            return false;
+        }
+
+        public async Task<bool> LinkOrCreateAccount(ThreeKlUserInfo userInfo)
+        {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
+            List<Пользователь> existignUsers = await context.Пользовательs
+                .Include(x => x.АккаунтПользователя)
+                .Where(a => a.Фамилия == userInfo.Lastname
+                                    && a.Имя == userInfo.Firstname
+                                    && (userInfo.RegisterModel.Patronymic == null || userInfo.RegisterModel.Patronymic == a.Отчество)
+                                    && a.АккаунтПользователя == null)
+                .ToListAsync();
+
+            АккаунтПользователя account3kl = new();
+
+            if (existignUsers.Count == 0)
             {
-                var userByEmail = await context.Пользовательs
-                    .FirstOrDefaultAsync(u => u.Email == userInfo.Email);
-
-                if (userByEmail != null)
-                {
-                    // Привязываем существующий аккаунт к 3KL
-                    АккаунтПользователя newAccount = new()
-                    {
-                        IdПользователя = userByEmail.IdПользователя,
-                        Логин = $"3kl_{userInfo.Id}",
-                        Пароль = "", // Пароль не нужен для OAuth
-                        Роли = [1]
-                    };
-
-                    context.АккаунтПользователяs.Add(newAccount);
-                    await context.SaveChangesAsync();
-
-                    // Получаем аккаунт с пользователем для входа
-                    var account = await context.АккаунтПользователяs
-                        .Include(a => a.IdПользователяNavigation)
-                        .FirstAsync(a => a.IdПользователя == userByEmail.IdПользователя);
-
-                    await SignInUserAsync(account, userInfo);
-                    return true;
-                }
+                account3kl = await CreateUserAsync(userInfo);
             }
-
-            // Создаем нового пользователя
-            var newUser = new Пользователь
+            else
             {
-                Фамилия = userInfo.Lastname,
-                Имя = userInfo.Firstname,
-                Email = userInfo.Email
-            };
-
-            context.Пользовательs.Add(newUser);
-            await context.SaveChangesAsync();
-
-            var account3kl = new АккаунтПользователя
-            {
-                IdПользователя = newUser.IdПользователя,
-                Логин = $"3kl_{userInfo.Id}",
-                Пароль = "",
-                Роли = [1]
-            };
+                account3kl = await LinkUserAsync(userInfo, existignUsers);
+            }
 
             context.АккаунтПользователяs.Add(account3kl);
             await context.SaveChangesAsync();
 
-            var fullAccount = await context.АккаунтПользователяs
-                .Include(a => a.IdПользователяNavigation)
-                .FirstAsync(a => a.IdПользователя == newUser.IdПользователя);
-
-            await SignInUserAsync(fullAccount, userInfo);
             return true;
         }
 
@@ -183,27 +165,163 @@ namespace ArchiveFqp.Services.Auth.ThreeKL
         {
             using ArchiveFqpContext context = _dbFactory.CreateDbContext();
 
-            var roles = await context.РольПользователяs
-                .Where(r => account.Роли.Contains(r.IdРоли))
-                .Select(r => r.Название)
-                .ToListAsync();
+            List<Claim> claims = [
+                new Claim(ClaimTypes.NameIdentifier, account.IdПользователя.ToString()),
+                new Claim(ClaimTypes.Name, $"{userInfo.Lastname} {userInfo.Firstname}"),
+                ];
 
-            var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, account.IdПользователя.ToString()),
-            new(ClaimTypes.Name, $"{account.IdПользователяNavigation!.Фамилия} {account.IdПользователяNavigation.Имя}"),
-            new("AuthProvider", "3kl")
-        };
-
-            foreach (var role in roles)
+            // Добавляем роли в claims
+            List<string> roleNames = await _userService.GetUserRoleNames(account);
+            foreach (string role in roleNames)
             {
                 claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
-            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-            var principal = new ClaimsPrincipal(identity);
+            ClaimsIdentity identity = new(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            ClaimsPrincipal principal = new(identity);
 
             await _httpContextAccessor.HttpContext!.SignInAsync(principal);
+        }
+
+        private async Task<АккаунтПользователя> CreateUserAsync(ThreeKlUserInfo userInfo)
+        {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
+            // Создаем нового пользователя
+            var newUser = new Пользователь
+            {
+                Фамилия = userInfo.Lastname,
+                Имя = userInfo.Firstname,
+                Отчество = userInfo.RegisterModel.Patronymic,
+                Email = userInfo.Email
+            };
+
+            context.Пользовательs.Add(newUser);
+            await context.SaveChangesAsync();
+
+            List<РольПользователя> roles = await context.РольПользователяs.ToListAsync();
+            List<int> userRoles = [];
+            if (userInfo.RegisterModel.UserStructure.UserType == UserType.Student)
+                userRoles.Add(roles.First(x => x.Название == _settings.RoleStudentName).IdРоли);
+            else if (userInfo.RegisterModel.UserStructure.UserType == UserType.Teacher)
+                userRoles.Add(roles.First(x => x.Название == _settings.RoleTeacherName).IdРоли);
+
+            var account3kl = new АккаунтПользователя
+            {
+                IdПользователя = newUser.IdПользователя,
+                Логин = s_prefix + userInfo.Id,
+                Пароль = "",
+                Роли = userRoles
+            };
+
+            if (userInfo.RegisterModel.UserStructure.UserType == UserType.Student)
+            {
+                Студент student = new()
+                {
+                    IdПользователя = newUser.IdПользователя,
+                    IdИнститута = userInfo.RegisterModel.UserStructure.IdInstitute!.Value,
+                    IdКафедры = userInfo.RegisterModel.UserStructure.IdDepartment!.Value,
+                    IdНаправления = userInfo.RegisterModel.UserStructure.IdDirection!.Value,
+                    IdПрофиля = userInfo.RegisterModel.UserStructure.IdProfile,
+                    IdУровняОбразования = userInfo.RegisterModel.UserStructure.IdEducationLevel!.Value,
+                    IdФормыОбучения = userInfo.RegisterModel.UserStructure.IdEducationForm!.Value,
+                    ГодОкончания = userInfo.RegisterModel.UserStructure.YearGraduation!.Value,
+                    Роли = [],
+                    Активно = true
+                };
+
+                context.Студентs.Add(student);
+                await context.SaveChangesAsync();
+            }
+            else if (userInfo.RegisterModel.UserStructure.UserType == UserType.Teacher)
+            {
+                Преподаватель teacher = new()
+                {
+                    IdПользователя = newUser.IdПользователя,
+                    IdИнститута = userInfo.RegisterModel.UserStructure.IdInstitute!.Value,
+                    IdКафедры = userInfo.RegisterModel.UserStructure.IdDepartment!.Value,
+                    IdДолжности = userInfo.RegisterModel.UserStructure.IdPost!.Value,
+                    Роли = [],
+                    Активно = true
+                };
+
+                context.Преподавательs.Add(teacher);
+                await context.SaveChangesAsync();
+            }
+
+            return account3kl;
+        }
+
+        private async Task<АккаунтПользователя> LinkUserAsync(ThreeKlUserInfo userInfo, List<Пользователь> candidates)
+        {
+            using ArchiveFqpContext context = _dbFactory.CreateDbContext();
+
+            АккаунтПользователя account3kl = new()
+            {
+                Логин = s_prefix + userInfo.Id,
+                Пароль = "",
+                Роли = []
+            };
+            List<РольПользователя> roles = await context.РольПользователяs.ToListAsync();
+
+            if (userInfo.RegisterModel.UserStructure.UserType == UserType.Student)
+            {
+                List<Студент> foundStudents = await context.Студентs
+                    .Where(x => x.IdИнститута == userInfo.RegisterModel.UserStructure.IdInstitute!.Value
+                                    && x.IdКафедры == userInfo.RegisterModel.UserStructure.IdDepartment!.Value
+                                    && x.IdНаправления == userInfo.RegisterModel.UserStructure.IdDirection!.Value
+                                    && x.IdПрофиля == userInfo.RegisterModel.UserStructure.IdProfile
+                                    && x.IdУровняОбразования == userInfo.RegisterModel.UserStructure.IdEducationLevel!.Value
+                                    && x.IdФормыОбучения == userInfo.RegisterModel.UserStructure.IdEducationForm!.Value
+                                    && x.ГодОкончания == userInfo.RegisterModel.UserStructure.YearGraduation!.Value
+                                    && x.Активно == true)
+                    .ToAsyncEnumerable()
+                    .Where(x => candidates.Exists(y => y.IdПользователя == x.IdПользователя))
+                    .ToListAsync();
+
+                if (foundStudents.Count > 2)
+                {
+                    _logger.LogCritical(
+                        "Найдено 2 студента одинаковой структуры без аккаунтов с ФИО {LastName} {Firstname} {Patromymic}",
+                        userInfo.Lastname, userInfo.Firstname, userInfo.RegisterModel.Patronymic ?? "");
+                }
+
+                if (foundStudents.Count != 0)
+                {
+                    account3kl.IdПользователя = foundStudents[0].IdПользователя;
+                    account3kl.Роли = [roles.First(x => x.Название == _settings.RoleStudentName).IdРоли];
+                }
+            }
+            else if (userInfo.RegisterModel.UserStructure.UserType == UserType.Teacher)
+            {
+                List<Преподаватель> foundTeachers = await context.Преподавательs
+                    .Where(x => x.IdИнститута == userInfo.RegisterModel.UserStructure.IdInstitute!.Value
+                                    && x.IdКафедры == userInfo.RegisterModel.UserStructure.IdDepartment!.Value
+                                    && x.Активно == true)
+                    .ToAsyncEnumerable()
+                    .Where(x => candidates.Exists(y => y.IdПользователя == x.IdПользователя))
+                    .ToListAsync();
+
+                if (foundTeachers.Count > 2)
+                {
+                    _logger.LogCritical(
+                        "Найдено 2 преподавателя одинаковой структуры без аккаунтов с ФИО {LastName} {Firstname} {Patromymic}",
+                        userInfo.Lastname, userInfo.Firstname, userInfo.RegisterModel.Patronymic ?? "");
+                }
+
+                if (foundTeachers.Count != 0)
+                {
+                    account3kl.IdПользователя = foundTeachers[0].IdПользователя;
+                    account3kl.Роли = [roles.First(x => x.Название == _settings.RoleTeacherName).IdРоли];
+                }
+            }
+
+            if (account3kl.IdПользователя == 0 || account3kl.Роли.Count == 0)
+            {
+                account3kl = await CreateUserAsync(userInfo);
+            }
+
+            return account3kl;
         }
     }
 }

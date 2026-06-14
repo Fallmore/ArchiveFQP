@@ -40,7 +40,7 @@
                             <i class="bi bi-mortarboard"></i> Студенты
                         </button>
                     </li>
-                    @if (responsible.Пользователь.Роли.Contains(Settings.RoleDepartmentHeadName))
+                    @if (responsible.Роли.Exists(x => x.Название == Settings.RoleDepartmentHeadName))
                     {
                         <li class="nav-item">
                             <button class="nav-link @(activeTab == "teachers" ? "active" : "")" @onclick="@(() => SetActiveTab("teachers"))">

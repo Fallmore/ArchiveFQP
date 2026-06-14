@@ -9,20 +9,25 @@ namespace ArchiveFqp.Models.Auth
         private readonly bool _requireLowercase;
         private readonly bool _requireUppercase;
         private readonly bool _requireNonAlphanumeric;
+        private readonly bool _require;
 
-        public PasswordValidation(int minLength, bool requireDigit, bool requireLowercase, bool requireUppercase, bool requireNonAlphanumeric)
+        public PasswordValidation(int minLength, bool requireDigit, bool requireLowercase, bool requireUppercase, bool requireNonAlphanumeric, bool require = true)
         {
             _minLength = minLength;
             _requireDigit = requireDigit;
             _requireLowercase = requireLowercase;
             _requireUppercase = requireUppercase;
             _requireNonAlphanumeric = requireNonAlphanumeric;
+            _require = require;
         }
 
         protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
         {
             string password = value as string ?? "";
             string? errMessage = null;
+
+            if (!_require && string.IsNullOrWhiteSpace(password)) 
+                return ValidationResult.Success;
 
             if (string.IsNullOrWhiteSpace(password))
                 errMessage = "Пароль не может быть пустым";

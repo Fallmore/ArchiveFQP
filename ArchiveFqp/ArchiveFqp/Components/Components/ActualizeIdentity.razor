@@ -23,11 +23,11 @@
         ClaimsPrincipal? user = authState!.User;
         if (user == null || !user.Identity!.IsAuthenticated) return;
         int idUser = int.Parse(user.Claims.First(x => x.Type == ClaimTypes.NameIdentifier).Value);
-        List<string> roles = (await RefDataService.GetAsync<UserDisplayDto>()).First(a => a.Пользователь.IdПользователя == idUser).Роли;
-        roles.AddRange(await GetRoleNamesOrganizaion(idUser));
+        List<string>? actualRoles = await UserService.GetUserRoleNames(idUser);
 
+        var currentRoles = user.Claims.Where(c => c.Type == ClaimTypes.Role).ToList();
         // TODO: сделать авто перезаход
-        if (user.Claims.Where(c => c.Type == ClaimTypes.Role).Any(c => !roles.Contains(c.Value)))
+        if (actualRoles == null || currentRoles.Count != actualRoles.Count || user.Claims.Where(c => c.Type == ClaimTypes.Role).Any(c => !actualRoles.Contains(c.Value)))
         {
             Navigation.NavigateTo("/logout", true);
         }

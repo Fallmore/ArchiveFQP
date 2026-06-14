@@ -1,0 +1,117 @@
+﻿@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Models.DTO.User
+@using ArchiveFqp.Models.Settings.SettingsArchive
+@using Microsoft.EntityFrameworkCore
+@inject SettingsArchive Settings
+@inject IReferenceDataService RefDataService
+@inject IDbContextFactory<ArchiveFqpContext> DbFactory
+@inject NavigationManager Navigation
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success">@successMessage</div>
+}
+
+<EditForm EditContext="@editContext" OnValidSubmit="@HandleConfirm" FormName="confirmForm">
+    <DataAnnotationsValidator />
+    
+    <UserStructureFields UserStructure="userStructure"
+                         EditContext="editContext" MessageStore="messageStore" />
+    
+    <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
+        @if (isLoading)
+        {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+        }
+        Завершить
+    </button>
+</EditForm>
+
+@code {
+    [Parameter] public int IdUser { get; set; }
+    private UserStructureDto userStructure { get; set; } = new();
+    private string? errorMessage;
+    private string? successMessage;
+    private bool isLoading;
+
+    EditContext? editContext;
+    ValidationMessageStore? messageStore;
+
+    protected override async Task OnInitializedAsync()
+    {
+        editContext = new(userStructure);
+        messageStore = new(editContext);
+    }
+
+    private async Task HandleConfirm()
+    {
+        errorMessage = null;
+        successMessage = null;
+        isLoading = true;
+
+        try
+        {
+            using ArchiveFqpContext context = DbFactory.CreateDbContext();
+            
+            List<РольУчреждения> rolesOrganization = await RefDataService.GetAsync<РольУчреждения>();
+            if (userStructure.UserType == UserType.Student)
+            {
+                Студент student = new()
+                {
+                    IdПользователя = IdUser,
+                    IdИнститута = userStructure.IdInstitute!.Value,
+                    IdКафедры = userStructure.IdDepartment!.Value,
+                    IdНаправления = userStructure.IdDirection!.Value,
+                    IdПрофиля = userStructure.IdProfile,
+                    IdУровняОбразования = userStructure.IdEducationLevel!.Value,
+                    IdФормыОбучения = userStructure.IdEducationForm!.Value,
+                    ГодОкончания = userStructure.YearGraduation!.Value,
+                    Роли = [rolesOrganization.First(x => x.Название == Settings.RoleStudentOnVerifyName).IdРоли],
+                    Активно = true
+                };
+
+                context.Студентs.Add(student);
+            }
+            else if (userStructure.UserType == UserType.Teacher)
+            {
+                Преподаватель teacher = new()
+                {
+                    IdПользователя = IdUser,
+                    IdИнститута = userStructure.IdInstitute!.Value,
+                    IdКафедры = userStructure.IdDepartment!.Value,
+                    IdДолжности = userStructure.IdPost!.Value,
+                    Роли = [rolesOrganization.First(x => x.Название == Settings.RoleTeacherOnVerifyName).IdРоли],
+                    Активно = true
+                };
+
+                context.Преподавательs.Add(teacher);
+            }
+
+            await context.SaveChangesAsync();
+            Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
+        }
+        catch (DbUpdateException ex)
+        {
+            string error = ex.InnerException?.Message ?? ex.Message;
+            if (error.Contains("студент_студент_key"))
+                error = "Вы не можете создать 2 одинаковые записи студента";
+            else if (error.Contains("преподаватель_преподаватель_key"))
+                error = "Вы не можете создать 2 одинаковые записи преподавателя";
+
+            errorMessage = $"Ошибка при сохранении: {error}";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка при создании записи: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

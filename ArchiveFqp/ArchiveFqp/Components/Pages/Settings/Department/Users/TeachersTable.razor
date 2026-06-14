@@ -99,12 +99,6 @@
                                     }
                                 }
                             }
-                            else
-                            {
-                                <div>
-                                    <span class="badge bg-secondary me-1 mb-1">Нет аккаунта</span>
-                                </div>
-                            }
                         </td>
                         <td>@teacher.Структура.Институт.Название</td>
                         <td>@teacher.Структура.Кафедра.Название</td>
@@ -418,7 +412,7 @@
         }
         else
         {
-            List<РольУчреждения> roles = await RefDataService.GetAsync<РольУчреждения>();
+            List<РольПользователя> roles = await RefDataService.GetAsync<РольПользователя>();
                     
             // Добавляем роль Преподаватель, если отсутствует
             int idTeacherRole = account.Роли.FindIndex(x => x == roles.First(x => x.Название == Settings.RoleTeacherName).IdРоли);

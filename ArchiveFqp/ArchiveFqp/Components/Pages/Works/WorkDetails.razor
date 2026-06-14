@@ -296,11 +296,11 @@
 </div>
 
 @code {
-        [CascadingParameter] private Task<AuthenticationState>? authenticationState { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? authenticationState { get; set; }
 
-        [Parameter] public int? IdWork { get; set; }
-        [Parameter] public bool ShowExtraButtons { get; set; } = true;
-        [Parameter] public WorkDisplayDto? DisplayDto { get; set; }
+    [Parameter] public int? IdWork { get; set; }
+    [Parameter] public bool ShowExtraButtons { get; set; } = true;
+    [Parameter] public WorkDisplayDto? DisplayDto { get; set; }
     private Работа? work;
     private int? lastIdWork;
     private WorkDisplayDto displayDto = new();
@@ -496,7 +496,7 @@
             if (students.All(x => x.IdПрофиля == null)) return false;
 
             if (work.ДоступРаботы.Название == Settings.WorkAccessProfile
-                && 
+                &&
                 (work.Студент.Структура?.Профиль?.IdПрофиля == null
                     || students.Exists(x => x.IdПрофиля == work.Студент.Структура.Профиль.IdПрофиля))) return true;
         }

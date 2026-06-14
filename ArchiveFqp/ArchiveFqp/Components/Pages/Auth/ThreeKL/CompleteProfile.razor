@@ -1,0 +1,175 @@
+﻿@page "/complete-profile"
+@using ArchiveFqp.Components.Pages.User
+@using ArchiveFqp.Interfaces.ReferenceData
+@using ArchiveFqp.Models.Auth
+@using ArchiveFqp.Models.Auth.ThreeKL
+@using ArchiveFqp.Models.DTO.User
+@using ArchiveFqp.Models.ReferenceData
+@using ArchiveFqp.Services
+@using ArchiveFqp.Interfaces.Auth
+@using ArchiveFqp.Services.Auth.ThreeKL
+@using Microsoft.AspNetCore.Authorization
+@using System.Text
+@using System.Web
+@using System.Text.Json
+@inject ThreeKlAuthService ThreeKlAuthService
+@inject IReferenceDataService RefDataService
+@inject ILogger<CompleteProfile> Logger
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@rendermode @(new InteractiveServerRenderMode())
+
+<PageTitle>Завершение авторизации</PageTitle>
+
+@if (RendererInfo.IsInteractive && userInfo != null)
+{
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow">
+                    <div class="card-body">
+                        <h4 class="card-title text-center mb-4">
+                            <i class="bi-mortarboard" style="font-size: 3rem; color: blue;"></i>
+                            <br />Завершение авторизации
+                            <br /><span class="text-muted fs-6">Заполните ключевые данные, чтобы мы могли вас полностью идентифицировать</span>
+                        </h4>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">@errorMessage</div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(successMessage))
+                        {
+                            <div class="alert alert-success">@successMessage</div>
+                        }
+
+                        <EditForm EditContext="@editContext" OnValidSubmit="@HandleConfirm" FormName="confirmForm">
+                            <DataAnnotationsValidator />
+
+                            <div class="row">
+                                <div class="col-md-4 mx-4">
+                                    <div class="row mb-1">
+                                        <label for="surname" class="form-label mb-0 fw-bold">Фамилия</label>
+                                        <InputText @bind-Value="userInfo.Lastname" class="form-control" id="surname" disabled />
+                                    </div>
+                                    <div class="row mb-1">
+                                        <label for="name" class="form-label mb-0 fw-bold">Имя</label>
+                                        <InputText @bind-Value="userInfo.Firstname" class="form-control" id="name" disabled />
+                                    </div>
+                                    <div class="row mb-1">
+                                        <label for="patronymic" class="form-label mb-0 fw-bold">Отчество</label>
+                                        <InputText @bind-Value="registerModel.Patronymic" class="form-control" id="patronymic" />
+                                    </div>
+
+                                    <div class="row mb-1">
+                                        <label for="email" class="form-label mb-0 fw-bold">Email</label>
+                                        <InputText @bind-Value="userInfo.Email" type="email" class="form-control" id="email" disabled />
+                                    </div>
+                                </div>
+                                <div class="col-md-7 mx-2">
+                                    <UserStructureFields UserStructure="registerModel.UserStructure" Snapshot="snapshot"
+                                                       EditContext="editContext" MessageStore="messageStore" />
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                Завершить
+                            </button>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "ui")]
+    public string? UserInfo { get; set; }
+
+    private ThreeKlUserInfo? userInfo { get; set; }
+
+    private RegisterModel registerModel { get; set; } = null!;
+    private string? errorMessage;
+    private string? successMessage;
+    private bool isLoading;
+
+    private ReferenceDataSnapshot snapshot = new();
+
+    EditContext? editContext;
+    ValidationMessageStore? messageStore;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true || string.IsNullOrWhiteSpace(UserInfo))
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+            return;
+        }
+
+        if (RendererInfo.IsInteractive)
+        {
+            userInfo = DecodeUserInfoString(UserInfo!);
+            snapshot = await RefDataService.GetSnapshotAsync();
+            registerModel ??= userInfo.RegisterModel;
+            editContext = new(registerModel);
+            messageStore = new(editContext);
+        }
+    }
+
+    private ThreeKlUserInfo DecodeUserInfoString(string userInfoString)
+    {
+        byte[] decodedAsBytes = Convert.FromBase64String(userInfoString);
+        string decoded = Encoding.ASCII.GetString(decodedAsBytes);
+        // Декодируем URL-encoded строку
+        string decodedJson = HttpUtility.UrlDecode(decoded);
+        // Десериализуем JSON в модель
+        ThreeKlUserInfo? loadedUserInfo = JsonSerializer.Deserialize<ThreeKlUserInfo>(decodedJson);
+        if (loadedUserInfo == null)
+        {
+            Navigation.NavigateTo("/login?error=signin_failed", forceLoad: true);
+        }
+
+        return loadedUserInfo!;
+    }
+
+    private async Task HandleConfirm()
+    {
+        errorMessage = null;
+        successMessage = null;
+        isLoading = true;
+
+        try
+        {
+            bool result = await ThreeKlAuthService.LinkOrCreateAccount(userInfo!);
+
+            if (result)
+            {
+                var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+                var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            
+                var code = queryParams["code"];
+                var state = queryParams["state"];
+
+                Navigation.NavigateTo($"/signin-3kl?state={state}&code={code}", forceLoad: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка при авторизации: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

@@ -59,17 +59,17 @@ namespace ArchiveFqp.Services.Notifications
                     {
                         if (settings.ReceiveEmailNotifications)
                         {
-                            await _emailService.SendEmailAsync(id, title, message);
+                            _ = Task.Run(async () => await _emailService.SendEmailAsync(id, title, message));
                         }
                     }
                     else
                     {
-                        await _emailService.SendEmailAsync(id, title, message);
+                        _ = Task.Run(async () => await _emailService.SendEmailAsync(id, title, message));
                     }
                 }
                 else
                 {
-                    await _emailService.SendEmailAsync(id, title, message);
+                    _ = Task.Run(async () => await _emailService.SendEmailAsync(id, title, message));
                 }
             }
         }

@@ -204,7 +204,6 @@
                     <!-- Атрибут -->
                     <label class="form-label mb-0 mx-1 fw-bold">Атрибут</label>
                     <br />
-                    <span class="mx-1">@(attributeApplication.Название)</span>
                     @if (attributeApplication.НазваниеИтог != null && attributeApplication.НазваниеИтог != attributeApplication.Название)
                     {
                         <span class="mx-1">Предложенное название: @(attributeApplication.Название)</span>
@@ -623,7 +622,6 @@
 
             successMessage = "Заявление успешно отправлено!";
             attributeApplication = new();
-            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -656,7 +654,6 @@
             }
 
             isAnswered = true;
-            StateHasChanged();
         }
         catch (Exception ex)
         {

@@ -7,9 +7,10 @@ import json
 import httpx
 from typing import Optional
 
-
-OLLAMA_API = "http://localhost:11434"
-OLLAMA_TIMEOUT = 300.0
+from config import (
+    OLLAMA_HOST,
+    OLLAMA_TIMEOUT
+)
 
 
 async def ollama_generate_async(
@@ -52,7 +53,7 @@ async def ollama_generate_async(
                 raise asyncio.CancelledError("Отменено до запроса")
 
         response = await client.post(
-            f"{OLLAMA_API}/api/generate",
+            f"{OLLAMA_HOST}/api/generate",
             json=payload
         )
 
@@ -98,7 +99,7 @@ async def ollama_chat_async(
             raise asyncio.CancelledError("Отменено до запроса")
 
         response = await client.post(
-            f"{OLLAMA_API}/api/chat",
+            f"{OLLAMA_HOST}/api/chat",
             json=payload
         )
 

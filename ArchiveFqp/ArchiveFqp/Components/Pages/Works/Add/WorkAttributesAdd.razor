@@ -8,10 +8,8 @@
 @using ArchiveFqp.Services.AiExtractor
 @using Microsoft.EntityFrameworkCore
 @using ArchiveFqp.Components.Components
-@using ArchiveFqp.Models.DTO
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Serialization
-@using System.Text.Json
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
 @inject IWorkService WorkService
 @inject ILogger<WorkAdd> Logger
@@ -339,7 +337,7 @@
             aiConnecting = false; // Не даем отменить внесение
             aiStatus = "Внесение пояснительной записки в базу ИИ...";
             StateHasChanged();
-            IndexResponse result = await AiExtractorService.IndexDocumentAsync(WorkDto.Местоположение!);
+            IndexResponse result = await AiExtractorService.IndexDocumentAsync(WorkDto.Местоположение!, true, false, token);
 
             if (token.IsCancellationRequested)
             {
@@ -347,12 +345,19 @@
                 return;
             }
 
+            aiConnecting = true;
             aiStatus = "Поиск данных атрибутов...";
             var task = await AiExtractorService.StartProcessWorkAsync(WorkDto.Местоположение!, WorkDto.IdРаботы);
             if (!string.IsNullOrEmpty(task.Error))
             {
                 aiError = task.Error;
                 aiStatus = null;
+                return;
+            }
+            else if (task.Message.Contains("Нет атрибутов"))
+            {
+                aiStatus = "Нет атрибутов, ожидающих поиска";
+                aiConnecting = false;
                 return;
             }
             else if (token.IsCancellationRequested)
@@ -370,7 +375,7 @@
                 aiTaskId, () => AiExtractorService.GetProcessWorkStatusAsync(aiTaskId)
             );
         },
-        () => aiRunning = false);
+        () => aiRunning = aiConnecting = false);
     }
 
     private async Task<ProcessWorkResult?> PollUntilComplete(

@@ -1,8 +1,5 @@
-﻿@using ArchiveFqp.Components.Components
-@using ArchiveFqp.Models.DTO
-@using ArchiveFqp.Models.DTO.Work
+﻿@using ArchiveFqp.Models.DTO.Work
 @using ArchiveFqp.Models.DatabaseNotification
-@using ArchiveFqp.Models.FileUpload
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Interfaces.Work
@@ -46,7 +43,7 @@
                                         {
                                             <i class="bi bi-plus-circle me-2"></i>
                                         }
-                                        Добавление @(IsMultiple? GetTitleName() : "новой работы")
+                                        Добавление @(IsMultiple ? GetTitleName() : "новой работы")
                                     </h4>
                                 </button>
                             }
@@ -102,6 +99,7 @@
 
     private Dictionary<int, List<string>> attributesValues = [];
     private bool firstCheck = true;
+    private bool firstNotifyEnd = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -164,6 +162,9 @@
 
     private async Task End()
     {
+        if (!firstNotifyEnd) return;
+        firstNotifyEnd = false;
+
         await WorkService.UpdateStatusAsync(WorkDto.IdРаботы, (await WorkService
                 .GetWorkStatusesAsync())
                     .First(sw => sw.Название == Settings.WorkInArchiveStatus).IdСтатусаРаботы);

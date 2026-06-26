@@ -1,9 +1,12 @@
 ﻿@page "/institute/works"
+@using ArchiveFqp.Components.Components
 @using ArchiveFqp.Components.Pages.Works.Add
 @using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Interfaces.Work
-@using ArchiveFqp.Models
+@using ArchiveFqp.Factories.DisplayDto.Student
+@using ArchiveFqp.Factories.DisplayDto.Teacher
+@using ArchiveFqp.Models.DTO.Attribute
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.Work
 @using ArchiveFqp.Models.DatabaseNotification
@@ -12,12 +15,14 @@
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Services.FileUpload
 @using ArchiveFqp.Services.ReferenceData
+@using ArchiveFqp.Services.AiExtractor
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Serialization
 @inject AuthenticationStateProvider AuthStateProvider
+@inject AiExtractorService AiExtractorService
 @inject SettingsArchive Settings
 @inject IUserService UserService
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
@@ -55,73 +60,333 @@
                     </div>
                 </div>
 
-                <!-- Поиск -->
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <input type="text" class="form-control" placeholder="Поиск по теме/студенту/руководителю..."
-                               @bind="searchText" @bind:event="oninput"
-                               @bind:after="LoadWorksAsync" />
-                    </div>
-                    <div class="col-md-2">
-                        <select class="form-select" @bind="filterTypeId" @bind:event="onchange"
-                                @bind:after="LoadWorksAsync">
-                            <option value="">Все типы</option>
-                            @foreach (var type in snapshot.WorkTypes)
-                            {
-                                <option value="@type.IdТипаРаботы">@type.Название</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <select class="form-select" @bind="filterStatusId" @bind:event="onchange"
-                                @bind:after="LoadWorksAsync">
-                            <option value="">Все статусы</option>
-                            @foreach (var status in snapshot.WorkStatuses)
-                            {
-                                <option value="@status.IdСтатусаРаботы">@status.Название</option>
-                            }
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <select class="form-select" @bind="filterAccessId" @bind:event="onchange"
-                                @bind:after="LoadWorksAsync">
-                            <option value="">Все доступы</option>
-                            @foreach (var status in snapshot.WorkAccess.OrderBy(x => x.IdДоступаРаботы))
-                            {
-                                <option value="@status.IdДоступаРаботы">@status.Название</option>
-                            }
-                        </select>
+                <!-- Поисковая панель -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="input-group mb-3">
+                                    <input type="text"
+                                           class="form-control"
+                                           placeholder="Введите название работы..."
+                                           @bind="searchModel.SearchText" />
+                                    <button class="btn btn-outline-secondary z-0" type="button" @onclick="@(async () => { await SearchWorks(); })">
+                                        <i class="bi bi-search"></i> Найти
+                                    </button>
+                                    <button class="btn @(advancedSearch ? "btn-primary" : "btn-outline-primary") z-0" type="button" @onclick="ToggleAdvancedSearch"
+                                            data-bs-toggle="collapse" data-bs-target="#collapseAdvancedSearch"
+                                            aria-expanded="false" aria-controls="collapseAdvancedSearch">
+                                        <i class="bi bi-funnel"></i> Расширенный поиск
+                                    </button>
+                                    <button class="btn btn-outline-secondary z-0" type="button" @onclick="ClearSearch">
+                                        <i class="bi bi-x"></i> Очистить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Расширенный поиск -->
+                        <div class="collapse" id="collapseAdvancedSearch">
+                            <div class="card card-body">
+                                <div class="row mt-2">
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label mb-0 fw-bold">Количество страниц</label>
+                                        <div class="row d-flex justify-content-center align-items-center">
+                                            <div class="col">
+                                                <select class="form-select" @bind="searchModel.MinPages"
+                                                        placeholder="С">
+                                                    <option value=""></option>
+                                                    @{
+                                                        int maxP = searchModel.MaxPages ?? maxPage;
+                                                        foreach (var i in Enumerable.Range(minPage, maxP - minPage + 1))
+                                                        {
+                                                            <option value="@i">@i</option>
+                                                        }
+                                                    }
+                                                </select>
+                                            </div>
+                                            <label class="col-sm-1 col-form-label d-flex justify-content-center align-items-center">—</label>
+                                            <div class="col">
+                                                <select class="form-select" @bind="searchModel.MaxPages"
+                                                        placeholder="По">
+                                                    <option value=""></option>
+                                                    @{
+                                                        int minP = searchModel.MinPages ?? minPage;
+                                                        foreach (var i in Enumerable.Range(minP, maxPage - minP + 1))
+                                                        {
+                                                            <option value="@i">@i</option>
+                                                        }
+                                                    }
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label mb-0 fw-bold">Год защиты</label>
+                                        <div class="row d-flex justify-content-center align-items-center">
+                                            <div class="col">
+                                                <select class="form-select" @bind="searchModel.MinYearDefense"
+                                                        placeholder="С">
+                                                    <option value=""></option>
+                                                    @foreach (var i in Enumerable.Range(minYear, maxYear - minYear + 1))
+                                                    {
+                                                        <option value="@i">@i</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <label class="col-sm-1 col-form-label d-flex justify-content-center align-items-center">—</label>
+                                            <div class="col">
+                                                <select class="form-select" @bind="searchModel.MaxYearDefense"
+                                                        placeholder="По">
+                                                    <option value=""></option>
+                                                    @foreach (var i in Enumerable.Range(minYear, maxYear - minYear + 1))
+                                                    {
+                                                        <option value="@i">@i</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label mb-0 fw-bold">Дата добавления</label>
+                                        <div class="row d-flex justify-content-center align-items-center">
+                                            <div class="col-sm-5" style="padding-left:0px;padding-right:2px">
+                                                <InputDate class="form-control" @bind-Value="searchModel.MinDateAdded" />
+                                            </div>
+                                            <label class="col-sm-1 col-form-label d-flex justify-content-center align-items-center">—</label>
+                                            <div class="col-sm-5" style="padding-right:0px;padding-left:2px">
+                                                <InputDate class="form-control" @bind-Value="searchModel.MaxDateAdded" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label mb-0 fw-bold">Дата изменения</label>
+                                        <div class="row d-flex justify-content-center align-items-center">
+                                            <div class="col-sm-5" style="padding-left:0px;padding-right:5px">
+                                                <InputDate class="form-control" @bind-Value="searchModel.MinDateChanged" />
+                                            </div>
+                                            <label class="col-sm-1 col-form-label d-flex justify-content-center align-items-center">—</label>
+                                            <div class="col-sm-5" style="padding-right:0px;padding-left:5px">
+                                                <InputDate class="form-control" @bind-Value="searchModel.MaxDateChanged" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label mb-0 fw-bold">Тип работы</label>
+                                        <select class="form-select" @bind="searchModel.IdWorkType">
+                                            <option value="-1">Все</option>
+                                            @foreach (var type in snapshot.WorkTypes)
+                                            {
+                                                <option value="@type.IdТипаРаботы">@type.Название</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label mb-0 fw-bold">Статус работы</label>
+                                        <select class="form-select" @bind="searchModel.IdWorkStatus">
+                                            <option value="-1">Все</option>
+                                            @foreach (var status in snapshot.WorkStatuses)
+                                            {
+                                                <option value="@status.IdСтатусаРаботы">@status.Название</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label mb-0 fw-bold">Доступ работы</label>
+                                        <select class="form-select" @bind="searchModel.IdWorkAccess">
+                                            <option value="-1"></option>
+                                            @foreach (var access in snapshot.WorkAccess.OrderBy(x => x.IdДоступаРаботы))
+                                            {
+                                                <option value="@access.IdДоступаРаботы">@access.Название</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-3 mb-2">
+                                        <label class="form-label mb-0 fw-bold">Студент</label>
+                                        <SearchableSelect TItem="Студент"
+                                                          TValue="int?"
+                                                          Items="@workStudents"
+                                                          TextSelector="@((s) => studentDtoFactory!.CreateDisplayDtoAsync(s).Result.Пользователь.ФИО)"
+                                                          ValueSelector="@(s => s.IdСтудента)"
+                                                          Placeholder="Выберите или введите студента..."
+                                                          @bind-SelectedValue="@searchModel.IdStudent"
+                                                          OnCustomValue="@(() => searchModel.IdStudent = null)" />
+                                    </div>
+
+                                    <div class="col-md-3  ">
+                                        <label class="form-label mb-0 fw-bold">Руководитель</label>
+                                        <SearchableSelect TItem="Преподаватель"
+                                                          TValue="int?"
+                                                          Items="workTeachers"
+                                                          TextSelector="@((s) => teacherDtoFactory!.CreateDisplayDtoAsync(s).Result.Пользователь.ФИО)"
+                                                          ValueSelector="@(s => s.IdПреподавателя)"
+                                                          Placeholder="Выберите или введите руководителя..."
+                                                          @bind-SelectedValue="@searchModel.IdTeacher"
+                                                          OnCustomValue="@(() => searchModel.IdTeacher = null)" />
+                                    </div>
+
+                                    <div class="col-md-3 ">
+                                        <MultipleSearchableSelect TItem="Преподаватель"
+                                                                  TValue="int"
+                                                                  Label="Консультанты"
+                                                                  Placeholder="Введите или выберите ФИО консультанта..."
+                                                                  DefaultValue="-1"
+                                                                  @bind-SelectedValues="searchModel.IdConsultants"
+                                                                  Items="workTeachers"
+                                                                  TextSelector="@(t => teacherDtoFactory!.CreateDisplayDtoAsync(t).Result.Пользователь.ФИО)"
+                                                                  ValueSelector="@(t => t.IdПреподавателя)"
+                                                                  OnCustomValue="@((i) => searchModel.IdConsultants[i] = -1)" />
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <MultipleSearchableSelect TItem="Преподаватель"
+                                                                  TValue="int"
+                                                                  Label="Рецензенты"
+                                                                  Placeholder="Введите или выберите ФИО рецензента..."
+                                                                  DefaultValue="-1"
+                                                                  @bind-SelectedValues="searchModel.IdReviewers"
+                                                                  Items="workTeachers"
+                                                                  TextSelector="@(t => teacherDtoFactory!.CreateDisplayDtoAsync(t).Result.Пользователь.ФИО)"
+                                                                  ValueSelector="@(t => t.IdПреподавателя)"
+                                                                  OnCustomValue="@((i) => searchModel.IdReviewers[i] = -1)" />
+                                    </div>
+
+                                    <!-- Структура учреждения -->
+                                    <div class="col-md-3">
+                                        <label class="form-label mb-0 fw-bold">Кафедра</label>
+                                        <InputSelectSctructure TItem="Кафедра"
+                                                               Items="filteredDepartments.OrderBy(x => x.Название)"
+                                                               @bind-Value="searchModel.IdDepartment"
+                                                               Snapshot="snapshot"
+                                                               DefaultTooltip="Все" />
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label mb-0 fw-bold">Направление</label>
+                                        <InputSelectSctructure TItem="Направление"
+                                                               Items="filteredDirections.OrderBy(x => x.Название)"
+                                                               @bind-Value="searchModel.IdDirection"
+                                                               Snapshot="snapshot"
+                                                               DefaultTooltip="Все" />
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label mb-0 fw-bold">Профиль</label>
+                                        <InputSelectSctructure TItem="Профиль"
+                                                               Items="snapshot.Profiles.Where(x => filteredDirections.Exists(y => y.IdНаправления == x.IdНаправления)).OrderBy(x => x.Название)"
+                                                               @bind-Value="searchModel.IdProfile"
+                                                               Snapshot="snapshot"
+                                                               DefaultTooltip="Все" />
+                                    </div>
+                                </div>
+
+                                <!-- Поиск по атрибутам -->
+                                <div class="row mt-3">
+                                    <div class="accordion" id="accordionAttributes">
+                                        <div class="accordion-item">
+                                            <button class="accordion-button collapsed" style="height:40px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAttributes" aria-expanded="true" aria-controls="collapseAttributes">
+                                                <h5><strong>Атрибуты</strong></h5>
+                                            </button>
+                                            <div id="collapseAttributes" class="accordion-collapse collapse" aria-labelledby="headingOne">
+                                                <div class="accordion-body">
+                                                    <div class="row">
+                                                        @foreach (var attribute in searchModel.AllAttributes)
+                                                        {
+                                                            <div class="col-md-4 mb-0">
+                                                                <div class="card mb-2">
+                                                                    <div class="card-body py-2">
+                                                                        <div class="form-check">
+                                                                            <input class="form-check-input"
+                                                                                   type="checkbox"
+                                                                                   id="attr-@(attribute.IdАтрибута)"
+                                                                                   @onchange="@((e) => ToggleAttribute(attribute.IdАтрибута, ((bool)e.Value!)))"
+                                                                                   checked="@(searchModel.SelectedAttributes.ContainsKey(attribute.IdАтрибута) ? true : false)" />
+                                                                            <label class="form-check-label fw-bold" for="attr-@(attribute.IdАтрибута)">
+                                                                                @(attribute.Название)
+                                                                            </label>
+                                                                        </div>
+
+                                                                        @if (searchModel.SelectedAttributes.ContainsKey(attribute.IdАтрибута))
+                                                                        {
+                                                                            <div class="mt-2">
+                                                                                <select class="form-select form-select-sm"
+                                                                                        @onchange="@((e) => UpdateAttributeValue(attribute.IdАтрибута, e.Value?.ToString()))">
+                                                                                    <option value="">Выберите значение</option>
+                                                                                    @foreach (var value in searchModel.AttributeValues.FirstOrDefault(av => av.IdАтрибута == attribute.IdАтрибута)?.Данные ?? [])
+                                                                                    {
+                                                                                        <option selected="@(searchModel.SelectedAttributes[attribute.IdАтрибута] == value ? true : false)"
+                                                                                                value="@value">@value</option>
+                                                                                    }
+                                                                                </select>
+                                                                            </div>
+                                                                        }
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Таблица работ -->
-                <div class="table-responsive">
-                    <table class="table table-hover table-striped">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Тема</th>
-                                <th>Студент</th>
-                                <th>Руководитель</th>
-                                <th>Тип</th>
-                                <th>Доступ</th>
-                                <th>Статус</th>
-                                <th>Дата добавления</th>
-                                <th>Дата изменения</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @if (filteredWorks == null || works == null)
-                            {
-                                <tr><td colspan="8" class="text-center">Загрузка...</td></tr>
-                            }
-                            else if (filteredWorks.Count == 0)
-                            {
-                                <tr><td colspan="8" class="text-center">Нет данных</td></tr>
-                            }
-                            else
-                            {
-                                @foreach (var work in filteredWorks)
+
+                @if (isLoading)
+                {
+                    <div class="text-center mt-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Загрузка...</span>
+                        </div>
+                        <p class="mt-2">Поиск работ...</p>
+                    </div>
+                }
+                else if (filteredWorks == null || works == null || filteredWorks.Items.Count == 0)
+                {
+                    <div class="alert alert-info mt-4">
+                        <i class="bi bi-info-circle"></i> Работы не найдены
+                    </div>
+                }
+                else
+                {
+                    <!-- Информация о результатах -->
+                    <div class="row mb-3 ">
+                        <div class="col-auto d-flex align-items-center">
+                            <p class="text-muted mt-0">
+                                Найдено работ: @filteredWorks.TotalCount
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Таблица работ -->
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Тема</th>
+                                    <th>Студент</th>
+                                    <th>Руководитель</th>
+                                    <th>Тип</th>
+                                    <th>Доступ</th>
+                                    <th>Статус</th>
+                                    <th>Дата добавления</th>
+                                    <th>Дата изменения</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var work in filteredWorks.Items.Skip((filteredWorks.CurrentPage - 1) * filteredWorks.PageSize).Take(filteredWorks.PageSize))
                                 {
                                     <tr>
                                         <td>@work.Тема</td>
@@ -151,37 +416,37 @@
                                         </td>
                                     </tr>
                                 }
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                            </tbody>
+                        </table>
+                    </div>
 
-                <!-- Пагинация -->
-                @if (works != null && works.TotalPages > 1)
-                {
-                    <nav>
-                        <ul class="pagination justify-content-center">
-                            <li class="page-item @(works.CurrentPage == 1 ? "disabled" : "")">
-                                <button class="page-link" @onclick="() => ChangePage(1)">Первая</button>
-                            </li>
-                            <li class="page-item @(works.CurrentPage == 1 ? "disabled" : "")">
-                                <button class="page-link" @onclick="() => ChangePage(works.CurrentPage - 1)">Предыдущая</button>
-                            </li>
-                            @for (int i = Math.Max(1, works.CurrentPage - 2); i <= Math.Min(works.TotalPages, works.CurrentPage + 2); i++)
-                            {
-                                int index = i;
-                                <li class="page-item @(works.CurrentPage == i ? "active" : "")">
-                                    <button class="page-link" @onclick="() => ChangePage(index)">@index</button>
+                    <!-- Пагинация -->
+                    @if (filteredWorks != null && filteredWorks.TotalPages > 1)
+                    {
+                        <nav>
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item @(filteredWorks.CurrentPage == 1 ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(1)">Первая</button>
                                 </li>
-                            }
-                            <li class="page-item @(works.CurrentPage == works.TotalPages ? "disabled" : "")">
-                                <button class="page-link" @onclick="() => ChangePage(works.CurrentPage + 1)">Следующая</button>
-                            </li>
-                            <li class="page-item @(works.CurrentPage == works.TotalPages ? "disabled" : "")">
-                                <button class="page-link" @onclick="() => ChangePage(works.TotalPages)">Последняя</button>
-                            </li>
-                        </ul>
-                    </nav>
+                                <li class="page-item @(filteredWorks.CurrentPage == 1 ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(filteredWorks.CurrentPage - 1)">Предыдущая</button>
+                                </li>
+                                @for (int i = Math.Max(1, filteredWorks.CurrentPage - 2); i <= Math.Min(filteredWorks.TotalPages, filteredWorks.CurrentPage + 2); i++)
+                                {
+                                    int index = i;
+                                    <li class="page-item @(filteredWorks.CurrentPage == i ? "active" : "")">
+                                        <button class="page-link" @onclick="() => ChangePage(index)">@index</button>
+                                    </li>
+                                }
+                                <li class="page-item @(filteredWorks.CurrentPage == filteredWorks.TotalPages ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(works.CurrentPage + 1)">Следующая</button>
+                                </li>
+                                <li class="page-item @(filteredWorks.CurrentPage == filteredWorks.TotalPages ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(works.TotalPages)">Последняя</button>
+                                </li>
+                            </ul>
+                        </nav>
+                    }
                 }
             </div>
         </div>
@@ -202,7 +467,7 @@
                                 <h4 class="mb-0 text-white">
                                     <i class="bi bi-plus-circle me-2"></i>Редактирование работы
                                 </h4>
-                            
+
                             </div>
                             <div class="card-body">
                                 <WorkDataAdd @bind-WorkDto="@WorkDto"
@@ -225,23 +490,46 @@
     private TeacherDisplayDto? responsible;
 
     private WorkCreateDto WorkDto { get; set; } = new();
-    private PaginatedResult<Работа>? works;
-    private ReferenceDataSnapshot snapshot = null!;
-    private int? filterTypeId;
-    private int? filterStatusId;
-    private int? filterAccessId;
+    private WorkSearchModel searchModel = new();
+    private bool advancedSearch = false;
+    private bool isLoading = false;
     private bool showModal = false;
 
-    private string searchText = "";
-    private List<WorkDisplayDto>? filteredWorks;
+    private PaginatedResult<WorkDisplayDto>? filteredWorks;
+    private PaginatedResult<Работа>? works;
+
+    private ReferenceDataSnapshot snapshot = null!;
+    private List<Пользователь> users = new();
+    private List<Студент> workStudents = new();
+    private List<Преподаватель> workTeachers = new();
+    private List<Преподаватель> workInstituteTeachers = new();
+    private List<Консультант> workConsultants = new();
+    private List<Рецензент> workReviewers = new();
+    private List<Кафедра> filteredDepartments = new();
+    private List<Направление> filteredDirections = new();
+    private int minPage, maxPage, minYear, maxYear;
+    private TeacherDtoFactory? teacherDtoFactory;
+    private StudentDtoFactory? studentDtoFactory;
 
     protected override async Task OnInitializedAsync()
     {
         if (RendererInfo.IsInteractive)
         {
-            works ??= new() { CurrentPage = 1, PageSize = 10 };
+            teacherDtoFactory = new(RefDataService);
+            studentDtoFactory = new(RefDataService);
             await GetStructureInfo();
             await LoadData();
+
+            searchModel.IdInstitute = responsible!.Структура.Институт.IdИнститута;
+
+            await SearchWorks();
+            if (filteredWorks?.Items != null && filteredWorks.Items.Count > 0)
+            {
+                minPage = filteredWorks?.Items.Min(w => w.КоличСтраниц) ?? 1;
+                maxPage = filteredWorks?.Items.Max(w => w.КоличСтраниц) ?? 200;
+                minYear = filteredWorks?.Items.Min(w => WorkService.PickDateWork(w)) ?? 2000;
+                maxYear = filteredWorks?.Items.Max(w => WorkService.PickDateWork(w)) ?? 2050;
+            }
             RefDataService.TablesChanged += OnTablesChanged;
         }
     }
@@ -258,47 +546,100 @@
             .FirstOrDefault();
     }
 
-    public async Task LoadWorksAsync()
-    {
-        using ArchiveFqpContext context = DbFactory.CreateDbContext();
-
-        // TODO: если нагружает БД, то воспользуйтесь ReferenceDataService
-        works!.Items = context.Работаs
-                .Include(s => s.IdСтудентаNavigation).ThenInclude(s => s.IdПользователяNavigation)
-                .Include(s => s.IdПреподавателяNavigation).ThenInclude(s => s.IdПользователяNavigation)
-                .Include(s => s.IdТипаРаботыNavigation)
-                .Include(s => s.IdСтатусаРаботыNavigation)
-                .Include(s => s.IdДоступаРаботыNavigation)
-                .Where(item => item.IdСтудентаNavigation.IdИнститута == responsible!.Структура.Институт.IdИнститута
-                        && (!filterTypeId.HasValue || item.IdТипаРаботыNavigation.IdТипаРаботы == filterTypeId.Value)
-                        && (!filterStatusId.HasValue || item.IdСтатусаРаботыNavigation.IdСтатусаРаботы == filterStatusId.Value)
-                        && (!filterAccessId.HasValue || item.IdДоступаРаботыNavigation.IdДоступаРаботы == filterAccessId.Value))
-                .AsEnumerable()
-                .Where(item => (string.IsNullOrWhiteSpace(searchText) || item.Тема.Contains(searchText, StringComparison.OrdinalIgnoreCase))
-                        || (string.IsNullOrWhiteSpace(searchText) || (item.IdСтудентаNavigation.IdПользователяNavigation.Фамилия + " " + item.IdСтудентаNavigation.IdПользователяNavigation.Имя + " " + item.IdСтудентаNavigation.IdПользователяNavigation.Отчество).Contains(searchText, StringComparison.OrdinalIgnoreCase))
-                        || (string.IsNullOrWhiteSpace(searchText) || (item.IdПреподавателяNavigation.IdПользователяNavigation.Фамилия + " " + item.IdПреподавателяNavigation.IdПользователяNavigation.Имя + " " + item.IdПреподавателяNavigation.IdПользователяNavigation.Отчество).Contains(searchText, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-
-        filteredWorks = await WorkService.GetWorkDisplayAsync(works!.Items
-            .Skip((works!.CurrentPage - 1) * works!.PageSize)
-            .Take(works!.PageSize).ToList(), []);
-    }
-
     private async Task LoadData()
     {
         snapshot = await RefDataService.GetSnapshotAsync();
-        await LoadWorksAsync();
+        users = await RefDataService.GetAsync<Пользователь>();
+        workConsultants = (await WorkService.GetConsultantsAsync()).DistinctBy(c => c.IdПреподавателя).ToList();
+        workReviewers = (await WorkService.GetReviewersAsync()).DistinctBy(c => c.IdПреподавателя).ToList();
+        searchModel.AllAttributes = await WorkService.GetAllAttributesAsync();
+        searchModel.AttributeValues = await WorkService.GetAttributeValuesAsync(searchModel.AllAttributes);
+        filteredDepartments = snapshot.Departments.Where(x => x.IdИнститута == responsible!.Структура.Институт.IdИнститута).ToList();
+        filteredDirections = snapshot.Directions.Where(x => filteredDepartments.Exists(y => y.IdКафедры == x.IdКафедры)).ToList();
+        workStudents = [.. (await WorkService.GetStudentsAsync())
+            .Where(x => x.IdИнститута == responsible!.Структура.Институт.IdИнститута)
+            .OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия)];
+        workTeachers = [.. (await WorkService.GetTeachersAsync())
+            .OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия)];
+        workInstituteTeachers = [.. workTeachers
+            .Where(x => x.IdИнститута == responsible!.Структура.Институт.IdИнститута)];
         StateHasChanged();
+    }
+
+    #region Поиск работ
+
+    private async Task SearchWorks()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            works = await WorkService.FindWorksAsync(searchModel);
+
+            if (works.Items.Count != 0)
+            {
+                filteredWorks = new()
+                {
+                    CurrentPage = works.CurrentPage,
+                    PageSize = works.PageSize,
+                    Items = await WorkService.GetWorkDisplayAsync(works.Items, [])
+                };
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // Разворот расширенного поиска
+    private void ToggleAdvancedSearch()
+    {
+        advancedSearch = !advancedSearch;
+    }
+
+    // Разворот атрибута
+    private void ToggleAttribute(int attributeId, bool isSelected)
+    {
+        if (isSelected && !searchModel.SelectedAttributes.ContainsKey(attributeId))
+        {
+            searchModel.SelectedAttributes[attributeId] = "";
+        }
+        else if (!isSelected)
+        {
+            searchModel.SelectedAttributes.Remove(attributeId);
+        }
+    }
+
+    private void UpdateAttributeValue(int attributeId, string? value)
+    {
+        if (searchModel.SelectedAttributes.ContainsKey(attributeId))
+        {
+            searchModel.SelectedAttributes[attributeId] = value ?? "";
+        }
+    }
+
+    private void ClearSearch()
+    {
+        List<Атрибут> attr = searchModel.AllAttributes;
+        List<AttributeValuesDto> attrVal = searchModel.AttributeValues;
+        searchModel = new()
+        {
+            IdInstitute = responsible!.Структура.Институт.IdИнститута,
+            AllAttributes = attr,
+            AttributeValues = attrVal
+        };
     }
 
     private async Task ChangePage(int page)
     {
-        works!.CurrentPage = page;
-        filteredWorks = await WorkService.GetWorkDisplayAsync(works!.Items
-            .Skip((works!.CurrentPage - 1) * works!.PageSize)
-            .Take(works!.PageSize).ToList(), []);
+        filteredWorks!.CurrentPage = page;
         StateHasChanged();
     }
+
+    #endregion
 
     private void OpenEditModal(WorkDisplayDto work)
     {
@@ -306,7 +647,7 @@
         showModal = true;
         StateHasChanged();
     }
-    
+
     private async Task CompleteModal()
     {
         await JSRuntime.InvokeVoidAsync("alert", "Работа обновлена");
@@ -353,9 +694,15 @@
                 var work = await context.Работаs.FindAsync(id);
                 if (work != null)
                 {
-                    FileUploadService.DirectoryDelete(work.Местоположение);
+                    string? path = work.Местоположение;
                     context.Работаs.Remove(work);
                     await context.SaveChangesAsync();
+
+                    if (!string.IsNullOrWhiteSpace(path))
+                    {
+                        FileUploadService.DirectoryDelete(path);
+                        await AiExtractorService.RemoveDocumentAsync(path);
+                    }
                 }
             }
             catch (DbUpdateException ex)
@@ -363,7 +710,7 @@
                 string errorMessage = ex.InnerException?.Message ?? ex.Message;
                 if (errorMessage.Contains(ReferenceDataService.GetTableName<ЗаявлениеРаботы>()))
                     errorMessage = "Работа имеет связанные заявления";
-                
+
                 await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
             }
             catch (Exception ex)
@@ -385,12 +732,12 @@
 
                 Работа? work = JsonConvert.DeserializeObject<Работа>(json, options);
                 if (work is null) return;
-                
+
                 WorkDisplayDto displayDto = await WorkService.GetWorkDisplayAsync(work);
                 if (displayDto.Студент.Структура.Институт.IdИнститута != responsible!.Структура.Институт.IdИнститута)
                     return;
 
-                await LoadData(); 
+                await LoadData();
             }
         });
     }

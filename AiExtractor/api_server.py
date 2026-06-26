@@ -304,7 +304,7 @@ async def delete_document(file_path: str):
 
     available_docs = list_documents_in_db(vectordb)
     if file_path not in available_docs:
-        return {"error": f"Документ не найден в базе. Доступные: {available_docs}"}
+        return {"error": f"Документ не найден в базе. Доступные: {available_docs[0:5]}"}
 
     # Удаляем по фильтру full_path
     before_count = vectordb._collection.count()

@@ -7,7 +7,6 @@
 @using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Interfaces.Work
-@using ArchiveFqp.Models
 @using ArchiveFqp.Models.DTO.Attribute
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.Work
@@ -17,12 +16,14 @@
 @using ArchiveFqp.Models.Settings.SettingsArchive
 @using ArchiveFqp.Services.FileUpload
 @using ArchiveFqp.Services.ReferenceData
+@using ArchiveFqp.Services.AiExtractor
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Serialization
 @inject AuthenticationStateProvider AuthStateProvider
+@inject AiExtractorService AiExtractorService
 @inject SettingsArchive Settings
 @inject IUserService UserService
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
@@ -255,7 +256,7 @@
                                     <div class="col-md-3">
                                         <label class="form-label mb-0 fw-bold">Направление</label>
                                         <InputSelectSctructure TItem="Направление"
-                                                               Items="snapshot.Directions.OrderBy(x => x.Название)"
+                                                               Items="filteredDirections.OrderBy(x => x.Название)"
                                                                @bind-Value="searchModel.IdDirection"
                                                                Snapshot="snapshot"
                                                                DefaultTooltip="Все" />
@@ -264,7 +265,7 @@
                                     <div class="col-md-3">
                                         <label class="form-label mb-0 fw-bold">Профиль</label>
                                         <InputSelectSctructure TItem="Профиль"
-                                                               Items="snapshot.Profiles.OrderBy(x => x.Название)"
+                                                               Items="snapshot.Profiles.Where(x => filteredDirections.Exists(y => y.IdНаправления == x.IdНаправления)).OrderBy(x => x.Название)"
                                                                @bind-Value="searchModel.IdProfile"
                                                                Snapshot="snapshot"
                                                                DefaultTooltip="Все" />
@@ -532,6 +533,7 @@
     private List<Преподаватель> workDepartmentTeachers = new();
     private List<Консультант> workConsultants = new();
     private List<Рецензент> workReviewers = new();
+    private List<Направление> filteredDirections = new();
     private int minPage, maxPage, minYear, maxYear;
     private TeacherDtoFactory? teacherDtoFactory;
     private StudentDtoFactory? studentDtoFactory;
@@ -581,6 +583,7 @@
         workReviewers = (await WorkService.GetReviewersAsync()).DistinctBy(c => c.IdПреподавателя).ToList();
         searchModel.AllAttributes = await WorkService.GetAllAttributesAsync();
         searchModel.AttributeValues = await WorkService.GetAttributeValuesAsync(searchModel.AllAttributes);
+        filteredDirections = snapshot.Directions.Where(x => x.IdКафедры == responsible!.Структура.Кафедра.IdКафедры).ToList();
         workStudents = [.. (await WorkService.GetStudentsAsync())
             .Where(x => x.IdКафедры == responsible!.Структура.Кафедра.IdКафедры)
             .OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия)];
@@ -650,9 +653,15 @@
                 var work = await context.Работаs.FindAsync(id);
                 if (work != null)
                 {
-                    FileUploadService.DirectoryDelete(work.Местоположение);
+                    string? path = work.Местоположение;
                     context.Работаs.Remove(work);
                     await context.SaveChangesAsync();
+
+                    if (!string.IsNullOrWhiteSpace(path))
+                    {
+                        FileUploadService.DirectoryDelete(path);
+                        await AiExtractorService.RemoveDocumentAsync(path);
+                    }
                 }
             }
             catch (DbUpdateException ex)

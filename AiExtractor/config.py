@@ -1,6 +1,22 @@
+import os
+
+# ============================================================
+# Конфигурация подключения (через переменные окружения)
+# ============================================================
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", "5432"))
+DB_NAME = os.getenv("DB_NAME", "archive_fqp")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "change_me")
+
+DSN = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+
 # Параметры чанкинга
 CHUNK_SIZE = 250
 CHUNK_OVERLAP = 75
+
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_TIMEOUT = 300.0
 
 # Параметры поиска
 SEARCH_K = 3

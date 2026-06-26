@@ -41,6 +41,7 @@ using ArchiveFqp.Services.User;
 using ArchiveFqp.Services.Work;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -55,11 +56,27 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddSignalR();
 builder.Services.AddControllers();
+//builder.Services.AddHsts(options =>
+//{
+//    options.Preload = true;
+//    options.IncludeSubDomains = true;
+//    options.MaxAge = TimeSpan.FromDays(1);
+//    options.ExcludedHosts.Add("example.com");
+//    options.ExcludedHosts.Add("www.example.com");
+//});
+
+// Для докера
+//builder.Services.AddDataProtection()
+//    .PersistKeysToFileSystem(new DirectoryInfo("/root/.aspnet/DataProtection-Keys"));
 
 #warning Впишите свой пароль в appsettings.json
 #warning Впишите свои параметры авторизации 3KL в appsettings.json
 #warning Впишите свои настройки почты в appsettings.json
-builder.Configuration.AddEnvironmentVariables();
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    // Переменные окружения ПЕРЕОПРЕДЕЛЯЮТ appsettings.json
+    .AddEnvironmentVariables();
 
 // Подключение к БД
 string conString = builder.Configuration.GetConnectionString("ArchiveFqpContext") ??

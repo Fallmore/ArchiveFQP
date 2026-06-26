@@ -107,8 +107,8 @@
                                         <td>@attr.IdАтрибута</td>
                                         <td>@attr.Название</td>
                                         <td>@attributeSettings.Query</td>
-                                        <td>@string.Join(", ", attributeSettings.Examples?[..3] ?? [])</td>
-                                        <td>@string.Join(", ", attributeSettings.Keywords?[..3] ?? [])</td>
+                                        <td>@string.Join(", ", attributeSettings.Examples?[..(Math.Min(3, attributeSettings.Examples.Length))] ?? [])</td>
+                                        <td>@string.Join(", ", attributeSettings.Keywords?[..(Math.Min(3, attributeSettings.Keywords.Length))] ?? [])</td>
                                         <td>
                                             <button class="btn btn-sm btn-primary" @onclick="() => OpenAttributeModal(attr)">
                                                 <i class="bi bi-pencil"></i>

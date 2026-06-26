@@ -14,6 +14,7 @@ namespace ArchiveFqp.Services.AiExtractor
         public AiExtractorService(HttpClient http, SettingsArchive settingsArchive)
         {
             _http = http;
+            _http.Timeout = TimeSpan.FromMinutes(6);
             _settingsArchive = settingsArchive;
         }
 
@@ -39,7 +40,7 @@ namespace ArchiveFqp.Services.AiExtractor
         }
 
         // Индексировать уже существующий PDF-файл в базу
-        public async Task<IndexResponse> IndexDocumentAsync(string path, bool isPathRelative = true, bool forceRebuild = false)
+        public async Task<IndexResponse> IndexDocumentAsync(string path, bool isPathRelative = true, bool forceRebuild = false, CancellationToken cancellationToken = default)
         {
             string fullPath = path;
             if (isPathRelative)
@@ -51,7 +52,7 @@ namespace ArchiveFqp.Services.AiExtractor
             string encodedPath = Uri.EscapeDataString(fullPath);
             string url = $"ai-extract/documents/index/{encodedPath}?force_rebuild={forceRebuild.ToString().ToLower()}";
 
-            var response = await _http.PostAsync(url, null);
+            var response = await _http.PostAsync(url, null, cancellationToken);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<IndexResponse>() ?? new() { Error = "Сервис недоступен" };
         }

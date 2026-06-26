@@ -65,7 +65,7 @@
                                 title="Предыдущая страница">
                             ◀
                         </button>
-                    
+
                         <div class="d-flex align-items-center gap-1 ms-2 me-2">
                             <span class="text-nowrap small">Стр.</span>
                             <input type="number"
@@ -78,7 +78,7 @@
                                    max="@totalPages" />
                             <span class="text-nowrap small">из @totalPages</span>
                         </div>
-                    
+
                         <button type="button" class="btn btn-outline-secondary btn-sm"
                                 @onclick="GoToNextPage"
                                 disabled="@(currentPageIndex >= totalPages - 1)"
@@ -101,7 +101,7 @@
                                 title="Уменьшить">
                             <span>-</span>
                         </button>
-                    
+
                         <div class="container" style="width:4em">
                             <span class="text-nowrap small">@(scale)%</span>
                         </div>
@@ -112,7 +112,7 @@
                                 title="Увеличить">
                             <span>+</span>
                         </button>
-                    
+
                         <button type="button" class="btn btn-outline-secondary btn-sm ms-1"
                                 @onclick="ResetZoom"
                                 title="Сбросить масштаб">
@@ -395,7 +395,7 @@
             {
                 try
                 {
-            
+
                     Stream? pdfStream = await GetFileStreamByIdAsync(IdWork.Value);
                     if (pdfStream == null)
                     {
@@ -434,16 +434,14 @@
                     errorMessage = $"Ошибка при загрузке документа: {ex.Message}";
                     state = ViewState.Error;
                 }
-                finally
-                {
-                    if (!cancelTokenSourceRender.Token.IsCancellationRequested)
-                    {
-                        cancelTokenSourceRender?.Dispose();
-                        cancelTokenSourceRender = null;
-                        StateHasChanged();
-                    }
-                }
             });
+
+        if (!cancelTokenSourceRender.Token.IsCancellationRequested)
+        {
+            cancelTokenSourceRender?.Dispose();
+            cancelTokenSourceRender = null;
+            StateHasChanged();
+        }
     }
 
     private async Task<Stream?> GetFileStreamByIdAsync(int idWork)

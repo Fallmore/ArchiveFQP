@@ -122,13 +122,13 @@ namespace ArchiveFqp.Services.FileUpload
                 // Строим путь к папке
                 string relativeFolderPath = BuildFolderPath(context);
 #warning расскоментировать после всех проверок
-                //if (!workContext.IsTemp && DirectoryExists(relativeFolderPath))
-                //{
-                //    result.FileResults = [new FileUploadResult{
-                //        Success = false,
-                //        ErrorMessage = "Работа данного студента уже в архиве!"}];
-                //    return result;
-                //}
+                if (!workContext.IsTemp && DirectoryExists(relativeFolderPath))
+                {
+                    result.FileResults = [new FileUploadResult{
+                        Success = false,
+                        ErrorMessage = "Работа данного студента уже в системе!"}];
+                    return result;
+                }
                 if (workContext.IsTemp) relativeFolderPath = Path.Combine(relativeFolderPath, _settings.FolderTempName);
                 string fullFolderPath = EnsureDirectoryExists(relativeFolderPath);
 

@@ -2,16 +2,17 @@
 @using ArchiveFqp.Components.Pages.Works.Add
 @using ArchiveFqp.Interfaces.ReferenceData
 @using ArchiveFqp.Interfaces.Work
-@using ArchiveFqp.Models
 @using ArchiveFqp.Models.DTO.Work
 @using ArchiveFqp.Models.DatabaseNotification
 @using ArchiveFqp.Models.ReferenceData
 @using ArchiveFqp.Models.Search
 @using ArchiveFqp.Services.FileUpload
 @using ArchiveFqp.Services.ReferenceData
+@using ArchiveFqp.Services.AiExtractor
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
+@inject AiExtractorService AiExtractorService
 @inject NavigationManager NavigationManager
 @inject WorkFileUploadService FileUploadService
 @inject IReferenceDataService RefDataService
@@ -195,7 +196,7 @@
                                 <h4 class="mb-0 text-white">
                                     <i class="bi bi-plus-circle me-2"></i>Редактирование работы
                                 </h4>
-                            
+
                             </div>
                             <div class="card-body">
                                 <WorkDataAdd @bind-WorkDto="@WorkDto"
@@ -323,7 +324,7 @@
 
     private async Task DeleteWork(int id)
     {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "Удалить работу? Это действие удалит также все файлы работы!"))
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Удалить работу? Это действие удалит также все файлы работы и векторы в ИИ базе!"))
         {
             try
             {
@@ -331,9 +332,15 @@
                 var work = await context.Работаs.FindAsync(id);
                 if (work != null)
                 {
-                    FileUploadService.DirectoryDelete(work.Местоположение);
+                    string? path = work.Местоположение;
                     context.Работаs.Remove(work);
                     await context.SaveChangesAsync();
+
+                    if (!string.IsNullOrWhiteSpace(path))
+                    {
+                        FileUploadService.DirectoryDelete(path);
+                        await AiExtractorService.RemoveDocumentAsync(path);
+                    }
                 }
             }
             catch (DbUpdateException ex)
@@ -341,7 +348,7 @@
                 string errorMessage = ex.InnerException?.Message ?? ex.Message;
                 if (errorMessage.Contains(ReferenceDataService.GetTableName<ЗаявлениеРаботы>()))
                     errorMessage = "Работа имеет связанные заявления";
-                
+
                 await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {errorMessage}");
             }
             catch (Exception ex)

@@ -4,7 +4,6 @@
 @using ArchiveFqp.Interfaces.Settings
 @using ArchiveFqp.Interfaces.User
 @using ArchiveFqp.Models.AiExtractor
-@using ArchiveFqp.Models.DTO
 @using ArchiveFqp.Models.DTO.Student
 @using ArchiveFqp.Models.DTO.Teacher
 @using ArchiveFqp.Models.DTO.Work
@@ -28,7 +27,6 @@
 @using System.Security.Claims
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Serialization
-@using System.Text.Json
 @inject NavigationManager Navigation
 @inject ProtectedLocalStorage ProtectedSessionStore
 @inject IDbContextFactory<ArchiveFqpContext> DbFactory
@@ -64,7 +62,7 @@
                 <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden"></span>
                 </div>
-                
+
             }
             <p class="mt-2 mb-0">@aiStatus</p>
             @if (aiRunning || aiConnecting)
@@ -162,7 +160,7 @@
 
                         <SearchableSelect TItem="Преподаватель"
                                           TValue="int?"
-                                          Items="@snapshot.Teachers"
+                                          Items="@filteredTeachers"
                                           TextSelector="@((s) => teacherDtoFactory!.CreateDisplayDtoAsync(s).Result.Пользователь.ФИО)"
                                           ValueSelector="@(s => s.IdПреподавателя)"
                                           Placeholder="Выберите или введите руководителя..."
@@ -251,7 +249,7 @@
                             }
                             else
                             {
-                            
+
                                 <label for="surname" class="form-label mx-1 mb-0 fw-bold">Фамилия <span class="text-danger">*</span></label>
                                 <InputText @bind-Value="WorkDto.Surname" class="form-control" id="surname"
                                            @bind-Value:after="@(async () => await SaveStateWorkDTO())" />
@@ -262,7 +260,7 @@
                                 <InputText @bind-Value="WorkDto.Name" class="form-control" id="name"
                                            @bind-Value:after="@(async () => await SaveStateWorkDTO())" />
                                 <ValidationMessage For="() => WorkDto.Name" />
-                            
+
                                 <label for="patronymic" class="form-label mx-1 mb-0 fw-bold">Отчество</label>
                                 <InputText @bind-Value="WorkDto.Patronymic" class="form-control" id="patronymic"
                                            @bind-Value:after="@(async () => await SaveStateWorkDTO())" />
@@ -710,7 +708,7 @@
         snapshot = await RefDataService.GetSnapshotAsync();
         users = await RefDataService.GetAsync<Пользователь>();
         filteredEducationLevels = snapshot.EducationLevels;
-        filteredTeachers = snapshot.Teachers.OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
+        filteredTeachers = snapshot.Teachers;
 
         if (!IsEdit)
         {
@@ -822,7 +820,7 @@
             Navigation.NavigateTo("/logout", true);
             return;
         }
-        
+
         List<РольУчреждения> roles = snapshot.RolesOrganization;
 
         // Ответственный института
@@ -835,29 +833,36 @@
 
             filteredStudents = filteredStudents
                 .Where(x => x.IdИнститута == teacher.IdИнститута).ToList();
+        }
+        else
+        {
+            // Завкафедрой или ответственный кафедры
+            teacher = teachers.Where(x => x.Роли.Intersect(roles.Where(y => y.Название == Settings.RoleDepartmentHeadName
+                                                                        || y.Название == Settings.RoleDepartmentResponsibleName)
+                                                                .Select(z => z.IdРоли)
+                                                                .ToList())
+                                                 .Count() != 0)
+                              .FirstOrDefault();
+            if (teacher != null)
+            {
+                WorkDto.IdИнститута = teacher.IdИнститута;
+                WorkDto.IdКафедры = teacher.IdКафедры;
+                await UpdateDependentLists();
+                disableDepartment = disableInstitute = true;
 
-            await SetSettingsFiles();
-            await SaveStateWorkDTO();
-            return;
+                filteredStudents = filteredStudents
+                    .Where(x => x.IdИнститута == teacher.IdИнститута && x.IdКафедры == teacher.IdКафедры).ToList();
+            }
         }
 
-        // Завкафедрой или ответственный кафедры
-        teacher = teachers.Where(x => x.Роли.Contains(roles.First(z => z.Название == Settings.RoleDepartmentHeadName
-                                                                    || z.Название == Settings.RoleDepartmentResponsibleName).IdРоли))
-                          .FirstOrDefault();
         if (teacher != null)
         {
-            WorkDto.IdИнститута = teacher.IdИнститута;
-            WorkDto.IdКафедры = teacher.IdКафедры;
-            await UpdateDependentLists();
-            disableDepartment = disableInstitute = true;
-
-            filteredStudents = filteredStudents
-                .Where(x => x.IdИнститута == teacher.IdИнститута && x.IdКафедры == teacher.IdКафедры).ToList();
-
+            filteredTeachers = filteredTeachers
+                .Where(x => x.IdИнститута == WorkDto.IdИнститута
+                    && (WorkDto.IdКафедры == null || x.IdКафедры == WorkDto.IdКафедры))
+                .OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
             await SetSettingsFiles();
             await SaveStateWorkDTO();
-            return;
         }
     }
 
@@ -1095,6 +1100,10 @@
     private async Task OnDepartmentChanged()
     {
         WorkDto.IdУгсн = null;
+        filteredTeachers = snapshot.Teachers.Where(x => x.IdИнститута == WorkDto.IdИнститута
+             && (WorkDto.IdКафедры == null || x.IdКафедры == WorkDto.IdКафедры))
+         .OrderBy(s => users.First(u => u.IdПользователя == s.IdПользователя).Фамилия).ToList();
+
         await OnUgsnChanged();
     }
 
@@ -1553,7 +1562,7 @@
             }
             else
                 student = filteredStudents.First(s => s.IdСтудента == WorkDto.IdСтудента);
-            Преподаватель teacher = snapshot.Teachers.First(t => t.IdПреподавателя == WorkDto.IdПреподавателя);
+            Преподаватель teacher = filteredTeachers.First(t => t.IdПреподавателя == WorkDto.IdПреподавателя);
             Институт institute = snapshot.Institutes.First(i => i.IdИнститута == WorkDto.IdИнститута);
             Кафедра department = filteredDepartments.First(d => d.IdКафедры == WorkDto.IdКафедры);
             УгснСтандарт ugsnStandard = snapshot.UgsnStandards.First(d => d.IdУгснСтандарта == WorkDto.IdУгснСтандарта);
@@ -1694,16 +1703,16 @@
             //   "raw_text": "",
             //     "title": {
             //         "институт": "Институт Информационных технологий и коммуникаций",
-            //         "кафедра": "Автоматизированные системы об аботки информации и управления",
-            //         "направление": "09.03.04 Программная инженерия",
-            //         "профиль": "Разработка программно-информационных систем",
+            //         "кафедра": "Автоматизированные системы обработки информации и управления",
+            //         "направление": "09.03.01 Информатика и вычислительная техника",
+            //         "профиль": "Автоматизированные системы обработки информации и управления",
             //         "типРаботы": "Бакалаврская работа",
-            //         "тема": "Информатическая система планирования выгрузки товаров из центрального грузового порта г. Астрахань",
-            //         "группа": "ДИПРб-41",
-            //         "автор": "Магомедов Гаджимурад Камильевич",
+            //         "тема": "Информационная система реестра выпускных работ обучающихся АГТУ",
+            //         "группа": "ДИНРб-41",
+            //         "автор": "Самодуров Вячеслав Александрович",
             //         "руководитель": "Куркурин Николай Дмитриевич",
             //         "должностьРуководителя": "ст. преп.",
-            //         "год": "Н/Д"
+            //         "год": "2026"
             //   }
             // }
             // """;

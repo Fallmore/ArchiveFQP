@@ -369,3 +369,13 @@ FodyWeavers.xsd
 /AiExtractor/tasks
 /AiExtractor/chroma_db
 /AiExtractor/.vscode
+
+# Секреты окружения — коммитить нельзя, шаблон: .env.example
+.env
+
+# Локальные артефакты и данные стендов
+/backup.sql
+*.zip
+*.rar
+/AiExtractor/*.pdf
+/ArchiveFqp/ArchiveFqp/Components/PdfExtractor.razor

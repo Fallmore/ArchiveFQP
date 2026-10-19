@@ -1,0 +1,148 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: archive_fqp
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backup.sql:/docker-entrypoint-initdb.d/01_backup.sql
+    ports:
+      - "${DB_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  archivefqp:
+    image: ${DOCKER_REGISTRY-}archivefqp
+    build:
+      context: .
+      dockerfile: ArchiveFqp/ArchiveFqp/Dockerfile
+    container_name: blazor_app
+    environment:
+      # Подключение к БД
+      ConnectionStrings__ArchiveFqpContext: "Host=${DB_HOST};Port=5432;Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}"
+      # URL AI Extractor (внутренний)
+      AiExtractor__BaseUrl: http://ai-extractor:8002
+      # ThreeKl (OAuth)
+      ThreeKl__ClientId: ${THREEKL_CLIENT_ID:-}
+      ThreeKl__ClientSecret: ${THREEKL_CLIENT_SECRET:-}
+      ThreeKl__AuthorizationEndpoint: ${THREEKL_AUTH_ENDPOINT:-https://3kl.example.com/local/oauth/login.php}
+      ThreeKl__TokenEndpoint: ${THREEKL_TOKEN_ENDPOINT:-https://3kl.example.com/local/oauth/token.php}
+      ThreeKl__UserInfoEndpoint: ${THREEKL_USERINFO_ENDPOINT:-https://3kl.example.com/local/oauth/user_info.php}
+      ThreeKl__RedirectUri: ${THREEKL_REDIRECT_URI:-https://your-domain.com/signin-3kl}
+      # SmtpSettings
+      SmtpSettings__Server: ${SMTP_SERVER:-smtp.your-provider.com}
+      SmtpSettings__Port: ${SMTP_PORT:-587}
+      SmtpSettings__SenderName: ${SMTP_SENDER_NAME:-Ваше Имя}
+      SmtpSettings__SenderEmail: ${SMTP_SENDER_EMAIL:-from@example.com}
+      SmtpSettings__Username: ${SMTP_USERNAME:-your_login}
+      SmtpSettings__Password: ${SMTP_PASSWORD:-your_app_password}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # для продакшна
+  # nginx:
+  #   image: nginx:latest
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro # Монтируем папку с SSL-файлами
+  #   depends_on:
+  #     - archivefqp
+
+  # ============================================
+  # Ollama (опционально — в контейнере)
+  # Раскомментируйте, если хотите запускать Ollama здесь же
+  # ============================================
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama_service
+  #   restart: unless-stopped
+  #   environment:
+  #     OLLAMA_KEEP_ALIVE: 24h
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]  # Раскомментируйте для GPU
+  #   networks:
+  #     - app-network
+  #   profiles:
+  #     - gpu  # запускать только с: docker-compose --profile gpu up
+
+  # ============================================
+  # Python AI Extractor (FastAPI) расскоментируйте, если хотите запускать сервис здесь же
+  # ============================================
+  # ai-extractor:
+  #   build:
+  #     context: ./AiExtractor
+  #     dockerfile: Dockerfile.python
+  #   container_name: ai_extractor
+  #   restart: no
+  #   environment:
+  #     # Подключение к БД
+  #     DB_HOST: ${DB_HOST:-archive_fqp}
+  #     DB_PORT: ${DB_PORT:-archive_fqp}
+  #     DB_NAME: ${DB_NAME:-archive_fqp}
+  #     DB_USER: ${DB_USER:-postgres}
+  #     DB_PASSWORD: ${DB_PASSWORD:-change_me}
+  #     # Ollama (на хосте или в отдельном контейнере)
+  #     OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+  #     # Модели по умолчанию
+  #     DEFAULT_LLM_MODEL: ${LLM_MODEL:-llama3.2}
+  #     DEFAULT_EMBEDDING_MODEL: ${EMBED_MODEL:-all-minilm}
+  #     # Куда сохранять загруженные PDF (volume)
+  #     UPLOAD_DIR: /data/uploads
+  #   ports:
+  #     - "${AI_PORT:-8001}:${AI_PORT:-8001}"
+  #   volumes:
+  #     # Папка для загруженных PDF (общая с Blazor)
+  #     - uploads_data:/data/uploads
+  #     # Папка с базой Chroma (persist)
+  #     - chroma_data:/app/chroma_db
+  #     # Папка с задачами (результаты)
+  #     - tasks_data:/app/tasks
+  #   extra_hosts:
+  #     # Доступ к Ollama на хосте
+  #     - "host.docker.internal:host-gateway"
+  #   networks:
+  #     - app-network
+
+volumes:
+  pgdata:
+    driver: local
+  # uploads_data:
+  #   driver: local
+  # chroma_data:
+  #   driver: local
+  # tasks_data:
+  #   driver: local
+  # dataprotection_keys:
+  #   driver: local
+  # ollama_data:
+  #   driver: local
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,0 +1,27 @@
+services:
+  archivefqp:
+    environment:
+      # продакшн
+      - ASPNETCORE_ENVIRONMENT=Development
+      # HTTP/HTTPS-порты контейнера = хостовые (см. ports ниже)
+      - ASPNETCORE_HTTP_PORTS=8001
+      - ASPNETCORE_HTTPS_PORTS=8443
+      # разработка
+      # - ASPNETCORE_ENVIRONMENT=Development
+      # - ASPNETCORE_URLS=https://+;http://+
+      # - ASPNETCORE_HTTPS_PORT=44349
+      # HTTPS-сертификат: dev-сертификат с хоста, экспортированный в ./certs/aspnetapp.pfx
+      # (экспорт: dotnet dev-certs https -ep certs/aspnetapp.pfx -p <пароль>)
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/certs/aspnetapp.pfx
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=${DEV_CERT_PASSWORD}
+    ports:
+      - "8001:8001"
+      - "8443:8443"
+      # разработка
+      # - "51217:80"
+      # - "44349:443"
+    volumes:
+      # Сертификат монтируем в /certs, а не в /home/app/.aspnet — иначе Docker
+      # создаст папку .aspnet от root, и приложение (uid 1654) не сможет туда
+      # писать ключи DataProtection, что валит все запросы сессии с 500-й ошибкой.
+      - ./certs:/certs:ro

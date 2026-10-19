@@ -1,4 +1,7 @@
 <Solution>
   <Project Path="ArchiveFqp/ArchiveFqp.Client/ArchiveFqp.Client.csproj" />
   <Project Path="ArchiveFqp/ArchiveFqp/ArchiveFqp.csproj" />
+  <Project Path="docker-compose.dcproj">
+    <Build />
+  </Project>
 </Solution>

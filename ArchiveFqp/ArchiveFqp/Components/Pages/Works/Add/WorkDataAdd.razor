@@ -91,7 +91,7 @@
             <button type="button" class="btn btn-warning mx-1" @onclick="OnSkip">
                 <i class="bi bi-skip-forward"></i> Пропустить
             </button>
-        </div>
+            </div>
 
         <FileUploadTemp @bind-WorkDto="WorkDto"
                         @bind-WorkDto:after="AddTempFileAndExtract" />
@@ -627,6 +627,7 @@
     private bool disabled => WorkDto.IdРаботы != 0 && !IsEdit;
     private bool disableInstitute = false;
     private bool disableDepartment = false;
+    private bool mockup = false;
 
     private ReferenceDataSnapshot snapshot = null!;
     private BaseSettings SettingsFiles = new();
@@ -1653,13 +1654,15 @@
         aiConnecting = true;
         StateHasChanged();
 
-        // #warning расскомментировать
-        HealthResponse response = await GetHealth();
-        if (response.Status == "error" || !string.IsNullOrEmpty(response.Ollama.Error))
+        if (!mockup)
         {
-            aiError = "Сервис извлечения данных с титульников недоступен. Приносим извинения";
-            aiStatus = null;
-            return;
+            HealthResponse response = await GetHealth();
+            if (response.Status == "error" || !string.IsNullOrEmpty(response.Ollama.Error))
+            {
+                aiError = "Сервис извлечения данных с титульников недоступен. Приносим извинения";
+                aiStatus = null;
+                return;
+            }
         }
 
         await RunWithCancellation(async () =>
@@ -1674,49 +1677,57 @@
             aiResult = null;
             aiStatus = "Извлечение титульника...";
 
-            var task = await AiExtractorService.StartTitleExtractionAsync(WorkDto.TempFileWithTitle!.RelativePath, true, WorkDto.TempFileWithTitle.StoredFileName);
-            if (!string.IsNullOrEmpty(task.Error))
+            if (!mockup)
             {
-                aiError = task.Error;
-                aiStatus = null;
-                return;
-            }
-            else if (token.IsCancellationRequested)
-            {
-                aiStatus = "Извлечение титульника отменено";
+                var task = await AiExtractorService.StartTitleExtractionAsync(WorkDto.TempFileWithTitle!.RelativePath, true, WorkDto.TempFileWithTitle.StoredFileName);
+                if (!string.IsNullOrEmpty(task.Error))
+                {
+                    aiError = task.Error;
+                    aiStatus = null;
+                    return;
+                }
+                else if (token.IsCancellationRequested)
+                {
+                    aiStatus = "Извлечение титульника отменено";
+                    aiConnecting = false;
+                    return;
+                }
+
+                aiTaskId = task.TaskId;
+
                 aiConnecting = false;
-                return;
+                aiRunning = true;
+                StateHasChanged();
+                aiResult = await PollUntilComplete(
+                    aiTaskId, () => AiExtractorService.GetTitleExtractionStatusAsync(aiTaskId)
+                );
             }
-
-            aiTaskId = task.TaskId;
-
-            aiConnecting = false;
-            aiRunning = true;
-            StateHasChanged();
-            aiResult = await PollUntilComplete(
-                aiTaskId, () => AiExtractorService.GetTitleExtractionStatusAsync(aiTaskId)
-            );
-
-            // Используйте для быстрой проверки
-            // string res = """
-            // {
-            //   "raw_text": "",
-            //     "title": {
-            //         "институт": "Институт Информационных технологий и коммуникаций",
-            //         "кафедра": "Автоматизированные системы обработки информации и управления",
-            //         "направление": "09.03.01 Информатика и вычислительная техника",
-            //         "профиль": "Автоматизированные системы обработки информации и управления",
-            //         "типРаботы": "Бакалаврская работа",
-            //         "тема": "Информационная система реестра выпускных работ обучающихся АГТУ",
-            //         "группа": "ДИНРб-41",
-            //         "автор": "Самодуров Вячеслав Александрович",
-            //         "руководитель": "Куркурин Николай Дмитриевич",
-            //         "должностьРуководителя": "ст. преп.",
-            //         "год": "2026"
-            //   }
-            // }
-            // """;
-            // aiResult = JsonConvert.DeserializeObject<ExtractTitleResult>(res);
+            else
+            {
+                aiConnecting = false;
+                aiRunning = true;
+                StateHasChanged();
+                // Используйте для быстрой проверки
+                string res = """
+            {
+              "raw_text": "",
+                "title": {
+                    "институт": "Институт Информационных технологий и коммуникаций",
+                    "кафедра": "Автоматизированные системы обработки информации и управления",
+                    "направление": "09.03.01 Информатика и вычислительная техника",
+                    "профиль": "Автоматизированные системы обработки информации и управления",
+                    "типРаботы": "Бакалаврская работа",
+                    "тема": "Информационная система реестра выпускных работ обучающихся АГТУ",
+                    "группа": "ДИНРб-41",
+                    "автор": "Самодуров Вячеслав Александрович",
+                    "руководитель": "Куркурин Николай Дмитриевич",
+                    "должностьРуководителя": "ст. преп.",
+                    "год": "2026"
+              }
+            }
+            """;
+                aiResult = JsonConvert.DeserializeObject<ExtractTitleResult>(res);
+            }
         },
         async () =>
         {
